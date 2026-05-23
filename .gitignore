@@ -194,6 +194,25 @@ cython_debug/
 #   Learn more at https://abstra.io/docs
 .abstra/
 
+# === Project-specific ===
+# Large data files (download locally, don't commit)
+data/iu_xray/images/*
+data/iu_xray/*.zip
+!data/iu_xray/images/.gitkeep
+
+# Model artifacts & embeddings (too large for git)
+embeddings/*
+models/*
+!embeddings/.gitkeep
+!models/.gitkeep
+
+# Results (regenerable)
+results/*
+!results/.gitkeep
+
+# Literature PDFs (copyrighted)
+docs/literature/*.pdf
+
 # Visual Studio Code
 #   Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore 
 #   that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore

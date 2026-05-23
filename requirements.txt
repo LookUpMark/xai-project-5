@@ -1,0 +1,24 @@
+# Core ML
+torch>=2.2.0
+transformers>=4.40.0
+dictionary-learning>=0.1.0
+
+# LLM Judge
+ollama
+langchain-core>=0.2.0
+langchain-ollama
+
+# Data processing
+pandas
+numpy
+lxml
+Pillow
+
+# Analysis & Visualization
+scikit-learn
+matplotlib
+seaborn
+scipy
+
+# Utilities
+tqdm

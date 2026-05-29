@@ -1,5 +1,22 @@
 # Indicazioni per la consegna del progetto
 
+```mermaid
+flowchart TD
+    FORM["Compilazione form\n(entro 4 maggio)"] --> CONF["Conferma assegnazione\n(entro 7 maggio)"]
+    CONF --> WORK["Sviluppo progetto\n(3-5 settimane)"]
+    WORK --> SCRITTO["Esame scritto\n(appello)"]
+    SCRITTO --> SUB["Submission .zip\n(entro 5gg dopo scritto)"]
+    SUB --> PRES["Presentazione orale\n(~7gg dopo scritto)\n15 min + 15 min Q&A"]
+    PRES --> VERB["Verbalizzazione\n(scritto + progetto OK)"]
+
+    WORK -.->|"alternativa"| PRES2["Presentazione in\nappello successivo"]
+
+    style FORM fill:#e3f2fd,stroke:#1565C0
+    style SUB fill:#fff3e0,stroke:#E65100
+    style PRES fill:#fce4ec,stroke:#C62828
+    style VERB fill:#e8f5e9,stroke:#2E7D32
+```
+
 Le modalità di consegna, le scadenze e i principali vincoli del progetto del corso di Explainable and Trustworthy AI sono comuni ai progetti proposti, incluso il progetto 5.[file:12]
 
 ## Gruppo e scelta del progetto
@@ -23,6 +40,22 @@ Le modalità di consegna, le scadenze e i principali vincoli del progetto del co
 
 ## Struttura consigliata
 
+```mermaid
+flowchart LR
+    subgraph DOC["Struttura Slide & Report"]
+        direction TB
+        S1["1. Introduzione"]
+        S2["2. Related Work"]
+        S3["3. Research Gaps"]
+        S4["4. Methodology"]
+        S5["5. Results & Analysis"]
+        S6["6. Conclusione"]
+        S1 --> S2 --> S3 --> S4 --> S5 --> S6
+    end
+
+    style DOC fill:#f5f5f5,stroke:#616161
+```
+
 La struttura consigliata sia per le slide sia per il brief recap report è la seguente:[file:12]
 
 1. Introduzione.[file:12]
@@ -45,6 +78,12 @@ La struttura consigliata sia per le slide sia per il brief recap report è la se
 - La verbalizzazione finale avviene quando risultano superati sia il progetto sia l'esame scritto.[file:12]
 
 ## Valutazione
+
+```mermaid
+pie title Composizione Voto Finale (max 32 pt)
+    "Progetto (max 16 pt)" : 16
+    "Esame Scritto (max 16 pt)" : 16
+```
 
 - Il progetto vale fino a 16 punti.[file:12]
 - La valutazione del progetto considera literature review, research gaps, metodologia e assessment, originalità o novità, discussione e analisi, e chiarezza.[file:12]

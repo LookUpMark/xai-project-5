@@ -10,6 +10,27 @@
 
 ## Decisioni Architetturali Definitive
 
+```mermaid
+block-beta
+    columns 3
+    
+    block:backbone["1. Backbone VLM"]:1
+        A["BiomedCLIP\nchuhac/BiomedCLIP-vit-bert-hf\n512-dim shared space"]
+    end
+    
+    block:sae["2. SAE"]:1
+        B["dictionary-learning\nTop-K (k=32)\n512 → 4096"]
+    end
+    
+    block:judge["3. LLM Judge"]:1
+        C["Gemma 4 E4B\nOllama locale\n~80-150 tok/s"]
+    end
+
+    style backbone fill:#e3f2fd,stroke:#1565C0
+    style sae fill:#fce4ec,stroke:#C62828
+    style judge fill:#f3e5f5,stroke:#6A1B9A
+```
+
 ### 1. Backbone VLM — BiomedCLIP via HuggingFace `transformers`
 
 **Modello**: `chuhac/BiomedCLIP-vit-bert-hf`
@@ -63,6 +84,27 @@ pip install dictionary-learning
 ### 4. Pipeline Orchestration — LangGraph (solo modulo LLM-Judge)
 
 LangGraph gestisce il modulo di valutazione semantica. Non è usato per feature extraction o SAE (puro PyTorch).
+
+```mermaid
+stateDiagram-v2
+    [*] --> prepare_prompt
+    prepare_prompt --> call_llm: concept + report
+    call_llm --> parse_output: raw response
+    parse_output --> validate: extracted label
+    validate --> [*]: valid (Aligned/Unaligned/Uncertain)
+    validate --> call_llm: invalid, retry (max 2)
+    
+    note right of call_llm
+        Gemma 4 E4B (dev)
+        temperature=0.0
+        num_predict=5
+    end note
+    
+    note right of validate
+        Fallback: "Uncertain"
+        dopo max_retries
+    end note
+```
 
 **Struttura del grafo LangGraph per il judge**:
 ```
@@ -159,6 +201,34 @@ ollama
 ---
 
 ## Piano Settimana per Settimana
+
+```mermaid
+gantt
+    title Piano Implementativo
+    dateFormat X
+    axisFormat Giorno %s
+
+    section Setup
+    Repo + env + download      :s1, 1, 2d
+    Parser dataset              :s2, 2, 1d
+    Feature extraction          :s3, 3, 3d
+
+    section Core Pipeline
+    SAE Training (×5 seeds)     :crit, s4, 6, 4d
+    Concept Naming              :s5, 8, 2d
+    Explanation Generation      :s6, 10, 2d
+    LLM Judge Evaluation        :crit, s7, 12, 3d
+
+    section Extensions
+    Stability Analysis          :s8, 15, 2d
+    Clustering + Layer Comp.    :s9, 15, 3d
+    Bias Analysis               :s10, 17, 2d
+
+    section Deliverables
+    Figures & Notebook          :s11, 19, 2d
+    Report + Slide              :s12, 20, 3d
+    Dry-run                     :milestone, s13, 23, 1d
+```
 
 ### Settimana 1 — Setup, Dati, Feature Extraction
 

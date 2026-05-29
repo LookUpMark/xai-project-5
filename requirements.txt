@@ -3,10 +3,10 @@ torch>=2.2.0
 transformers>=4.40.0
 dictionary-learning>=0.1.0
 
-# LLM Judge
+# LLM Judge (MedGemma 4B via Ollama)
 ollama
-langchain-core>=0.2.0
-langchain-ollama
+langchain-core>=0.2.0       # opzionale: solo per presentazione/demo con chain
+langchain-ollama             # opzionale: solo per presentazione/demo con chain
 
 # Data processing
 pandas

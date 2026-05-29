@@ -1,7 +1,7 @@
 # Piano Implementativo Definitivo — Progetto 5 XAI 2025/26
 ## Unsupervised Concept Discovery and Evaluation for Medical Vision–Language Models
 
-**Versione**: 1.0 — 23 maggio 2026  
+**Versione**: 2.0 — allineato con knowledge base (LaTeX report)  
 **Gruppo**: 3 persone  
 **Hardware principale**: RTX 5070 8GB VRAM + 32GB RAM  
 **Hardware secondario**: Mac Mini M2 8GB RAM  
@@ -155,26 +155,57 @@ flowchart LR
     style SPARSE fill:#c8e6c9,stroke:#43A047
 ```
 
-### 1.3 LLM Judge — Gemma 4 E4B Locale
+### 1.3 LLM Judge — MedGemma 4B (Unsloth GGUF Q4 via Ollama)
 
-**Modello**: Gemma 4 E4B (~4B parametri densi)  
+**Modello**: [`google/medgemma-4b-it`](https://huggingface.co/google/medgemma-4b-it) (~4B parametri, Gemma 3 fine-tuned su dati medici)  
+**Quantizzazione**: [`unsloth/medgemma-4b-it-GGUF`](https://huggingface.co/unsloth/medgemma-4b-it-GGUF) — Q4_K_M (2.49 GB) con Unsloth Dynamic 2.0  
 **Deploy**: Ollama locale, interamente su GPU  
-**Perché funziona su 8GB VRAM + 32GB RAM**:
-- ~2.5-3 GB in Q4_K_M → interamente nella RTX 5070 (8GB)
-- Nessun CPU offloading necessario → inferenza veloce (~80-150 tok/s)
-- ~0.5-1 sec per chiamata judge (vs ~5s con 26B)
+**Perché MedGemma + Unsloth GGUF**:
+- È il **modello usato nel paper MedConcept originale** per la valutazione LLM-as-a-Judge
+- Pre-addestrato su CXR, radiologia, patologia, dermatologia, oftalmologia
+- SigLIP image encoder specializzato su dati medici de-identificati
+- 81.2% macro F1 su MIMIC-CXR (top 5 condizioni) — comprensione radiologica nativa
+- Unsloth Dynamic 2.0 quantization: **qualità superiore** rispetto a GGUF standard a parità di bit
+- **~2.5 GB VRAM** in Q4_K_M → massimo headroom sulla RTX 5070 (8GB)
+- Nessun CPU offloading → inferenza veloce (~100-200 tok/s a Q4)
+- ~0.3-0.5 sec per chiamata judge
 - Nessuna API esterna, zero costi, completamente riproducibile
-- Qualità sufficiente per valutazione semantica a livello corso
+- Allineamento diretto con la metodologia del paper di riferimento
+
+**Paper di riferimento**: Sellergren et al., "MedGemma Technical Report", arXiv:2507.05201, 2025.
 
 ```bash
-# Setup
-ollama pull gemma4:e4b
+# Setup — due opzioni:
+
+# Opzione A: Ollama pull da HuggingFace GGUF (più diretto)
+ollama pull hf.co/unsloth/medgemma-4b-it-GGUF:Q4_K_M
+
+# Opzione B: Download manuale + Modelfile custom
+# 1. Scaricare GGUF
+huggingface-cli download unsloth/medgemma-4b-it-GGUF medgemma-4b-it-Q4_K_M.gguf --local-dir models/
+
+# 2. Creare Modelfile
+cat > models/Modelfile.medgemma <<EOF
+FROM ./medgemma-4b-it-Q4_K_M.gguf
+PARAMETER temperature 0.0
+PARAMETER num_predict 10
+SYSTEM "You are a clinical radiology AI evaluator."
+EOF
+
+# 3. Creare modello Ollama
+ollama create medgemma-judge -f models/Modelfile.medgemma
+
+# Fallback: se HF GGUF dà problemi, usare il tag ufficiale Ollama
+# ollama pull medgemma:4b
 ```
 
 **Implementazione Judge (Python puro, KISS)**:
 ```python
 import ollama
 import json
+
+# Nome modello: dipende dal setup scelto
+MODEL_NAME = "hf.co/unsloth/medgemma-4b-it-GGUF:Q4_K_M"  # oppure "medgemma-judge" se custom
 
 JUDGE_PROMPT = """You are a clinical radiology AI evaluator.
 
@@ -194,12 +225,12 @@ Answer with EXACTLY one word: Aligned, Unaligned, or Uncertain."""
 VALID_LABELS = {"Aligned", "Unaligned", "Uncertain"}
 
 def judge_concept(concept: str, report: str, max_retries: int = 2) -> str:
-    """Chiama Gemma 4 E4B locale per valutare un concetto vs report."""
+    """Chiama MedGemma 4B Q4 locale per valutare un concetto vs report."""
     prompt = JUDGE_PROMPT.format(concept=concept, report=report)
     
     for attempt in range(max_retries + 1):
         response = ollama.chat(
-            model="gemma4:e4b",
+            model=MODEL_NAME,
             messages=[{"role": "user", "content": prompt}],
             options={"temperature": 0.0, "num_predict": 5}
         )
@@ -221,7 +252,7 @@ def judge_concept(concept: str, report: str, max_retries: int = 2) -> str:
 > from langchain_core.prompts import ChatPromptTemplate
 > from langchain_core.output_parsers import StrOutputParser
 > 
-> llm = ChatOllama(model="gemma4:e4b", temperature=0)
+> llm = ChatOllama(model=MODEL_NAME, temperature=0)
 > chain = prompt_template | llm | StrOutputParser()
 > ```
 
@@ -240,9 +271,17 @@ def judge_concept(concept: str, report: str, max_retries: int = 2) -> str:
 
 **MIMIC-CXR**: registrarsi su PhysioNet con email `@studenti.polito.it`. Richiede CITI training + approvazione (3-7 giorni). **Fallback**: se non approvati in tempo, IU X-ray è sufficiente per tutti i requisiti del progetto.
 
-### 1.5 Concept Vocabulary
+### 1.5 Concept Vocabulary — UMLS/RadLex
 
-**Strategia**: RadLex (ontologia radiologica RSNA, ~46K termini) filtrato con BiomedCLIP bi-encoder.
+**Strategia**: Vocabolario derivato dall'**UMLS** (Unified Medical Language System), utilizzando **RadLex** come sotto-ontologia radiologica specializzata (~46K termini), filtrato con BiomedCLIP bi-encoder.
+
+> **Relazione UMLS/RadLex**: L'UMLS è il meta-thesaurus medico di riferimento (NLM, ~4M concetti).
+> RadLex è il vocabolario RSNA specifico per la radiologia, integrato nell'UMLS.
+> Il paper MedConcept utilizza UMLS; noi usiamo RadLex (sotto-vocabolario UMLS)
+> perché è il subset più rilevante per CXR e fornisce terminologia radiologica curata.
+> Questo approccio è equivalente a filtrare UMLS per il dominio radiologico.
+
+**Accesso UMLS**: Registrazione gratuita per uso accademico su [UTS (UMLS Terminology Services)](https://uts.nlm.nih.gov/uts/) con email `@studenti.polito.it`. RadLex disponibile anche via [BioPortal](https://bioportal.bioontology.org/ontologies/RADLEX).
 
 **Pipeline di creazione (script `src/00_build_vocabulary.py`)**:
 1. Caricare `data/radlex.csv` (export BioPortal, ~47K righe) → estrarre colonna `Preferred Label`, filtrare righe non-obsolete
@@ -253,8 +292,9 @@ def judge_concept(concept: str, report: str, max_retries: int = 2) -> str:
 6. Salvare in `data/medical_vocabulary.json`
 
 **Fonti dati**:
-- RadLex v4.3 CSV: scaricato da [BioPortal](https://bioportal.bioontology.org/ontologies/RADLEX) → `data/radlex.csv` (~47K righe, colonne: `Class ID`, `Preferred Label`, `Synonyms`, `Definitions`, `Obsolete`, ...)
+- RadLex v4.3 CSV (sotto-ontologia UMLS per radiologia): scaricato da [BioPortal](https://bioportal.bioontology.org/ontologies/RADLEX) → `data/radlex.csv` (~47K righe, colonne: `Class ID`, `Preferred Label`, `Synonyms`, `Definitions`, `Obsolete`, ...)
 - NIH ChestX-ray14: 14 condizioni seed (Atelectasis, Cardiomegaly, Effusion, Infiltration, Mass, Nodule, Pneumonia, Pneumothorax, Consolidation, Edema, Emphysema, Fibrosis, Pleural Thickening, Hernia)
+- UMLS Metathesaurus: [nlm.nih.gov/research/umls](https://www.nlm.nih.gov/research/umls/) (per reference/future extension)
 
 **Esecuzione**:
 ```bash
@@ -357,7 +397,7 @@ flowchart LR
 
     subgraph Fase2["Fase 2 — Valutazione"]
         M4["📝 Modulo 4\nExplanation\nGeneration"]
-        M5["⚖️ Modulo 5\nLLM Judge\n(Gemma 4 E4B)"]
+        M5["⚖️ Modulo 5\nLLM Judge\n(MedGemma 4B)"]
     end
 
     subgraph Fase3["Fase 3 — Contributi Originali"]
@@ -377,6 +417,18 @@ flowchart LR
     style Fase2 fill:#fff3e0,stroke:#FF9800
     style Fase3 fill:#e8f5e9,stroke:#4CAF50
 ```
+
+### Mapping con le Fasi MedConcept
+
+La pipeline MedConcept originale definisce 3 fasi macro. I nostri 6 moduli le implementano con granularità maggiore:
+
+| Fase MedConcept | Descrizione | Nostri Moduli |
+|-----------------|-------------|---------------|
+| **1. Extraction** | SAE decompone le rappresentazioni latenti del VLM in feature sparse monosemantiche | Modulo 1 (Feature Extraction) + Modulo 2 (SAE Training) |
+| **2. Alignment** | Feature sparse allineate a terminologia clinica UMLS tramite cosine similarity nello spazio embedding condiviso | Modulo 3 (Concept Naming) |
+| **3. Evaluation** | LLM-as-a-Judge valuta la coerenza semantica tra concetti estratti e referti clinici reali | Modulo 4 (Explanation Generation) + Modulo 5 (LLM Judge) |
+
+> I Moduli 6A-6D sono **estensioni originali** che vanno oltre MedConcept, affrontando gap specifici della letteratura.
 
 ### Modulo 1 — Feature Extraction (`src/01_extract_embeddings.py`)
 
@@ -577,7 +629,7 @@ with open("results/sample_explanations.json", "w") as f:
 
 **Input**: explanations + real reports  
 **Output**: `results/aligned_scores.csv`  
-**Tempo stimato**: ~30-45 min per 500 campioni × 5 concetti su Gemma 4 E4B locale
+**Tempo stimato**: ~20-30 min per 500 campioni × 5 concetti su MedGemma 4B Q4 locale
 
 ```python
 import ollama
@@ -601,7 +653,7 @@ def judge_concept(concept: str, report: str, max_retries: int = 2) -> str:
     prompt = JUDGE_PROMPT.format(concept=concept, report=report)
     for _ in range(max_retries + 1):
         response = ollama.chat(
-            model="gemma4:e4b",
+            model=MODEL_NAME,  # unsloth/medgemma-4b-it-GGUF:Q4_K_M
             messages=[{"role": "user", "content": prompt}],
             options={"temperature": 0.0, "num_predict": 10}
         )
@@ -917,7 +969,7 @@ gantt
 | Giorno | Chi | Task |
 |--------|-----|------|
 | 1 | A | Setup repo, virtualenv, requirements, download IU X-ray |
-| 1 | A | Installare Ollama + `ollama pull gemma4:e4b` |
+| 1 | A | Installare Ollama + `ollama pull hf.co/unsloth/medgemma-4b-it-GGUF:Q4_K_M` |
 | 1 | B | Registrazione PhysioNet per MIMIC-CXR (opzionale) |
 | 2 | B | Parser XML IU X-ray → `reports.csv` |
 | 2 | C | Costruzione vocabolario medico (~400 termini) |
@@ -940,7 +992,7 @@ gantt
 | Giorno | Chi | Task |
 |--------|-----|------|
 | 11 | A | Script `04_generate_explanations.py` su test set (~500 campioni) |
-| 12-14 | B+C | Script `05_evaluate_llm_judge.py` — valutazione con Gemma 4 E4B |
+| 12-14 | B+C | Script `05_evaluate_llm_judge.py` — valutazione con MedGemma 4B Q4 |
 | 14 | A | Prima analisi aggregate: distribuzione Aligned/Unaligned/Uncertain |
 | 14 | Tutti | Checkpoint: pipeline end-to-end funzionante? Risultati sensati? |
 
@@ -977,9 +1029,9 @@ mindmap
       Nessuna confidence bar
       **→ Ext. 6A**
     Dipendenze Esterne
-      UMLS richiesto
-      Non portabile
-      **→ Text-encoder approach**
+      UMLS full richiesto
+      Non portabile su domini non-medici
+      **→ Text-encoder approach su RadLex subset**
     LLM Judge Bias
       Position bias
       Verbosity bias
@@ -1001,7 +1053,7 @@ mindmap
 I gap da presentare nella sezione "Identification of Research Gaps":
 
 1. **Instabilità dei concetti tra run** — Nessun lavoro misura quantitativamente la variabilità dei concetti scoperti al variare del seed. → *Risposto dalla nostra Stability Analysis (6A)*
-2. **Dipendenza da ontologie esterne (UMLS)** — MedConcept richiede accesso a terminologie curate, limitando portabilità. → *Risposto dal nostro approccio text-encoder-based*
+2. **Dipendenza da ontologie esterne (UMLS full)** — MedConcept richiede accesso al Metathesaurus UMLS completo (~4M concetti), limitando portabilità. → *Risposto dal nostro approccio text-encoder-based su RadLex (sotto-ontologia UMLS radiologica), filtrato via BiomedCLIP*
 3. **Bias intrinseco del LLM giudice** — Position bias, verbosity bias, hallucination medica non quantificati. → *Risposto dalla nostra Bias Analysis (6D)*
 4. **Report clinici incompleti** — Le metriche Aligned/Unaligned/Uncertain assumono copertura totale dei report, ma i radiologi documentano solo anomalie salienti → falsi "Unaligned"
 5. **Trattamento indipendente dei concetti** — Nessun approccio modella co-occorrenze o gerarchie anatomiche. → *Risposto dal nostro Clustering (6B)*
@@ -1074,9 +1126,9 @@ flowchart TD
 | SAE training (1 run) | GPU | ~2 GB | ~3 GB | ~25 min |
 | SAE training (5 run) | GPU | ~2 GB | ~3 GB | ~2.5h (sequenziali) |
 | Concept naming | CPU | — | ~2 GB | ~2 min |
-| LLM Judge (Gemma 4 E4B) | GPU | ~3 GB | ~4 GB | ~30-45 min |
+| LLM Judge (MedGemma 4B Q4) | GPU | ~2.5 GB | ~4 GB | ~20-30 min |
 
-> ℹ️ **Con Gemma 4 E4B** (~3GB VRAM), SAE training (~2GB) e LLM Judge possono coesistere sulla RTX 5070 (8GB).  
+> ℹ️ **Con MedGemma 4B Q4** (~2.5GB VRAM), SAE training (~2GB) e LLM Judge possono coesistere sulla RTX 5070 (8GB).  
 > Tuttavia, per massima stabilità del training SAE, si consiglia esecuzione sequenziale.
 
 ---
@@ -1093,13 +1145,155 @@ Se SAE Aligned% >> Random Aligned%, la decomposizione sparse aggiunge valore int
 
 ---
 
+## 10b. Formalismo Metriche e Metriche Aggiuntive
+
+### Metriche Principali — Definizioni Formali (da MedConcept)
+
+Sia $\mathcal{P} = \{p_1, p_2, \ldots, p_n\}$ l'insieme dei concetti predetti dal framework per un campione.
+
+Per ciascuna categoria $c \in \{\text{Aligned}, \text{Unaligned}, \text{Uncertain}\}$, lo score è definito come:
+
+$$
+\text{Score}(c) = \frac{1}{|\mathcal{P}|} \sum_{i=1}^{|\mathcal{P}|} \mathbf{1}(v_i = c)
+$$
+
+dove:
+- $v_i$ = verdetto assegnato dal LLM Judge (MedGemma) al concetto $p_i$
+- $\mathbf{1}(\cdot)$ = funzione indicatrice
+- $|\mathcal{P}|$ = numero totale di concetti predetti
+
+**Cosine Similarity per Concept Naming**:
+
+Per ciascuna sparse feature $w_j$ (colonna del decoder SAE) e embedding testuale $e_i$ del vocabolario:
+
+$$
+\alpha_{ij} = \frac{w_j^T \, e_i}{\|w_j\|_2 \, \|e_i\|_2}
+$$
+
+Il concetto assegnato alla feature $j$ è: $\text{name}_j = \arg\max_i \, \alpha_{ij}$
+
+### Metriche Aggiuntive
+
+#### Faithfulness / Fidelity (Concept Masking)
+
+Misura quanto un concetto scoperto influenzi **causalmente** la rappresentazione del modello.
+
+**Protocollo**:
+1. Identificare una sparse feature $k$ altamente attiva per un campione
+2. Forzare $a_k = 0$ (azzerare l'attivazione)
+3. Ricostruire l'embedding: $\hat{z}' = \text{Decode}(a \setminus a_k)$
+4. Misurare $\Delta \text{sim} = \text{cos}(z, \hat{z}) - \text{cos}(z, \hat{z}')$
+
+Se $\Delta \text{sim}$ è significativo, il concetto è causalmente rilevante (non rumore correlato).
+
+```python
+def faithfulness_score(sae, embedding, feature_idx):
+    """Misura l'impatto causale di una feature sull'embedding."""
+    with torch.no_grad():
+        activations = sae.encode(embedding.unsqueeze(0))
+        reconstruction_full = sae.decode(activations)
+        
+        # Maschera la feature
+        activations_masked = activations.clone()
+        activations_masked[0, feature_idx] = 0.0
+        reconstruction_masked = sae.decode(activations_masked)
+        
+        # Delta cosine similarity
+        cos = torch.nn.functional.cosine_similarity
+        sim_full = cos(embedding.unsqueeze(0), reconstruction_full)
+        sim_masked = cos(embedding.unsqueeze(0), reconstruction_masked)
+        
+    return (sim_full - sim_masked).item()
+```
+
+#### Concept Sparsity
+
+Valuta la qualità delle rappresentazioni sparse generate dal SAE.
+
+**Metriche**:
+- **Norma $L_0$**: numero medio di neuroni attivi per campione (target: $k = 32$ su 4096)
+- **Entropia delle attivazioni**: $H(a) = -\sum_j p_j \log p_j$ dove $p_j = |a_j| / \sum |a|$
+- **Dead neurons %**: percentuale di feature MAI attivate sull'intero dataset
+
+Bassa entropia + poche attivazioni → concetti più monosemantici e interpretabili.
+
+```python
+def sparsity_metrics(sae, embeddings, batch_size=256):
+    """Calcola metriche di sparsità su un dataset."""
+    all_activations = []
+    for i in range(0, len(embeddings), batch_size):
+        batch = embeddings[i:i+batch_size].to("cuda")
+        with torch.no_grad():
+            acts = sae.encode(batch)  # (B, 4096)
+        all_activations.append(acts.cpu())
+    
+    all_acts = torch.cat(all_activations)  # (N, 4096)
+    
+    # L0: media neuroni attivi per campione
+    l0_mean = (all_acts > 0).float().sum(dim=1).mean().item()
+    
+    # Dead neurons: feature mai attivate
+    ever_active = (all_acts > 0).any(dim=0)
+    dead_pct = (~ever_active).float().mean().item() * 100
+    
+    # Entropia media
+    norms = all_acts.abs().sum(dim=1, keepdim=True).clamp(min=1e-8)
+    probs = all_acts.abs() / norms
+    entropy = -(probs * (probs + 1e-8).log()).sum(dim=1).mean().item()
+    
+    return {"l0_mean": l0_mean, "dead_neurons_pct": dead_pct, "entropy_mean": entropy}
+```
+
+#### Inter-Concept Diversity
+
+Misura la diversità semantica tra concetti estratti. Concetti ridondanti = dizionario poco informativo.
+
+**Metrica**: Distanza media del coseno tra tutte le coppie di decoder vectors attivi:
+
+$$
+\text{Diversity} = 1 - \frac{2}{K(K-1)} \sum_{i < j} \frac{w_i^T w_j}{\|w_i\| \|w_j\|}
+$$
+
+dove $K$ = numero di feature attive considerate (es. top-200 per attivazione media).
+
+Elevata diversità → libreria di concetti più ricca e meno ridondante.
+
+```python
+def inter_concept_diversity(sae, top_k=200, embeddings=None):
+    """Calcola diversità semantica tra i top-K concetti più frequenti."""
+    W_dec = sae.decoder.weight  # (dict_size, activation_dim)
+    
+    # Seleziona top-K feature più attivate in media
+    if embeddings is not None:
+        with torch.no_grad():
+            acts = sae.encode(embeddings.to("cuda"))
+        mean_act = acts.mean(dim=0).cpu()
+        top_idx = mean_act.topk(top_k).indices
+    else:
+        top_idx = torch.arange(top_k)
+    
+    W_subset = W_dec[top_idx]  # (K, 512)
+    W_norm = W_subset / W_subset.norm(dim=-1, keepdim=True)
+    
+    # Matrice di similarità
+    sim_matrix = W_norm @ W_norm.T  # (K, K)
+    
+    # Media off-diagonal
+    mask = ~torch.eye(top_k, dtype=torch.bool)
+    mean_sim = sim_matrix[mask].mean().item()
+    
+    return {"diversity": 1.0 - mean_sim, "mean_cosine_sim": mean_sim}
+```
+
+---
+
 ## 11. Criteri di Valutazione del Corso (Mapping)
 
 | Criterio (fino a 16 punti) | Come lo copriamo |
 |----------------------------|-----------------|
 | **Literature review** | 8-10 paper chiave con analisi critica (non elenco) |
 | **Research gaps** | 6 gap ben motivati, 4 affrontati direttamente |
-| **Methodology & assessment** | Pipeline 6 moduli + 3 baseline + metriche quantitative |
+| **Methodology & assessment** | Pipeline 6 moduli (mapping MedConcept 3 fasi) + 3 baseline + metriche quantitative (Aligned/Unaligned/Uncertain + Faithfulness + Sparsity + Diversity) |
 | **Originality/novelty** | 4 contributi originali (stability, clustering, layer, bias) |
 | **Discussion & analysis** | Failure cases, limiti pipeline, bias judge |
 | **Clarity** | Schema modulare, figure chiare, recap 2-3 pagine |
@@ -1127,16 +1321,22 @@ Se SAE Aligned% >> Random Aligned%, la decomposizione sparse aggiunge valore int
 | 8 | Towards Monosemanticity (Bricken et al., Anthropic) | 2023 | [Transformer Circuits](https://transformer-circuits.pub/2023/monosemantic-features/index.html) |
 | 9 | Scaling and Evaluating Sparse Autoencoders (Gao et al., OpenAI) | 2024 | [arXiv:2406.04093](https://arxiv.org/abs/2406.04093) |
 | 10 | Judging LLM-as-a-Judge (Zheng et al.) | 2023 | [arXiv:2306.05685](https://arxiv.org/abs/2306.05685) |
+| 11 | MedGemma Technical Report (Sellergren et al., Google) | 2025 | [arXiv:2507.05201](https://arxiv.org/abs/2507.05201) |
 
 ### Risorse e Dataset
 
 | Risorsa | Link |
 |---------|------|
 | IU X-ray (OpenI) | [openi.nlm.nih.gov](https://openi.nlm.nih.gov/) |
+| IU X-ray (Kaggle) | [kaggle.com/raddar/chest-xrays-indiana-university](https://www.kaggle.com/datasets/raddar/chest-xrays-indiana-university) |
 | MIMIC-CXR | [physionet.org/content/mimic-cxr/2.0.0](https://physionet.org/content/mimic-cxr/2.0.0/) |
 | NIH ChestX-ray14 Labels | [NIH Clinical Center](https://nihcc.app.box.com/v/ChestXray-NIHCC) |
 | UMLS Metathesaurus | [nlm.nih.gov/research/umls](https://www.nlm.nih.gov/research/umls/) |
+| RadLex (UMLS subset, radiologia) | [bioportal.bioontology.org/ontologies/RADLEX](https://bioportal.bioontology.org/ontologies/RADLEX) |
 | `dictionary-learning` | [github.com/saprmarks/dictionary_learning](https://github.com/saprmarks/dictionary_learning) |
+| MedGemma 4B GGUF (Unsloth, Q4) | [huggingface.co/unsloth/medgemma-4b-it-GGUF](https://huggingface.co/unsloth/medgemma-4b-it-GGUF) |
+| MedGemma 4B (Ollama ufficiale) | [ollama.com/library/medgemma](https://ollama.com/library/medgemma) |
+| MedGemma 4B (HuggingFace) | [huggingface.co/google/medgemma-4b-it](https://huggingface.co/google/medgemma-4b-it) |
 | Ollama | [ollama.com](https://ollama.com/) |
 | BiomedCLIP HF port | [huggingface.co/chuhac/BiomedCLIP-vit-bert-hf](https://huggingface.co/chuhac/BiomedCLIP-vit-bert-hf) |
 
@@ -1171,7 +1371,7 @@ Se SAE Aligned% >> Random Aligned%, la decomposizione sparse aggiunge valore int
 |---------|-------------|---------|-------------|
 | API `dictionary-learning` cambia | Media | Alto | Pinare versione 0.1.0; se fallisce, clonare `sae-for-vlm` |
 | MIMIC-CXR non approvato | Media | Basso | IU X-ray sufficiente per tutti i requisiti |
-| Gemma 4 E4B produce risposte imprecise | Bassa | Medio | Retry logic + filtrare risultati non parsabili; fallback a 26B se necessario |
+| MedGemma 4B produce risposte imprecise | Bassa | Medio | Retry logic + filtrare risultati non parsabili; modello già medico-specializzato, fallback a MedGemma 27B se necessario |
 | Concetti SAE non significativi | Bassa | Alto | Diagnosticare via baseline; tuning k e dict_size |
 | Report IU X-ray troppo corti/vuoti | Media | Medio | Filtrare report con < 20 parole; analizzare come failure case |
 | `get_image_features()` non disponibile | Media | Medio | Testare al giorno 1; fallback su output model diretto |

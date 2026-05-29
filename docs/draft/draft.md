@@ -10,6 +10,16 @@ I criteri di valutazione del progetto sono: **literature review**, **research ga
 
 ## Contesto: Cosa Valuta la Commissione
 
+```mermaid
+pie title Distribuzione Criteri di Valutazione (max 16 pt)
+    "Literature Review" : 3
+    "Research Gaps" : 2
+    "Methodology & Assessment" : 4
+    "Originality/Novelty" : 3
+    "Discussion & Analysis" : 2
+    "Clarity" : 2
+```
+
 Per ottenere il massimo punteggio è essenziale capire cosa si intende per ciascun criterio.[^1]
 
 - **Literature review**: copertura sistematica e critica della letteratura, non semplice elenco di paper.
@@ -79,6 +89,35 @@ Per un progetto universitario, **Llama 3.1 8B o Mistral-7B via Ollama o HuggingF
 
 ## Research Gaps da Identificare (Sezione 2 del Progetto)
 
+```mermaid
+flowchart LR
+    subgraph GAPS["Research Gaps Identificati"]
+        direction TB
+        G1["🔄 Gap 1\nInstabilità concetti\ntra seed/run"]
+        G2["📚 Gap 2\nDipendenza UMLS\nnon portabile"]
+        G3["⚠️ Gap 3\nBias LLM Judge\nposition/verbosity"]
+        G4["📝 Gap 4\nReport incompleti\nfalsi Unaligned"]
+        G5["🔗 Gap 5\nConcetti indipendenti\nno relazioni"]
+        G6["📈 Gap 6\nValutazione non scala\nsolo qualitativa"]
+    end
+
+    subgraph EXT["Nostre Estensioni"]
+        direction TB
+        E1["6A: Stability\nAnalysis"]
+        E2["Text-encoder\napproach"]
+        E3["6D: Bias\nAnalysis"]
+        E5["6B: Clustering\nGerarchico"]
+    end
+
+    G1 -.->|"risolto da"| E1
+    G2 -.->|"risolto da"| E2
+    G3 -.->|"risolto da"| E3
+    G5 -.->|"risolto da"| E5
+
+    style GAPS fill:#fff8e1,stroke:#FF8F00
+    style EXT fill:#e8f5e9,stroke:#2E7D32
+```
+
 Questa sezione del progetto richiede identificazione critica dei limiti attuali. I gap più solidi su cui costruire sono:[^4][^5][^2]
 
 1. **Mancanza di garanzie di stabilità**: concetti scoperti da SAE cambiano a seconda di seed, iperparametri e layer scelto. Nessun approccio attuale fornisce barre di confidenza sui concetti.
@@ -93,6 +132,40 @@ Questa sezione del progetto richiede identificazione critica dei limiti attuali.
 ## Architettura della Pipeline Raccomandata
 
 La pipeline raccomandata è una versione semplificata e strumentata di MedConcept, costruita interamente su componenti open-source già esistenti. Si articola in 5 moduli.
+
+```mermaid
+flowchart TD
+    subgraph M1["Modulo 1 — Feature Extraction"]
+        CXR["🖼️ CXR Images"] --> CLIP["BiomedCLIP\n(frozen, 512-dim)"]
+    end
+
+    subgraph M2["Modulo 2 — SAE Training"]
+        SAE["Sparse Autoencoder\nTop-K (k=32)\n512 → 4096"]
+    end
+
+    subgraph M3["Modulo 3 — Concept Naming"]
+        VOCAB["Medical Vocabulary\n(RadLex ~400 terms)"] --> MATCH["Cosine Similarity\nnearest neighbor"]
+    end
+
+    subgraph M4["Modulo 4 — Explanation Generation"]
+        PSEUDO["Top-K activated features\n→ pseudo-report"]
+    end
+
+    subgraph M5["Modulo 5 — LLM-as-Judge"]
+        JUDGE["Gemma 4 E4B\n(Ollama locale)"] --> SCORE["Aligned / Unaligned\n/ Uncertain"]
+    end
+
+    CLIP -->|"z ∈ ℝ⁵¹²"| SAE
+    SAE -->|"W_dec features"| MATCH
+    MATCH -->|"concept_names"| PSEUDO
+    PSEUDO -->|"pseudo-report + report reale"| JUDGE
+
+    style M1 fill:#e3f2fd,stroke:#1565C0
+    style M2 fill:#fce4ec,stroke:#C62828
+    style M3 fill:#e8f5e9,stroke:#2E7D32
+    style M4 fill:#fff3e0,stroke:#E65100
+    style M5 fill:#f3e5f5,stroke:#6A1B9A
+```
 
 ### Modulo 1 — Feature Extraction da VLM Pretrained
 
@@ -164,6 +237,21 @@ Calcolare le statistiche aggregate: percentuale di concetti Aligned sul totale, 
 ***
 
 ## Estensione Originale: Come Ottenere Punti di Novità
+
+```mermaid
+quadrantChart
+    title Estensioni — Effort vs Impact
+    x-axis "Basso Sforzo" --> "Alto Sforzo"
+    y-axis "Basso Impatto" --> "Alto Impatto"
+    quadrant-1 "Sweet spot"
+    quadrant-2 "Quick wins"
+    quadrant-3 "Evitare"
+    quadrant-4 "Se c'è tempo"
+    "Stability Analysis (6A)": [0.25, 0.85]
+    "Layer Comparison (6C)": [0.35, 0.65]
+    "Clustering Gerarchico (6B)": [0.55, 0.60]
+    "Bias Analysis (6D)": [0.60, 0.75]
+```
 
 La valutazione richiede almeno un contributo originale. Le estensioni raccomandate per massimizzare il punteggio di novelty con sforzo contenuto sono, in ordine di difficoltà crescente:
 

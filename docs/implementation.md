@@ -46,6 +46,31 @@ model.eval().to("cuda")
 > ```
 > **Prima azione della Settimana 1**: testare il modello con 1 immagine e 1 testo per validare l'API.
 
+### 1.1.1 Architettura BiomedCLIP
+
+```mermaid
+flowchart TB
+    subgraph BiomedCLIP["BiomedCLIP (Frozen)"]
+        direction TB
+        IMG["🖼️ CXR Image\n224×224"]
+        TXT["📄 Medical Term\n'cardiomegaly'"]
+        
+        VIT["ViT-B/16\n(Vision Encoder)"]
+        BERT["PubMedBERT\n(Text Encoder)"]
+        
+        VE["Visual Embedding\nz ∈ ℝ⁵¹²"]
+        TE["Text Embedding\nt ∈ ℝ⁵¹²"]
+    end
+
+    IMG --> VIT --> VE
+    TXT --> BERT --> TE
+    
+    VE & TE --> CS["Cosine Similarity\nsim(z, t)"]
+
+    style BiomedCLIP fill:#f3e5f5,stroke:#9C27B0
+    style CS fill:#fff9c4,stroke:#FFC107
+```
+
 ### 1.2 Sparse Autoencoder — `dictionary-learning` (pip)
 
 **Libreria**: [`saprmarks/dictionary_learning`](https://github.com/saprmarks/dictionary_learning) v0.1.0  
@@ -113,6 +138,22 @@ ae = trainSAE(
 ```
 
 > **Alternativa `sae-for-vlm`**: Il repo [`ExplainableML/sae-for-vlm`](https://github.com/ExplainableML/sae-for-vlm) include un fork interno di `dictionary_learning/` con script `sae_train.py` già configurati per CLIP. Se l'API standalone dà problemi, clonare quel repo e adattare i loro script.
+
+### 1.2.1 Architettura SAE Top-K
+
+```mermaid
+flowchart LR
+    IN["Input\nz ∈ ℝ⁵¹²"] --> ENC["Encoder\nW_enc (512→4096)\n+ bias"]
+    ENC --> TOPK["Top-K\n(k=32)\nAzzeramento\nnon-top-k"]
+    TOPK --> DEC["Decoder\nW_dec (4096→512)"]
+    DEC --> OUT["Reconstruction\nẑ ∈ ℝ⁵¹²"]
+
+    IN -.->|"MSE Loss"| OUT
+    TOPK -.->|"Sparsity:\nonly 32/4096\nactive"| SPARSE["Sparse\nActivations\na ∈ ℝ⁴⁰⁹⁶"]
+
+    style TOPK fill:#ffcdd2,stroke:#E53935
+    style SPARSE fill:#c8e6c9,stroke:#43A047
+```
 
 ### 1.3 LLM Judge — Gemma 4 E4B Locale
 
@@ -306,24 +347,35 @@ Train/Val/Test = 70/15/15, stratificato per studio (tutti i frontal/lateral dell
 
 ## 3. Pipeline in 6 Moduli
 
-```
-┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│   Modulo 1   │    │   Modulo 2   │    │   Modulo 3   │
-│   Feature    │───▶│  SAE Train   │───▶│   Concept    │
-│  Extraction  │    │  (Top-K)     │    │   Naming     │
-└──────────────┘    └──────────────┘    └──────────────┘
-                                               │
-                    ┌──────────────┐    ┌───────▼──────┐
-                    │   Modulo 5   │◀───│   Modulo 4   │
-                    │  LLM Judge   │    │  Explanation │
-                    │  Evaluation  │    │  Generation  │
-                    └──────┬───────┘    └──────────────┘
-                           │
-                    ┌──────▼───────┐
-                    │   Modulo 6   │
-                    │  Extensions  │
-                    │  (Originali) │
-                    └──────────────┘
+```mermaid
+flowchart LR
+    subgraph Fase1["Fase 1 — Rappresentazione"]
+        M1["🖼️ Modulo 1\nFeature Extraction\n(BiomedCLIP)"]
+        M2["🧠 Modulo 2\nSAE Training\n(Top-K, 5 seeds)"]
+        M3["🏷️ Modulo 3\nConcept Naming\n(Cosine Similarity)"]
+    end
+
+    subgraph Fase2["Fase 2 — Valutazione"]
+        M4["📝 Modulo 4\nExplanation\nGeneration"]
+        M5["⚖️ Modulo 5\nLLM Judge\n(Gemma 4 E4B)"]
+    end
+
+    subgraph Fase3["Fase 3 — Contributi Originali"]
+        M6A["🔄 6A: Stability"]
+        M6B["🌳 6B: Clustering"]
+        M6C["📊 6C: Layer Comp."]
+        M6D["🔍 6D: Bias Analysis"]
+    end
+
+    M1 -->|"(N, 512)"| M2
+    M2 -->|"W_dec (4096, 512)"| M3
+    M3 -->|"concept_names.json"| M4
+    M4 -->|"pseudo-reports"| M5
+    M5 --> M6A & M6B & M6C & M6D
+
+    style Fase1 fill:#e8f4fd,stroke:#2196F3
+    style Fase2 fill:#fff3e0,stroke:#FF9800
+    style Fase3 fill:#e8f5e9,stroke:#4CAF50
 ```
 
 ### Modulo 1 — Feature Extraction (`src/01_extract_embeddings.py`)
@@ -822,6 +874,44 @@ tqdm
 
 ## 6. Piano Settimanale
 
+```mermaid
+gantt
+    title Piano Implementativo — 5 Settimane
+    dateFormat YYYY-MM-DD
+    axisFormat %d/%m
+
+    section Settimana 1
+    Setup repo & download dataset     :s1a, 2026-05-26, 1d
+    Installazione Ollama + modelli     :s1b, 2026-05-26, 1d
+    Vocabolario medico (RadLex filter) :s1c, 2026-05-27, 1d
+    Feature extraction BiomedCLIP      :s1d, 2026-05-28, 2d
+    Verifica qualitativa embedding     :s1e, 2026-05-30, 1d
+
+    section Settimana 2
+    SAE Training seed=0                :s2a, 2026-06-02, 2d
+    SAE Training seeds 42-789          :s2b, 2026-06-04, 2d
+    Concept Naming                     :s2c, 2026-06-04, 2d
+    Ispezione qualitativa concetti     :s2d, 2026-06-06, 1d
+
+    section Settimana 3
+    Explanation Generation             :s3a, 2026-06-09, 1d
+    LLM Judge Evaluation               :crit, s3b, 2026-06-10, 3d
+    Analisi aggregate                  :s3c, 2026-06-12, 1d
+
+    section Settimana 4
+    Ext 6A: Stability Analysis         :s4a, 2026-06-16, 2d
+    Ext 6B: Clustering                 :s4b, 2026-06-16, 2d
+    Ext 6C: Layer Comparison           :s4c, 2026-06-18, 2d
+    Ext 6D: Bias Analysis              :s4d, 2026-06-18, 2d
+    Consolidamento risultati           :s4e, 2026-06-20, 1d
+
+    section Settimana 5
+    Figure & Notebook                  :s5a, 2026-06-23, 2d
+    Recap Document (2-3 pag)           :s5b, 2026-06-23, 2d
+    Slide (15 min)                     :s5c, 2026-06-25, 2d
+    Revisione + Dry-run                :s5d, 2026-06-27, 2d
+```
+
 ### Settimana 1 — Setup, Dati, Feature Extraction
 
 | Giorno | Chi | Task |
@@ -879,6 +969,35 @@ tqdm
 
 ## 7. Research Gaps (per il report)
 
+```mermaid
+mindmap
+  root((Research Gaps))
+    Stabilità
+      Variabilità tra seed
+      Nessuna confidence bar
+      **→ Ext. 6A**
+    Dipendenze Esterne
+      UMLS richiesto
+      Non portabile
+      **→ Text-encoder approach**
+    LLM Judge Bias
+      Position bias
+      Verbosity bias
+      Hallucination
+      **→ Ext. 6D**
+    Report Incompleti
+      Solo anomalie salienti
+      Falsi Unaligned
+    Concetti Indipendenti
+      No co-occorrenze
+      No gerarchie
+      **→ Ext. 6B**
+    Layer Semantics
+      Solo general-purpose VLM
+      Mai su medical VLM
+      **→ Ext. 6C**
+```
+
 I gap da presentare nella sezione "Identification of Research Gaps":
 
 1. **Instabilità dei concetti tra run** — Nessun lavoro misura quantitativamente la variabilità dei concetti scoperti al variare del seed. → *Risposto dalla nostra Stability Analysis (6A)*
@@ -891,6 +1010,50 @@ I gap da presentare nella sezione "Identification of Research Gaps":
 ---
 
 ## 8. Figure da Produrre
+
+### 8.0 Diagramma Dati End-to-End
+
+```mermaid
+flowchart TD
+    %% Data sources
+    CXR[("🗂️ IU X-ray\n7,470 CXR images")] --> M1
+    RADLEX[("📚 RadLex\n~47K terms")] --> FILT
+    FILT["BiomedCLIP\nFiltering"] -->|"top-400"| VOCAB[("medical_vocabulary.json")]
+
+    %% Module 1
+    M1["01_extract_embeddings.py"] -->|"(7470, 512)"| VIS_EMB[("visual_embeddings.pt")]
+    VOCAB --> M1_T["Text Encoding"] -->|"(400, 512)"| TXT_EMB[("text_vocab_embeddings.pt")]
+
+    %% Module 2
+    VIS_EMB --> M2["02_train_sae.py\n×5 seeds"]
+    M2 --> SAE[("sae_seed{0..789}.pt")]
+
+    %% Module 3
+    SAE --> M3["03_concept_naming.py"]
+    TXT_EMB --> M3
+    M3 --> NAMES[("concept_names.json")]
+
+    %% Module 4
+    NAMES --> M4["04_generate_explanations.py"]
+    VIS_EMB --> M4
+    SAE --> M4
+    M4 --> EXPL[("sample_explanations.json")]
+
+    %% Module 5
+    EXPL --> M5["05_evaluate_llm_judge.py"]
+    REP[("indiana_reports.csv")] --> M5
+    M5 --> SCORES[("aligned_scores.csv")]
+
+    %% Extensions
+    SAE --> M6["06_extensions.py"]
+    SCORES --> M6
+    M6 --> RES[("stability_analysis.csv\nclustering_results.json\nlayer_comparison.csv\njudge_bias_analysis.csv")]
+
+    style CXR fill:#bbdefb,stroke:#1976D2
+    style RADLEX fill:#c8e6c9,stroke:#388E3C
+    style SCORES fill:#fff9c4,stroke:#F9A825
+    style RES fill:#f8bbd0,stroke:#C2185B
+```
 
 1. **Pipeline Overview** — Diagramma architetturale dei 6 moduli (per slide e report)
 2. **Distribuzione metriche per patologia** — Stacked barplot Aligned/Unaligned/Uncertain per le 14 condizioni

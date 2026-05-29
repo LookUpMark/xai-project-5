@@ -14,6 +14,30 @@ Le tecniche classiche di interpretabilità, per esempio saliency map e attention
 
 ## Idea chiave del progetto
 
+```mermaid
+flowchart TD
+    subgraph DISCOVERY["Concept Discovery (Non-Supervisionato)"]
+        VLM["Medical VLM\n(pretrained)"] --> REPR["Rappresentazioni\nneurali"]
+        REPR --> SAE["Sparse Autoencoder\n(decomposizione)"]
+        SAE --> FEAT["Feature sparse\nmonosemantiche"]
+    end
+
+    subgraph GROUNDING["Grounding Semantico"]
+        FEAT --> ALIGN["Allineamento con\nvocabolario medico\n(ontologie/embeddings)"]
+        ALIGN --> CONCEPTS["Concetti clinici\ninterpretabili"]
+    end
+
+    subgraph EVALUATION["Valutazione Quantitativa"]
+        CONCEPTS --> EXPL["Pseudo-report\ngeneration"]
+        EXPL --> JUDGE["LLM Judge\n(valutatore esterno)"]
+        JUDGE --> METRICS["Aligned\nUnaligned\nUncertain"]
+    end
+
+    style DISCOVERY fill:#e3f2fd,stroke:#1565C0
+    style GROUNDING fill:#e8f5e9,stroke:#2E7D32
+    style EVALUATION fill:#fff3e0,stroke:#E65100
+```
+
 Il progetto si colloca nell'area della concept-based explainability, cioè un insieme di approcci che cercano di spiegare le predizioni in termini di concetti interpretabili dall'essere umano.[file:11] In questo caso il focus è su approcci non supervisionati, che cercano di scoprire concetti automaticamente a partire da rappresentazioni pretrained, senza richiedere annotazioni manuali dei concetti.[file:11]
 
 Nel framework MedConcept, la scoperta dei concetti avviene attraverso sparse autoencoders, che servono a decomporre le rappresentazioni neurali in feature sparse e più semanticamente significative.[file:11] Le feature ottenute vengono poi allineate a un vocabolario medico curato, derivato da ontologie come UMLS, in modo da associare attivazioni latenti a concetti clinici interpretabili.[file:11]
@@ -26,11 +50,46 @@ Un altro aspetto centrale è la valutazione dell'interpretabilità.[file:11] Mol
 
 ## Problemi aperti evidenziati dal progetto
 
+```mermaid
+flowchart LR
+    subgraph PROBLEMI["Problemi Aperti"]
+        direction TB
+        P1["⚠️ Scarsa robustezza\ndei concetti"]
+        P2["🏥 Validità clinica\nnon garantita"]
+        P3["🔗 Dipendenza da\nontologie + LLM esterni"]
+        P4["📝 Report clinici\nincompleti/rumorosi"]
+        P5["🧩 Concetti trattati\ncome indipendenti"]
+        P6["📊 Valutazione\nnon scalabile"]
+    end
+
+    PROBLEMI -->|"il progetto\nrichiede di"| SOL["Proporre soluzioni\no mitigazioni\nper almeno 2-3 gap"]
+
+    style PROBLEMI fill:#fff8e1,stroke:#FF8F00
+    style SOL fill:#e8f5e9,stroke:#2E7D32
+```
+
 Il testo del progetto sottolinea diversi limiti degli approcci attuali.[file:11] Tra questi ci sono la possibile scarsa robustezza dei concetti scoperti, la loro validità clinica non sempre garantita, la dipendenza da ontologie e large language models esterni, e il fatto che i report clinici usati per l'evaluation possono essere incompleti, rumorosi o selettivi.[file:11]
 
 Inoltre, molti approcci trattano i concetti come entità indipendenti, ignorando relazioni strutturate naturali tra concetti medici, come gerarchie anatomiche o dipendenze causali.[file:11] Un'altra difficoltà importante è costruire procedure di valutazione dell'interpretabilità che siano quantitative, riproducibili e scalabili.[file:11]
 
 ## Attività richieste
+
+```mermaid
+flowchart LR
+    A1["1️⃣ Literature\nReview"] --> A2["2️⃣ Research\nGaps"]
+    A2 --> A3["3️⃣ Implementazione\nPipeline"]
+    A3 --> A4["4️⃣ Valutazione\n+ Discussion"]
+
+    A1 -.-|"CBM, TCAV, SAE,\nMedConcept, SPLiCE"| N1(("8-10\npapers"))
+    A2 -.-|"Stabilità, bias,\nontologie"| N2(("4-6\ngaps"))
+    A3 -.-|"SAE + naming +\nexplanation"| N3(("6\nmoduli"))
+    A4 -.-|"Aligned/Unaligned\n+ failure cases"| N4(("metriche\nquant."))
+
+    style A1 fill:#e3f2fd,stroke:#1565C0
+    style A2 fill:#fff8e1,stroke:#FF8F00
+    style A3 fill:#fce4ec,stroke:#C62828
+    style A4 fill:#e8f5e9,stroke:#2E7D32
+```
 
 ### 1. Literature review
 
@@ -70,6 +129,23 @@ Dal punto di vista pratico, è un progetto adatto a chi vuole lavorare all'inter
 Un buon risultato finale dovrebbe mostrare una pipeline coerente per la scoperta di concetti latenti, un criterio chiaro per associare tali concetti a significati clinici e una valutazione ben motivata della qualità interpretativa delle spiegazioni ottenute.[file:11] Non basta quindi far funzionare un modello: bisogna anche discutere criticamente quanto i concetti siano stabili, significativi e realmente utili per comprendere il comportamento del VLM.[file:11]
 
 ## In sintesi operativa
+
+```mermaid
+flowchart TD
+    subgraph OUTPUT["Output Atteso"]
+        direction LR
+        O1["📚 Review\ncritica"]
+        O2["🔍 Gaps\nmotivati"]
+        O3["⚙️ Pipeline\nfunzionante"]
+        O4["📊 Metriche +\nfailure cases"]
+        O5["🆕 Contributo\noriginale"]
+    end
+
+    O1 & O2 & O3 & O4 & O5 --> FINAL["🎯 Report (2-3 pag)\n+ Slide (15 min)\n+ Repo GitHub"]
+
+    style OUTPUT fill:#f5f5f5,stroke:#424242
+    style FINAL fill:#c8e6c9,stroke:#2E7D32
+```
 
 In termini concreti, il progetto 5 chiede di fare quattro cose principali:[file:11]
 

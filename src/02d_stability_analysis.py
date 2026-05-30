@@ -1,5 +1,5 @@
 """
-02d_stability_analysis.py — Multi-seed stability analysis and clustering
+02d_stability_analysis.py - Multi-seed stability analysis and clustering
 
 Evaluate robustness of SAE concepts by comparing activations across 5 SAEs
 trained with different seeds. Computes Jaccard similarity and clustering metrics.
@@ -30,7 +30,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-OUTPUT_PATH = config.RESULTS_DIR / "stability_analysis.json"
+OUTPUT_PATH = config.paths.results_dir / "stability_analysis.json"
 
 
 def compute_feature_frequency(mgr: SAEManager, embeddings: torch.Tensor) -> torch.Tensor:
@@ -42,18 +42,20 @@ def compute_feature_frequency(mgr: SAEManager, embeddings: torch.Tensor) -> torc
 
 def compute_concept_clustering(model_dirs: list[Path], embeddings: torch.Tensor) -> dict:
     """Compute correlation between concept activation patterns."""
-    mgr = SAEManager({"device": config.DEVICE})
+    mgr = SAEManager({"device": config.hardware.device})
     mgr.load(model_dirs[0])
 
     with torch.no_grad():
         sparse = mgr.encode(embeddings)
 
+    # Filter out dead features
     active_mask = (sparse != 0).float().sum(dim=0) > 0
     active_indices = active_mask.nonzero(as_tuple=True)[0]
     n_active = active_indices.shape[0]
 
     logger.info(f"  Active features: {n_active}/{sparse.shape[1]}")
 
+    # Normalized co-occurrence matrix
     sparse_active = sparse[:, active_indices]
     binary = (sparse_active != 0).float()
 
@@ -61,6 +63,7 @@ def compute_concept_clustering(model_dirs: list[Path], embeddings: torch.Tensor)
     binary_norm = binary / norms
     co_occurrence = (binary_norm.T @ binary_norm).cpu()
 
+    # Count highly correlated pairs (potential redundancy)
     threshold = 0.7
     high_corr_pairs = (co_occurrence > threshold).sum().item() - n_active
     high_corr_pairs //= 2
@@ -75,26 +78,26 @@ def compute_concept_clustering(model_dirs: list[Path], embeddings: torch.Tensor)
 
 
 def main():
-    model_dirs = [config.MODELS_DIR / f"sae_seed{s}" for s in config.SEEDS]
+    model_dirs = [config.paths.models_dir / f"sae_seed{s}" for s in config.training.seeds]
     missing = [d for d in model_dirs if not (d / "ae.pt").exists()]
     if missing:
         logger.error(f"Missing models: {[str(m) for m in missing]}")
         logger.error("Run first: python src/02a_train_sae.py")
         sys.exit(1)
 
-    if not config.VISUAL_EMBEDDINGS_PATH.exists():
-        logger.error(f"Embeddings not found: {config.VISUAL_EMBEDDINGS_PATH}")
+    if not config.paths.visual_embeddings_path.exists():
+        logger.error(f"Embeddings not found: {config.paths.visual_embeddings_path}")
         sys.exit(1)
 
-    embeddings = torch.load(config.VISUAL_EMBEDDINGS_PATH, map_location="cpu", weights_only=True)
-    if config.STABILITY_MAX_SAMPLES:
-        embeddings = embeddings[: config.STABILITY_MAX_SAMPLES]
+    embeddings = torch.load(config.paths.visual_embeddings_path, map_location="cpu", weights_only=True)
+    if config.training.stability_max_samples:
+        embeddings = embeddings[: config.training.stability_max_samples]
     logger.info(f"Embeddings: {embeddings.shape}")
 
-    # 1. Jaccard stability
+    # 1. Cross-seed Jaccard stability
     logger.info("Computing Jaccard stability across seeds...")
     stability = SAEManager.compute_stability(
-        model_dirs, embeddings, config={"device": config.DEVICE}
+        model_dirs, embeddings, config={"device": config.hardware.device}
     )
     logger.info(f"  Mean Jaccard: {stability['mean_jaccard']:.4f}")
     logger.info(f"  Std Jaccard:  {stability['std_jaccard']:.4f}")
@@ -102,8 +105,8 @@ def main():
     # 2. Per-seed metrics
     logger.info("\nPer-seed metrics:")
     per_seed_metrics = {}
-    for seed, model_dir in zip(config.SEEDS, model_dirs):
-        mgr = SAEManager({"device": config.DEVICE})
+    for seed, model_dir in zip(config.training.seeds, model_dirs):
+        mgr = SAEManager({"device": config.hardware.device})
         mgr.load(model_dir)
 
         mse = mgr.compute_reconstruction_mse(embeddings)
@@ -127,7 +130,7 @@ def main():
     logger.info(f"  High-correlation pairs (>{clustering['correlation_threshold']}): "
                 f"{clustering['high_correlation_pairs']}")
 
-    # 4. Save
+    # 4. Save results
     results = {
         "stability": {
             "mean_jaccard": stability["mean_jaccard"],
@@ -136,7 +139,7 @@ def main():
         },
         "per_seed_metrics": per_seed_metrics,
         "clustering": clustering,
-        "config": {"seeds": config.SEEDS, "n_samples": embeddings.shape[0]},
+        "config": {"seeds": list(config.training.seeds), "n_samples": embeddings.shape[0]},
     }
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)

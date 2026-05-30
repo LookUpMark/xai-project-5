@@ -1,5 +1,5 @@
 """
-SAE Module — Sparse Autoencoder Facade
+sae_module.py - Sparse Autoencoder Facade
 
 Unified interface for training, loading, and using Top-K SAEs.
 
@@ -22,6 +22,7 @@ from typing import Optional
 
 import torch
 import torch.nn.functional as F
+from torch.utils.data import DataLoader, TensorDataset
 from dictionary_learning.trainers.top_k import AutoEncoderTopK, TopKTrainer
 from dictionary_learning.training import trainSAE
 
@@ -85,26 +86,34 @@ class SAEManager:
         Returns:
             Path to the saved model directory (e.g. models/sae_seed42/).
         """
+        # Use overrides or fall back to config defaults
         steps = steps or self.config["steps"]
         batch_size = batch_size or self.config["batch_size"]
         device = self.config["device"]
 
         embeddings = torch.load(embeddings_path, map_location="cpu", weights_only=True)
-        assert embeddings.dim() == 2 and embeddings.shape[1] == self.config["activation_dim"], (
-            f"Expected shape (N, {self.config['activation_dim']}), got {embeddings.shape}"
-        )
+        if embeddings.dim() != 2 or embeddings.shape[1] != self.config["activation_dim"]:
+            raise ValueError(
+                f"Expected shape (N, {self.config['activation_dim']}), got {embeddings.shape}"
+            )
         logger.info(f"Loaded {embeddings.shape[0]} embeddings from {embeddings_path}")
 
         model_dir = Path(save_dir) / f"sae_seed{seed}"
         model_dir.mkdir(parents=True, exist_ok=True)
 
+        loader = DataLoader(
+            TensorDataset(embeddings),
+            batch_size=batch_size,
+            shuffle=True,
+            drop_last=True,
+            pin_memory=(device != "cpu"),
+        )
+
+        # trainSAE is step-based, so we need an infinite generator that cycles over epochs
         def batch_generator():
-            n = embeddings.shape[0]
             while True:
-                perm = torch.randperm(n)
-                for i in range(0, n, batch_size):
-                    batch = embeddings[perm[i : i + batch_size]].to(device)
-                    yield batch
+                for (batch,) in loader:
+                    yield batch.to(device)
 
         trainer_config = {
             "trainer": TopKTrainer,
@@ -192,7 +201,7 @@ class SAEManager:
         Decode a sparse representation back to the embedding space.
 
         Args:
-            sparse: Tensor (B, 4096) — output of encode().
+            sparse: Tensor (B, 4096), output of encode().
 
         Returns:
             Reconstructed tensor (B, 512).
@@ -216,7 +225,7 @@ class SAEManager:
             Tensor (dict_size, activation_dim) = (4096, 512).
         """
         self._check_loaded()
-        # decoder.weight is (512, 4096), transpose to get (4096, 512)
+        # decoder.weight is (activation_dim, dict_size), transpose to (dict_size, activation_dim)
         return self._ae.decoder.weight.data.T.clone()
 
     def get_top_concepts(
@@ -257,7 +266,7 @@ class SAEManager:
         Assign names to SAE concepts via cosine similarity with the vocabulary.
 
         Args:
-            vocab_embeddings: Tensor (V, 512) — medical vocabulary embeddings.
+            vocab_embeddings: Tensor (V, 512), medical vocabulary embeddings.
             vocab_labels: List of V strings (term names).
             top_n: Number of candidate names to return per feature.
 
@@ -265,13 +274,13 @@ class SAEManager:
             Dict {feature_id: {"name": str, "score": float, "candidates": [...]}}.
         """
         self._check_loaded()
-        W_dec = self.get_decoder_weights()  # (4096, 512)
+        W_dec = self.get_decoder_weights()  # (dict_size, 512)
 
+        # Normalize both matrices so dot product equals cosine similarity
         W_norm = F.normalize(W_dec, dim=1)
         V_norm = F.normalize(vocab_embeddings.to(self._device), dim=1)
 
-        # Cosine similarity: (4096, V)
-        similarities = W_norm @ V_norm.T
+        similarities = W_norm @ V_norm.T  # (dict_size, V)
 
         concept_names = {}
         for feat_id in range(self.config["dict_size"]):
@@ -308,13 +317,16 @@ class SAEManager:
         with torch.no_grad():
             sparse = self._ae.encode(embeddings.to(self._device))
 
+        # L0: count of non-zero activations per sample (expected ~k)
         l0 = (sparse != 0).float().sum(dim=1)
 
+        # Hoyer sparsity: normalized L1/L2 ratio, closer to 1.0 = more sparse
         n = sparse.shape[1]
         l1 = sparse.abs().sum(dim=1)
         l2 = sparse.norm(dim=1)
         hoyer = (n**0.5 - l1 / (l2 + 1e-8)) / (n**0.5 - 1)
 
+        # Dead features: never activated across the batch
         active_per_feature = (sparse != 0).float().sum(dim=0)
         dead_pct = (active_per_feature == 0).float().mean().item() * 100
 
@@ -346,12 +358,14 @@ class SAEManager:
             {"jaccard_matrix": Tensor (n_seeds, n_seeds),
              "mean_jaccard": float, "std_jaccard": float}
         """
+        # Load each seed's model
         managers = []
         for d in model_dirs:
             mgr = SAEManager(config)
             mgr.load(d)
             managers.append(mgr)
 
+        # Get active feature sets per sample for each model
         active_sets = []
         for mgr in managers:
             _, _, indices = mgr.encode_topk(embeddings)
@@ -362,6 +376,7 @@ class SAEManager:
         n_samples = embeddings.shape[0]
         jaccard_matrix = torch.zeros(n_seeds, n_seeds)
 
+        # Pairwise Jaccard: J(A,B) = |intersection| / |union|, averaged over samples
         for i in range(n_seeds):
             for j in range(i, n_seeds):
                 if i == j:
@@ -378,6 +393,7 @@ class SAEManager:
                 jaccard_matrix[i, j] = mean_j
                 jaccard_matrix[j, i] = mean_j
 
+        # Summary stats from upper triangle (unique pairs only)
         mask = torch.triu(torch.ones(n_seeds, n_seeds), diagonal=1).bool()
         upper_vals = jaccard_matrix[mask]
 

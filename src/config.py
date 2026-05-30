@@ -1,48 +1,84 @@
 """
-config.py — Central configuration for all pipeline scripts.
+config.py - Central configuration for all pipeline scripts.
 
-Edit variables here to control the entire pipeline.
+Uses dataclasses to group related settings. Each dataclass represents
+a logical component of the pipeline.
 """
 
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Optional
 
-PROJECT_ROOT = Path(__file__).parent.parent
 
-# Paths
-DATA_DIR = PROJECT_ROOT / "data"
-EMBEDDINGS_DIR = PROJECT_ROOT / "embeddings"
-MODELS_DIR = PROJECT_ROOT / "models"
-RESULTS_DIR = PROJECT_ROOT / "results"
+@dataclass
+class PathsConfig:
+    """Project directory layout and derived file paths."""
+    project_root: Path = Path(__file__).parent.parent
+    data_dir: Path = field(init=False)
+    embeddings_dir: Path = field(init=False)
+    models_dir: Path = field(init=False)
+    results_dir: Path = field(init=False)
+    visual_embeddings_path: Path = field(init=False)
+    vocab_embeddings_path: Path = field(init=False)
+    vocab_labels_path: Path = field(init=False)
 
-VISUAL_EMBEDDINGS_PATH = EMBEDDINGS_DIR / "visual_embeddings.pt"
-VOCAB_EMBEDDINGS_PATH = EMBEDDINGS_DIR / "text_vocab_embeddings.pt"
-VOCAB_LABELS_PATH = DATA_DIR / "vocabulary.json"
+    def __post_init__(self):
+        self.data_dir = self.project_root / "data"
+        self.embeddings_dir = self.project_root / "embeddings"
+        self.models_dir = self.project_root / "models"
+        self.results_dir = self.project_root / "results"
+        self.visual_embeddings_path = self.embeddings_dir / "visual_embeddings.pt"
+        self.vocab_embeddings_path = self.embeddings_dir / "text_vocab_embeddings.pt"
+        self.vocab_labels_path = self.data_dir / "vocabulary.json"
 
-# BiomedCLIP
-BIOMEDCLIP_MODEL_ID = "chuhac/BiomedCLIP-vit-bert-hf"
-EMBEDDING_DIM = 512
 
-# SAE hyperparameters
-SAE_ACTIVATION_DIM = 512
-SAE_DICT_SIZE = 4096
-SAE_K = 32
-SAE_LR = 5e-5
-SAE_STEPS = 50_000
-SAE_WARMUP_STEPS = 1000
-SAE_BATCH_SIZE = 256
+@dataclass(frozen=True)
+class BackboneConfig:
+    """BiomedCLIP backbone model settings."""
+    model_id: str = "chuhac/BiomedCLIP-vit-bert-hf"
+    embedding_dim: int = 512
 
-# Training seeds for stability analysis
-SEEDS = [0, 42, 123, 456, 789]
 
-# Concept naming
-CONCEPT_TOP_N = 3
+@dataclass(frozen=True)
+class SAEConfig:
+    """Sparse Autoencoder (Top-K) hyperparameters."""
+    activation_dim: int = 512
+    dict_size: int = 4096
+    k: int = 32
+    lr: float = 5e-5
+    steps: int = 50_000
+    warmup_steps: int = 1000
+    batch_size: int = 256
 
-# Explanation generation
-EXPLANATION_TOP_N = 5
-EXPLANATION_MAX_SAMPLES = None  # None = all samples
 
-# Stability analysis
-STABILITY_MAX_SAMPLES = None  # None = all samples
+@dataclass(frozen=True)
+class TrainingConfig:
+    """Multi-seed training and stability analysis settings."""
+    seeds: tuple[int, ...] = (0, 42, 123, 456, 789)
+    stability_max_samples: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class ExplanationConfig:
+    """Concept naming and explanation generation settings."""
+    concept_top_n: int = 3
+    explanation_top_n: int = 5
+    explanation_max_samples: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class HardwareConfig:
+    """Device and compute settings."""
+    device: str = "cuda"
+
+
+# Instantiate configs
+paths = PathsConfig()
+backbone = BackboneConfig()
+sae = SAEConfig()
+training = TrainingConfig()
+explanation = ExplanationConfig()
+hardware = HardwareConfig()
 
 # Hardware
-DEVICE = "cuda"
+DEVICE = hardware.device

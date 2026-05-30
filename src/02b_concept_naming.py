@@ -1,5 +1,5 @@
 """
-02b_concept_naming.py — Assign names to SAE concepts
+02b_concept_naming.py - Assign names to SAE concepts
 
 Assign medical names to the 4096 SAE features using cosine similarity
 between decoder weights and vocabulary embeddings.
@@ -31,43 +31,41 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-SEED = config.SEEDS[1]  # Use seed 42 as primary
-OUTPUT_PATH = config.RESULTS_DIR / "concept_names.json"
+SEED = config.training.seeds[1]  # Use seed 42 as the primary/reference model
+OUTPUT_PATH = config.paths.results_dir / "concept_names.json"
 
 
 def main():
-    model_dir = config.MODELS_DIR / f"sae_seed{SEED}"
+    model_dir = config.paths.models_dir / f"sae_seed{SEED}"
 
     for path, desc in [
         (model_dir, "SAE model"),
-        (config.VOCAB_EMBEDDINGS_PATH, "Vocab embeddings"),
-        (config.VOCAB_LABELS_PATH, "Vocabulary labels"),
+        (config.paths.vocab_embeddings_path, "Vocab embeddings"),
+        (config.paths.vocab_labels_path, "Vocabulary labels"),
     ]:
         if not path.exists():
             logger.error(f"{desc} not found: {path}")
             sys.exit(1)
 
-    # Load vocabulary
-    with open(config.VOCAB_LABELS_PATH) as f:
+    with open(config.paths.vocab_labels_path) as f:
         vocab_labels = json.load(f)
     logger.info(f"Vocabulary: {len(vocab_labels)} terms")
 
-    vocab_embeddings = torch.load(config.VOCAB_EMBEDDINGS_PATH, map_location="cpu", weights_only=True)
+    vocab_embeddings = torch.load(config.paths.vocab_embeddings_path, map_location="cpu", weights_only=True)
     logger.info(f"Vocab embeddings shape: {vocab_embeddings.shape}")
 
-    # Load SAE and assign names
-    mgr = SAEManager({"device": config.DEVICE})
+    mgr = SAEManager({"device": config.hardware.device})
     mgr.load(model_dir)
 
-    logger.info(f"Computing concept names (top_n={config.CONCEPT_TOP_N})...")
-    concept_names = mgr.name_concepts(vocab_embeddings, vocab_labels, top_n=config.CONCEPT_TOP_N)
+    logger.info(f"Computing concept names (top_n={config.explanation.concept_top_n})...")
+    concept_names = mgr.name_concepts(vocab_embeddings, vocab_labels, top_n=config.explanation.concept_top_n)
 
-    # Save
+    # Persist results
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(OUTPUT_PATH, "w") as f:
         json.dump(concept_names, f, indent=2, ensure_ascii=False)
 
-    # Statistics
+    # Summary statistics
     scores = [v["score"] for v in concept_names.values()]
     logger.info(f"Concept naming complete:")
     logger.info(f"  Total features: {len(concept_names)}")

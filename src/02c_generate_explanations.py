@@ -1,5 +1,5 @@
 """
-02c_generate_explanations.py — Generate SAE-based explanations
+02c_generate_explanations.py - Generate SAE-based explanations
 
 For each image, extract the top-k activated SAE concepts and generate
 a structured explanation (pseudo-report) for the LLM Judge.
@@ -31,9 +31,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-SEED = config.SEEDS[1]  # Use seed 42 as primary
-CONCEPT_NAMES_PATH = config.RESULTS_DIR / "concept_names.json"
-OUTPUT_PATH = config.RESULTS_DIR / "sample_explanations.json"
+SEED = config.training.seeds[1]  # Use seed 42 as primary
+CONCEPT_NAMES_PATH = config.paths.results_dir / "concept_names.json"
+OUTPUT_PATH = config.paths.results_dir / "sample_explanations.json"
 
 
 def generate_explanation(
@@ -67,6 +67,7 @@ def generate_explanation(
             "naming_confidence": round(similarity, 4),
         })
 
+    # Build natural-language pseudo-report
     concept_list = ", ".join(f["concept"] for f in findings[:5])
     pseudo_report = (
         f"The model identifies the following visual concepts in this radiograph: {concept_list}. "
@@ -82,33 +83,30 @@ def generate_explanation(
 
 
 def main():
-    model_dir = config.MODELS_DIR / f"sae_seed{SEED}"
+    model_dir = config.paths.models_dir / f"sae_seed{SEED}"
 
     for path, desc in [
         (model_dir, "SAE model"),
-        (config.VISUAL_EMBEDDINGS_PATH, "Visual embeddings"),
+        (config.paths.visual_embeddings_path, "Visual embeddings"),
         (CONCEPT_NAMES_PATH, "Concept names"),
     ]:
         if not path.exists():
             logger.error(f"{desc} not found: {path}")
             sys.exit(1)
 
-    # Load data
-    embeddings = torch.load(config.VISUAL_EMBEDDINGS_PATH, map_location="cpu", weights_only=True)
+    embeddings = torch.load(config.paths.visual_embeddings_path, map_location="cpu", weights_only=True)
     with open(CONCEPT_NAMES_PATH) as f:
         concept_names = json.load(f)
 
-    if config.EXPLANATION_MAX_SAMPLES:
-        embeddings = embeddings[: config.EXPLANATION_MAX_SAMPLES]
+    if config.explanation.explanation_max_samples:
+        embeddings = embeddings[: config.explanation.explanation_max_samples]
 
     logger.info(f"Generating explanations for {embeddings.shape[0]} samples...")
 
-    # Load SAE
-    mgr = SAEManager({"device": config.DEVICE})
+    mgr = SAEManager({"device": config.hardware.device})
     mgr.load(model_dir)
 
-    # Generate
-    all_top_concepts = mgr.get_top_concepts(embeddings, n=config.EXPLANATION_TOP_N)
+    all_top_concepts = mgr.get_top_concepts(embeddings, n=config.explanation.explanation_top_n)
 
     explanations = []
     for idx, top_concepts in enumerate(all_top_concepts):
@@ -116,7 +114,6 @@ def main():
         explanation["sample_idx"] = idx
         explanations.append(explanation)
 
-    # Save
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(OUTPUT_PATH, "w") as f:
         json.dump(explanations, f, indent=2, ensure_ascii=False)

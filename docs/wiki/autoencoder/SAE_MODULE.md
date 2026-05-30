@@ -1,6 +1,6 @@
 # SAEModule - Documentazione completa
 
-Questo documento descrive ogni sezione di `src/sae_module.py`, il modulo facade
+Questo documento descrive ogni sezione di `src/autoencoder/sae_module.py`, il modulo facade
 che espone un'interfaccia unificata per il ciclo di vita di un Sparse Autoencoder
 Top-K: training, caricamento, inferenza, naming dei concetti e metriche.
 

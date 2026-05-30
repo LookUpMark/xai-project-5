@@ -1,6 +1,6 @@
-# 02c_generate_explanations.py - Documentazione completa
+# generate_explanations.py - Documentazione completa
 
-Questo documento descrive ogni sezione di `src/02c_generate_explanations.py`,
+Questo documento descrive ogni sezione di `src/autoencoder/generate_explanations.py`,
 lo script che genera spiegazioni strutturate (pseudo-report) per ogni immagine
 del dataset a partire dai concetti SAE attivati.
 
@@ -10,7 +10,7 @@ del dataset a partire dai concetti SAE attivati.
 
 ```python
 """
-02c_generate_explanations.py - Generate SAE-based explanations
+generate_explanations.py - Generate SAE-based explanations
 
 For each image, extract the top-k activated SAE concepts and generate
 a structured explanation (pseudo-report) for the LLM Judge.
@@ -18,10 +18,10 @@ a structured explanation (pseudo-report) for the LLM Judge.
 Prerequisites:
     - models/sae_seed{SEED}/ae.pt
     - embeddings/visual_embeddings.pt
-    - results/concept_names.json (output of 02b)
+    - results/concept_names.json (output of concept_naming)
 
 Run:
-    python src/02c_generate_explanations.py
+    python src/autoencoder/generate_explanations.py
 """
 ```
 
@@ -44,9 +44,9 @@ OUTPUT_PATH = config.paths.results_dir / "sample_explanations.json"
 
 **Perche:**
 
-- Stesso seed di 02b (seed=42) per coerenza: i concept names sono stati calcolati
+- Stesso seed di concept_naming (seed=42) per coerenza: i concept names sono stati calcolati
   su questo modello, le spiegazioni devono usare lo stesso.
-- Input: `concept_names.json` prodotto da 02b
+- Input: `concept_names.json` prodotto da concept_naming
 - Output: `sample_explanations.json` consumato da 05_evaluate_llm_judge.py
 
 ---
@@ -85,14 +85,14 @@ def generate_explanation(
 
 Per ogni concetto attivato nell'immagine, costruisce un "finding" strutturato:
 
-- `concept`: nome medico assegnato in 02b (es. "pneumothorax")
+- `concept`: nome medico assegnato in concept_naming (es. "pneumothorax")
 - `feature_id`: ID numerico della feature SAE (0-4095)
 - `activation`: intensita' dell'attivazione (piu' alta = piu' presente nell'immagine)
 - `naming_confidence`: cosine similarity del naming - quanto siamo sicuri che
   il nome sia corretto
 
 Il caso `unknown_feature_{feat_id}` e' un fallback difensivo: non dovrebbe
-mai attivarsi se 02b e' stato eseguito correttamente (produce nomi per tutte
+mai attivarsi se concept_naming e' stato eseguito correttamente (produce nomi per tutte
 le 4096 feature), ma protegge da inconsistenze.
 
 `str(feat_id)` e' necessario perche' le chiavi JSON sono sempre stringhe,
@@ -248,7 +248,7 @@ Example (sample 0):
 Questo script e' il penultimo prima della valutazione finale:
 
 ```
-01 (embedding) -> 02a (train) -> 02b (naming) -> 02c (explanations) -> 05 (LLM Judge)
+01 (embedding) -> train_sae (train) -> concept_naming (naming) -> generate_explanations (explanations) -> 05 (LLM Judge)
 ```
 
 Le spiegazioni generate qui sono l'input per l'LLM Judge che le valuta

@@ -1,6 +1,6 @@
-# 02b_concept_naming.py - Documentazione completa
+# concept_naming.py - Documentazione completa
 
-Questo documento descrive ogni sezione di `src/02b_concept_naming.py`, lo script
+Questo documento descrive ogni sezione di `src/autoencoder/concept_naming.py`, lo script
 che assegna nomi medici alle 4096 feature apprese dal SAE tramite cosine similarity
 con un vocabolario medico (RadLex).
 
@@ -10,7 +10,7 @@ con un vocabolario medico (RadLex).
 
 ```python
 """
-02b_concept_naming.py - Assign names to SAE concepts
+concept_naming.py - Assign names to SAE concepts
 
 Assign medical names to the 4096 SAE features using cosine similarity
 between decoder weights and vocabulary embeddings.
@@ -21,14 +21,14 @@ Prerequisites:
     - data/vocabulary.json
 
 Run:
-    python src/02b_concept_naming.py
+    python src/autoencoder/concept_naming.py
 """
 ```
 
 **Perche:**
 
 Lo script necessita di tre input:
-1. Un SAE addestrato (da 02a) - per estrarre i pesi del decoder
+1. Un SAE addestrato (da train_sae) - per estrarre i pesi del decoder
 2. Le embedding del vocabolario medico - vettori 512-dim dei termini RadLex
 3. Le label del vocabolario - i nomi human-readable dei termini
 
@@ -48,15 +48,15 @@ from pathlib import Path
 
 import torch
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 import config
-from sae_module import SAEManager
+from autoencoder.sae_module import SAEManager
 ```
 
 **Perche:**
 
 - `json`: per caricare il vocabolario (lista di stringhe) e salvare i risultati
-- Stessa struttura di 02a: path injection, config centralizzata, SAEManager facade
+- Stessa struttura di train_sae: path injection, config centralizzata, SAEManager facade
 
 ---
 
@@ -70,7 +70,7 @@ OUTPUT_PATH = config.paths.results_dir / "concept_names.json"
 **Perche:**
 
 - Usa seed 42 (indice 1 nella tupla) come modello di riferimento. E' il seed
-  piu' usato in letteratura e sara' lo stesso usato per le spiegazioni (02c).
+  piu' usato in letteratura e sara' lo stesso usato per le spiegazioni (generate_explanations).
 - Il risultato va in `results/concept_names.json`, un JSON con mapping
   feature_id -> nome medico.
 

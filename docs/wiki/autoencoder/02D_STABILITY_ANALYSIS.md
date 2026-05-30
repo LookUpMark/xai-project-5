@@ -1,6 +1,6 @@
-# 02d_stability_analysis.py - Documentazione completa
+# stability_analysis.py - Documentazione completa
 
-Questo documento descrive ogni sezione di `src/02d_stability_analysis.py`,
+Questo documento descrive ogni sezione di `src/autoencoder/stability_analysis.py`,
 lo script che valuta la robustezza dei concetti SAE confrontando le attivazioni
 di 5 modelli addestrati con seed diversi.
 
@@ -10,7 +10,7 @@ di 5 modelli addestrati con seed diversi.
 
 ```python
 """
-02d_stability_analysis.py - Multi-seed stability analysis and clustering
+stability_analysis.py - Multi-seed stability analysis and clustering
 
 Evaluate robustness of SAE concepts by comparing activations across 5 SAEs
 trained with different seeds. Computes Jaccard similarity and clustering metrics.
@@ -20,7 +20,7 @@ Prerequisites:
     - embeddings/visual_embeddings.pt
 
 Run:
-    python src/02d_stability_analysis.py
+    python src/autoencoder/stability_analysis.py
 """
 ```
 
@@ -174,7 +174,7 @@ ridotto senza perdere informazione (supporta il suggerimento di ridurre da 4096)
     missing = [d for d in model_dirs if not (d / "ae.pt").exists()]
     if missing:
         logger.error(f"Missing models: {[str(m) for m in missing]}")
-        logger.error("Run first: python src/02a_train_sae.py")
+        logger.error("Run first: python src/autoencoder/train_sae.py")
         sys.exit(1)
 ```
 
@@ -351,14 +351,14 @@ d'accordo?" ma anche "ci sono concetti ridondanti nel dizionario?"
 ## Relazione con gli altri script
 
 ```
-02a (train 5 SAEs) --> 02d (compare them)
+train_sae (train 5 SAEs) --> stability_analysis (compare them)
                              |
                        [Jaccard matrix]
                        [Per-seed quality]
                        [Redundancy check]
 ```
 
-I risultati di 02d informano decisioni su:
+I risultati di stability_analysis informano decisioni su:
 - Se il `dict_size` e' appropriato (troppi dead features? troppi pair correlati?)
 - Se il training e' stabile (Jaccard alto?)
 - Se servono piu' seed o piu' dati

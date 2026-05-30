@@ -1,6 +1,6 @@
-# 02a_train_sae.py - Documentazione completa
+# train_sae.py - Documentazione completa
 
-Questo documento descrive ogni sezione di `src/02a_train_sae.py`, lo script
+Questo documento descrive ogni sezione di `src/autoencoder/train_sae.py`, lo script
 che addestra multipli SAE (uno per seed) per l'analisi di stabilita'.
 
 ---
@@ -9,7 +9,7 @@ che addestra multipli SAE (uno per seed) per l'analisi di stabilita'.
 
 ```python
 """
-02a_train_sae.py - Train Sparse Autoencoders (Top-K)
+train_sae.py - Train Sparse Autoencoders (Top-K)
 
 Train SAEs on BiomedCLIP embeddings with multiple seeds for stability analysis.
 
@@ -17,7 +17,7 @@ Prerequisites:
     - embeddings/visual_embeddings.pt (output of 01_extract_embeddings.py)
 
 Run:
-    python src/02a_train_sae.py
+    python src/autoencoder/train_sae.py
 """
 ```
 
@@ -42,15 +42,15 @@ from pathlib import Path
 
 import torch
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 import config
-from sae_module import SAEManager
+from autoencoder.sae_module import SAEManager
 ```
 
 **Perche:**
 
-- `sys.path.insert(0, str(Path(__file__).parent))`: aggiunge la directory `src/`
-  al Python path, cosi' `import config` e `from sae_module import SAEManager`
+- `sys.path.insert(0, str(Path(__file__).parent.parent))`: aggiunge la directory `src/`
+  al Python path, cosi' `import config` e `from autoencoder.sae_module import SAEManager`
   funzionano indipendentemente da dove viene lanciato lo script (root del progetto
   o dalla directory src/ stessa).
 - `config`: configurazione centralizzata in dataclass (paths, hyperparams, ecc.)
@@ -186,7 +186,7 @@ models/sae_seed456/ae.pt
 models/sae_seed789/ae.pt
 ```
 
-Questi verranno confrontati in `02d_stability_analysis.py` con Jaccard similarity
+Questi verranno confrontati in `stability_analysis.py` con Jaccard similarity
 per verificare che i concetti appresi siano robusti all'inizializzazione random.
 
 ### Raccolta model_dirs
@@ -206,8 +206,8 @@ if __name__ == "__main__":
 **Perche:**
 
 Guard standard Python che permette di:
-- Eseguire lo script direttamente: `python src/02a_train_sae.py`
-- Importare le funzioni senza eseguire il training: `from 02a_train_sae import train_single`
+- Eseguire lo script direttamente: `python src/autoencoder/train_sae.py`
+- Importare le funzioni senza eseguire il training: `from autoencoder.train_sae import train_single`
 
 ---
 

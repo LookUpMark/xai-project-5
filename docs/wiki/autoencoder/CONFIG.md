@@ -205,15 +205,15 @@ class ExplanationConfig:
 **Perche:**
 
 ### concept_top_n = 3
-Quanti candidati di nome restituire per ogni feature nel concept naming (02b).
+Quanti candidati di nome restituire per ogni feature nel concept naming (concept_naming).
 Top-3 permette di vedere alternative quando il primo nome non e' convincente.
 
 ### explanation_top_n = 5
-Quanti concetti includere nella spiegazione di ogni immagine (02c).
+Quanti concetti includere nella spiegazione di ogni immagine (generate_explanations).
 5 concetti bilanciano completezza e leggibilita' nel pseudo-report.
 
 ### explanation_max_samples = None
-Come `stability_max_samples`: limita le immagini processate in 02c.
+Come `stability_max_samples`: limita le immagini processate in generate_explanations.
 `None` = processa tutto il dataset.
 
 ---

@@ -8,7 +8,7 @@ using cosine similarity with decoder weights.
 import pytest
 import torch
 
-from sae_module import SAEManager
+from autoencoder.sae_module import SAEManager
 
 
 class TestNameConcepts:

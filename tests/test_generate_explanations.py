@@ -19,8 +19,8 @@ from importlib import import_module
 
 @pytest.fixture
 def generate_explanation():
-    """Import generate_explanation from 02c script."""
-    spec = import_module("02c_generate_explanations")
+    """Import generate_explanation from generate_explanations module."""
+    spec = import_module("autoencoder.generate_explanations")
     return spec.generate_explanation
 
 

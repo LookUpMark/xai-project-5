@@ -14,7 +14,7 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from sae_module import SAEManager
+from autoencoder.sae_module import SAEManager
 
 
 class TestFullPipelineFlow:
@@ -64,7 +64,7 @@ class TestFullPipelineFlow:
         """Simulate the complete flow: load -> name -> explain."""
         from importlib import import_module
 
-        gen_module = import_module("02c_generate_explanations")
+        gen_module = import_module("autoencoder.generate_explanations")
 
         mgr = SAEManager({"device": "cpu"})
         mgr.load(tmp_model_dir)

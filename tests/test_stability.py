@@ -7,7 +7,7 @@ Verifies Jaccard computation and stability metrics using mock SAEs.
 import pytest
 import torch
 
-from sae_module import SAEManager
+from autoencoder.sae_module import SAEManager
 
 
 class TestComputeStability:

@@ -1,5 +1,5 @@
 """
-02c_generate_explanations.py - Generate SAE-based explanations
+generate_explanations.py - Generate SAE-based explanations
 
 For each image, extract the top-k activated SAE concepts and generate
 a structured explanation (pseudo-report) for the LLM Judge.
@@ -7,10 +7,10 @@ a structured explanation (pseudo-report) for the LLM Judge.
 Prerequisites:
     - models/sae_seed{SEED}/ae.pt
     - embeddings/visual_embeddings.pt
-    - results/concept_names.json (output of 02b)
+    - results/concept_names.json (output of concept_naming.py)
 
 Run:
-    python src/02c_generate_explanations.py
+    python src/autoencoder/generate_explanations.py
 """
 
 import json
@@ -20,9 +20,9 @@ from pathlib import Path
 
 import torch
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 import config
-from sae_module import SAEManager
+from autoencoder.sae_module import SAEManager
 
 logging.basicConfig(
     level=logging.INFO,

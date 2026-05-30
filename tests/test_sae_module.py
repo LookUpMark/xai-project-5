@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import torch
 
-from sae_module import SAEManager, DEFAULT_CONFIG
+from autoencoder.sae_module import SAEManager, DEFAULT_CONFIG
 
 
 class TestSAEManagerInit:

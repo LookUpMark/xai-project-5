@@ -1,5 +1,5 @@
 """
-02b_concept_naming.py - Assign names to SAE concepts
+concept_naming.py - Assign names to SAE concepts
 
 Assign medical names to the 4096 SAE features using cosine similarity
 between decoder weights and vocabulary embeddings.
@@ -10,7 +10,7 @@ Prerequisites:
     - data/vocabulary.json
 
 Run:
-    python src/02b_concept_naming.py
+    python src/autoencoder/concept_naming.py
 """
 
 import json
@@ -20,9 +20,9 @@ from pathlib import Path
 
 import torch
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 import config
-from sae_module import SAEManager
+from autoencoder.sae_module import SAEManager
 
 logging.basicConfig(
     level=logging.INFO,

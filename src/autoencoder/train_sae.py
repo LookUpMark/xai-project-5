@@ -1,5 +1,5 @@
 """
-02a_train_sae.py - Train Sparse Autoencoders (Top-K)
+train_sae.py - Train Sparse Autoencoders (Top-K)
 
 Train SAEs on BiomedCLIP embeddings with multiple seeds for stability analysis.
 
@@ -7,7 +7,7 @@ Prerequisites:
     - embeddings/visual_embeddings.pt (output of 01_extract_embeddings.py)
 
 Run:
-    python src/02a_train_sae.py
+    python src/autoencoder/train_sae.py
 """
 
 import logging
@@ -16,9 +16,9 @@ from pathlib import Path
 
 import torch
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 import config
-from sae_module import SAEManager
+from autoencoder.sae_module import SAEManager
 
 logging.basicConfig(
     level=logging.INFO,

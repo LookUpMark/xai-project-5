@@ -1,5 +1,5 @@
 """
-02d_stability_analysis.py - Multi-seed stability analysis and clustering
+stability_analysis.py - Multi-seed stability analysis and clustering
 
 Evaluate robustness of SAE concepts by comparing activations across 5 SAEs
 trained with different seeds. Computes Jaccard similarity and clustering metrics.
@@ -9,7 +9,7 @@ Prerequisites:
     - embeddings/visual_embeddings.pt
 
 Run:
-    python src/02d_stability_analysis.py
+    python src/autoencoder/stability_analysis.py
 """
 
 import json
@@ -19,9 +19,9 @@ from pathlib import Path
 
 import torch
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 import config
-from sae_module import SAEManager
+from autoencoder.sae_module import SAEManager
 
 logging.basicConfig(
     level=logging.INFO,

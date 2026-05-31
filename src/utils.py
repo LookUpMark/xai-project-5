@@ -14,11 +14,6 @@ from transformers import AutoModel, AutoProcessor
 from config import VLMConfig
 
 
-# ---------------------------------------------------------------------------
-# VLM loading
-# ---------------------------------------------------------------------------
-
-
 def load_vlm(config: VLMConfig):
     """Load BiomedCLIP model and processor.
 
@@ -42,11 +37,6 @@ def load_vlm(config: VLMConfig):
     return model, processor
 
 
-# ---------------------------------------------------------------------------
-# Reproducibility
-# ---------------------------------------------------------------------------
-
-
 def set_global_seed(seed: int) -> None:
     """Set all random seeds for full reproducibility."""
     random.seed(seed)
@@ -55,11 +45,6 @@ def set_global_seed(seed: int) -> None:
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
-
-
-# ---------------------------------------------------------------------------
-# Tensor I/O
-# ---------------------------------------------------------------------------
 
 
 def load_tensor(path: str | Path, device: str = "cpu") -> torch.Tensor:
@@ -75,19 +60,9 @@ def load_tensor(path: str | Path, device: str = "cpu") -> torch.Tensor:
     return torch.load(path, map_location=device, weights_only=True)
 
 
-# ---------------------------------------------------------------------------
-# Filesystem helpers
-# ---------------------------------------------------------------------------
-
-
 def ensure_dir(path: Path) -> None:
     """Create parent directories if they don't exist."""
     path.parent.mkdir(parents=True, exist_ok=True)
-
-
-# ---------------------------------------------------------------------------
-# Logging
-# ---------------------------------------------------------------------------
 
 
 def setup_logging(name: str = __name__) -> logging.Logger:
@@ -105,11 +80,6 @@ def setup_logging(name: str = __name__) -> logging.Logger:
         datefmt="%H:%M:%S",
     )
     return logging.getLogger(name)
-
-
-# ---------------------------------------------------------------------------
-# Dataclass conversion
-# ---------------------------------------------------------------------------
 
 
 def dataclass_to_dict(obj) -> dict:

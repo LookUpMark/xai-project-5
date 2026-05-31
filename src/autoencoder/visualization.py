@@ -131,3 +131,32 @@ def plot_sparsity_summary(
     plt.close(fig)
     logger.info(f"Saved sparsity summary to {save_path}")
     return save_path
+
+
+def plot_loss_curve(
+    steps: list[int],
+    train_losses: list[float],
+    test_losses: list[float],
+    save_path: Path,
+    title: str | None = None,
+) -> Path:
+    """Plot training and test loss curves over training steps."""
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(steps, train_losses, "b-o", label="Train MSE", markersize=4)
+    ax.plot(steps, test_losses, "r-s", label="Test MSE", markersize=4)
+    ax.set_xlabel("Training Step")
+    ax.set_ylabel("MSE (Reconstruction Loss)")
+    if title:
+        ax.set_title(title)
+    else:
+        ax.set_title("Training & Test Loss Curve")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    _ensure_dir(save_path)
+    fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    logger.info(f"Saved loss curve to {save_path}")
+    return save_path

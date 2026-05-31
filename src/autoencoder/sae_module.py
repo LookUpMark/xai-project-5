@@ -562,8 +562,8 @@ class SAEManager:
 
         return {
             "jaccard_matrix": jaccard_matrix,
-            "mean_jaccard": upper_vals.mean().item(),
-            "std_jaccard": upper_vals.std().item(),
+            "mean_jaccard": upper_vals.mean().item() if upper_vals.numel() > 0 else 0.0,
+            "std_jaccard": upper_vals.std(correction=0).item() if upper_vals.numel() > 1 else 0.0,
         }
 
     # ── Internals ─────────────────────────────────────────────────────

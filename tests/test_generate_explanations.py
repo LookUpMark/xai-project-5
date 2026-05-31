@@ -4,17 +4,13 @@ test_generate_explanations.py — Tests for explanation generation.
 Verifies that pseudo-reports are correctly structured from SAE activations.
 """
 
-import json
 import sys
+from importlib import import_module
 from pathlib import Path
 
 import pytest
-import torch
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-# Import the function directly from the script
-from importlib import import_module
 
 
 @pytest.fixture
@@ -81,3 +77,11 @@ class TestGenerateExplanation:
 
         assert "pleural_effusion" in result["pseudo_report"]
         assert "dominant" in result["pseudo_report"]
+
+    def test_empty_findings_guard(self, generate_explanation, sample_concept_names):
+        """Empty top_concepts should return a valid response, not crash."""
+        result = generate_explanation([], sample_concept_names)
+
+        assert result["n_active_concepts"] == 0
+        assert result["findings"] == []
+        assert "No active concepts" in result["pseudo_report"]

@@ -1,8 +1,9 @@
 # generate_explanations.py - Documentazione completa
 
 Questo documento descrive ogni sezione di `src/autoencoder/generate_explanations.py`,
-lo script che genera spiegazioni strutturate (pseudo-report) per ogni immagine
-del dataset a partire dai concetti SAE attivati.
+lo script che genera spiegazioni strutturate (pseudo-report) per ogni immagine del
+TEST set a partire dai concetti SAE attivati, producendo output per la valutazione
+con LLM Judge.
 
 ---
 
@@ -10,15 +11,17 @@ del dataset a partire dai concetti SAE attivati.
 
 ```python
 """
-generate_explanations.py - Generate SAE-based explanations
+generate_explanations.py -- Generate SAE-based explanations
 
 For each image, extract the top-k activated SAE concepts and generate
 a structured explanation (pseudo-report) for the LLM Judge.
 
+Uses HELD-OUT test embeddings for evaluation.
+
 Prerequisites:
-    - models/sae_seed{SEED}/ae.pt
-    - embeddings/visual_embeddings.pt
-    - results/concept_names.json (output of concept_naming)
+    - models/sae_seed{PRIMARY_SEED}/ae.pt
+    - embeddings/test_embeddings.pt
+    - results/concept_names.json (output of concept_naming.py)
 
 Run:
     python src/autoencoder/generate_explanations.py
@@ -27,27 +30,35 @@ Run:
 
 **Perche:**
 
-Questo script e' il ponte tra l'analisi SAE e la valutazione con LLM Judge.
-Prende i concetti grezzi (feature_id, activation_value) e li trasforma in
-spiegazioni leggibili da un LLM, che poi giudichera' se la spiegazione e'
-clinicamente coerente.
+Due dettagli critici: (1) "Uses HELD-OUT test embeddings" -- le spiegazioni sono
+generate su dati mai visti durante il training. (2) Prerequisiti chiari per fail-fast.
 
 ---
 
-## 2. Costanti
+## 2. Importazioni e costanti
 
 ```python
-SEED = config.training.seeds[1]  # Use seed 42 as primary
+import json, logging, sys
+from pathlib import Path
+import torch
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+import config
+from autoencoder.sae_module import SAEManager
+from autoencoder.tracking import init_tracking, log_artifact, finish_tracking
+
+SEED = config.training.primary_seed
 CONCEPT_NAMES_PATH = config.paths.results_dir / "concept_names.json"
 OUTPUT_PATH = config.paths.results_dir / "sample_explanations.json"
 ```
 
 **Perche:**
 
-- Stesso seed di concept_naming (seed=42) per coerenza: i concept names sono stati calcolati
-  su questo modello, le spiegazioni devono usare lo stesso.
-- Input: `concept_names.json` prodotto da concept_naming
-- Output: `sample_explanations.json` consumato da 05_evaluate_llm_judge.py
+- **`config.training.primary_seed`**: coerenza con `concept_naming.py`. I nomi
+  e le attivazioni devono provenire dallo stesso modello (seed 42 di default),
+  altrimenti le spiegazioni sarebbero incoerenti.
+- Input: `concept_names.json` (output di concept_naming).
+- Output: `sample_explanations.json` (consumato da 05_evaluate_llm_judge.py).
 
 ---
 
@@ -83,27 +94,34 @@ def generate_explanation(
 
 **Perche:**
 
-Per ogni concetto attivato nell'immagine, costruisce un "finding" strutturato:
+Per ogni concetto attivato: nome medico, feature_id, intensita' attivazione,
+e naming_confidence (quanto il nome e' affidabile). Il fallback `unknown_feature_`
+e' difesa difensiva: non dovrebbe mai attivarsi, ma protegge da inconsistenze.
+`str(feat_id)` perche' le chiavi JSON sono sempre stringhe.
 
-- `concept`: nome medico assegnato in concept_naming (es. "pneumothorax")
-- `feature_id`: ID numerico della feature SAE (0-4095)
-- `activation`: intensita' dell'attivazione (piu' alta = piu' presente nell'immagine)
-- `naming_confidence`: cosine similarity del naming - quanto siamo sicuri che
-  il nome sia corretto
+### 3.2 Guard contro findings vuoti
 
-Il caso `unknown_feature_{feat_id}` e' un fallback difensivo: non dovrebbe
-mai attivarsi se concept_naming e' stato eseguito correttamente (produce nomi per tutte
-le 4096 feature), ma protegge da inconsistenze.
+```python
+    if not findings:
+        return {
+            "findings": [],
+            "pseudo_report": "No active concepts detected.",
+            "n_active_concepts": 0,
+        }
+```
 
-`str(feat_id)` e' necessario perche' le chiavi JSON sono sempre stringhe,
-anche se rappresentano numeri.
+**Perche:**
 
-### 3.2 Generazione del pseudo-report
+Se il SAE non attiva nessuna feature (embedding tutto zeri, o bug), restituisce
+un placeholder sicuro invece di crashare con indice out-of-bounds.
+
+### 3.3 Generazione del pseudo-report
 
 ```python
     concept_list = ", ".join(f["concept"] for f in findings[:5])
     pseudo_report = (
-        f"The model identifies the following visual concepts in this radiograph: {concept_list}. "
+        f"The model identifies the following visual concepts in this "
+        f"radiograph: {concept_list}. "
         f"The dominant concept is '{findings[0]['concept']}' "
         f"(activation={findings[0]['activation']:.3f})."
     )
@@ -117,45 +135,67 @@ anche se rappresentano numeri.
 
 **Perche:**
 
-Il pseudo-report e' una frase in linguaggio naturale che riassume i concetti
-attivati. Questo formato e' pensato per essere consumato dall'LLM Judge (05)
-che valuta:
-1. Se i concetti identificati hanno senso clinico per una radiografia
-2. Se il concetto dominante e' plausibile
-3. Se la spiegazione e' coerente nel suo insieme
-
-Restituisce sia i dati strutturati (`findings`) sia il testo leggibile
-(`pseudo_report`), permettendo sia analisi automatiche sia valutazione qualitativa.
+- **Solo top-5 nel testo**: includere tutti renderebbe il report illeggibile per
+  un LLM. I primi 5 sono sufficienti per un giudizio qualitativo.
+- **`findings` contiene tutti**: dati strutturati completi per analisi quantitative.
+- **"Dominant concept"**: aiuta l'LLM Judge a focalizzarsi sull'aspetto piu'
+  rilevante.
+- Restituisce sia dati strutturati sia testo leggibile.
 
 ---
 
-## 4. Funzione `main()`
+## 4. Funzione `run()`
 
-### 4.1 Validazione e caricamento
+### 4.1 Validazione prerequisiti
 
 ```python
-    embeddings = torch.load(config.paths.visual_embeddings_path, map_location="cpu", weights_only=True)
+def run() -> Path:
+    model_dir = config.paths.models_dir / f"sae_seed{SEED}"
+    embeddings_path = config.paths.test_embeddings_path
+
+    for path, desc in [
+        (model_dir, "SAE model"),
+        (embeddings_path, "Test embeddings"),
+        (CONCEPT_NAMES_PATH, "Concept names"),
+    ]:
+        if not path.exists():
+            raise FileNotFoundError(f"{desc} not found: {path}")
+```
+
+**Perche:**
+
+Pattern standard. Critico: `embeddings_path = config.paths.test_embeddings_path`
+usa il test set hold-out, non le embedding complete. Le spiegazioni valutano
+capacita' di generalizzazione, non memorizzazione.
+
+### 4.2 Caricamento e limit opzionale
+
+```python
+    embeddings = torch.load(embeddings_path, map_location="cpu", weights_only=True)
     with open(CONCEPT_NAMES_PATH) as f:
         concept_names = json.load(f)
 
     if config.explanation.explanation_max_samples:
         embeddings = embeddings[: config.explanation.explanation_max_samples]
+
+    logger.info(f"Generating explanations for {embeddings.shape[0]} test samples...")
 ```
 
 **Perche:**
 
-- Carica le embedding visive (7400, 512) e i nomi dei concetti
-- `explanation_max_samples`: parametro opzionale per limitare il numero di campioni
-  processati. Utile in sviluppo per testare velocemente su un sottoinsieme.
-  Se `None` (default), processa tutto il dataset.
+- `weights_only=True`: sicurezza pickle.
+- `explanation_max_samples`: parametro opzionale per limitare i campioni in
+  sviluppo. `None` = processa tutto il test set.
 
-### 4.2 Encoding e generazione
+### 4.3 Encoding e generazione
 
 ```python
     mgr = SAEManager({"device": config.hardware.device})
     mgr.load(model_dir)
 
-    all_top_concepts = mgr.get_top_concepts(embeddings, n=config.explanation.explanation_top_n)
+    all_top_concepts = mgr.get_top_concepts(
+        embeddings, n=config.explanation.explanation_top_n
+    )
 
     explanations = []
     for idx, top_concepts in enumerate(all_top_concepts):
@@ -166,15 +206,10 @@ Restituisce sia i dati strutturati (`findings`) sia il testo leggibile
 
 **Perche:**
 
-1. `get_top_concepts(embeddings, n=5)`: per ogni immagine, trova i top-5 concetti
-   piu' attivati. Restituisce lista di liste di tuple (feat_id, activation).
+`get_top_concepts(embeddings, n=5)`: per ogni immagine del test set, i top-5
+concetti. `sample_idx` per tracciabilita' (corrispondenza con le immagini).
 
-2. Per ogni campione, genera la spiegazione strutturata e aggiunge `sample_idx`
-   per tracciabilita' (sapere a quale immagine corrisponde).
-
-3. Il risultato e' una lista di 7400 spiegazioni, una per immagine.
-
-### 4.3 Salvataggio e esempio
+### 4.4 Salvataggio e esempio
 
 ```python
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -182,7 +217,6 @@ Restituisce sia i dati strutturati (`findings`) sia il testo leggibile
         json.dump(explanations, f, indent=2, ensure_ascii=False)
 
     logger.info(f"Explanations generated: {len(explanations)}")
-    logger.info(f"Saved to: {OUTPUT_PATH}")
 
     if explanations:
         logger.info(f"\nExample (sample 0):\n  {explanations[0]['pseudo_report']}")
@@ -190,33 +224,63 @@ Restituisce sia i dati strutturati (`findings`) sia il testo leggibile
 
 **Perche:**
 
-Salva il JSON completo e logga un esempio per verifica visiva rapida.
-L'output sara' tipo:
+Log dell'esempio per verifica visiva rapida. `if explanations:` guard prima
+di accedere a `explanations[0]`.
+
+### 4.5 Tracking Weights & Biases
+
+```python
+    if config.wandb_cfg.enabled:
+        init_tracking("generate_explanations", {
+            "project": config.wandb_cfg.project,
+            "seed": SEED,
+            "n_samples": len(explanations),
+        })
+        log_artifact(OUTPUT_PATH, "sample_explanations", "results")
+        finish_tracking()
 ```
-Example (sample 0):
-  The model identifies the following visual concepts in this radiograph:
-  cardiomegaly, pleural effusion, lung opacity, rib, diaphragm.
-  The dominant concept is 'cardiomegaly' (activation=2.341).
+
+**Perche:**
+
+Run wandb dedicata. Seed, numero campioni e JSON come artefatto. No-op se
+disabilitato.
+
+---
+
+## 5. Funzione `main()`
+
+```python
+def main():
+    run()
+
+if __name__ == "__main__":
+    main()
 ```
+
+**Perche:**
+
+Pattern standard: `run()` testabile, `main()` wrapper, `__name__` guard.
 
 ---
 
 ## Diagramma del flusso
 
 ```
-[Input 1: embeddings/visual_embeddings.pt (7400, 512)]
+[Input 1: embeddings/test_embeddings.pt (N_test, 512)]   <-- HELD-OUT
             |
-[Input 2: models/sae_seed42/ae.pt]
+[Input 2: models/sae_seed{primary_seed}/ae.pt]
             |
-    [SAEManager.get_top_concepts(n=5)]
-            |
-    Per ogni immagine: [(feat_id, activation), ...] x 5
+    [get_top_concepts(n=5)]
             |
 [Input 3: results/concept_names.json]
             |
-    [generate_explanation(): feat_id -> nome medico]
+    +--[generate_explanation()]--+
+    |   feat_id -> nome medico   |
+    |   Guard: empty findings    |
+    |   Costruisci pseudo-report |
+    +----------------------------+
             |
-    [Costruzione pseudo-report in linguaggio naturale]
+    [Aggiungi sample_idx]
             |
 [Output: results/sample_explanations.json]
 ```
@@ -229,27 +293,43 @@ Example (sample 0):
 [
   {
     "findings": [
-      {"concept": "cardiomegaly", "feature_id": 127, "activation": 2.3412, "naming_confidence": 0.7234},
-      {"concept": "pleural effusion", "feature_id": 892, "activation": 1.8901, "naming_confidence": 0.6541},
-      ...
+      {"concept": "cardiomegaly", "feature_id": 127,
+       "activation": 2.3412, "naming_confidence": 0.7234},
+      {"concept": "pleural effusion", "feature_id": 892, ...}
     ],
     "pseudo_report": "The model identifies the following visual concepts...",
     "n_active_concepts": 5,
     "sample_idx": 0
-  },
-  ...
+  }
 ]
 ```
 
 ---
 
+## Perche' si usa il test set
+
+1. **No data leakage**: spiegazioni su dati nuovi, non contaminati dal training.
+2. **Valutazione realistica**: simula lo scenario d'uso reale.
+3. **Coerenza metodologica**: train_sae.py fa sanity check sul test set; usare
+   lo stesso set qui mantiene coerenza.
+
+---
+
+## Dipendenze dalla configurazione
+
+| Variabile | Section | Default | Usata per |
+|-----------|---------|---------|-----------|
+| `config.training.primary_seed` | TrainingConfig | 42 | Modello di riferimento |
+| `config.hardware.device` | HardwareConfig | auto | Device SAE |
+| `config.paths.test_embeddings_path` | PathsConfig | `embeddings/test_embeddings.pt` | Input held-out |
+| `config.explanation.explanation_top_n` | ExplanationConfig | 5 | Top concetti |
+| `config.explanation.explanation_max_samples` | ExplanationConfig | None | Limit sviluppo |
+| `config.wandb_cfg.enabled` | WandbConfig | False | Tracking |
+
+---
+
 ## Ruolo nella pipeline
 
-Questo script e' il penultimo prima della valutazione finale:
-
 ```
-01 (embedding) -> train_sae (train) -> concept_naming (naming) -> generate_explanations (explanations) -> 05 (LLM Judge)
+01 (embedding) -> train_sae -> concept_naming -> generate_explanations (su test) -> 05 (LLM Judge)
 ```
-
-Le spiegazioni generate qui sono l'input per l'LLM Judge che le valuta
-qualitativamente, completando il ciclo di XAI unsupervised concept discovery.

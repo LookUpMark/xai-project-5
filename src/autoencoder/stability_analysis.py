@@ -1,12 +1,13 @@
 """
-stability_analysis.py - Multi-seed stability analysis and clustering
+stability_analysis.py — Multi-seed stability analysis and clustering
 
-Evaluate robustness of SAE concepts by comparing activations across 5 SAEs
-trained with different seeds. Computes Jaccard similarity and clustering metrics.
+Evaluate robustness of SAE concepts by comparing activations across
+multiple SAEs trained with different seeds. Uses HELD-OUT test embeddings.
+Computes Jaccard similarity, per-seed metrics, and concept clustering.
 
 Prerequisites:
     - models/sae_seed{0,42,123,456,789}/ae.pt (all 5 seeds)
-    - embeddings/visual_embeddings.pt
+    - embeddings/test_embeddings.pt
 
 Run:
     python src/autoencoder/stability_analysis.py
@@ -22,6 +23,8 @@ import torch
 sys.path.insert(0, str(Path(__file__).parent.parent))
 import config
 from autoencoder.sae_module import SAEManager
+from autoencoder.tracking import init_tracking, log_artifact, finish_tracking
+from autoencoder.visualization import plot_jaccard_heatmap, plot_per_seed_metrics
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,9 +43,14 @@ def compute_feature_frequency(mgr: SAEManager, embeddings: torch.Tensor) -> torc
     return (sparse != 0).float().mean(dim=0)
 
 
-def compute_concept_clustering(model_dirs: list[Path], embeddings: torch.Tensor) -> dict:
-    """Compute correlation between concept activation patterns."""
-    mgr = SAEManager({"device": config.hardware.device})
+def compute_concept_clustering(
+    model_dirs: list[Path], embeddings: torch.Tensor, device: str
+) -> dict:
+    """
+    Compute co-activation similarity between concept activation patterns.
+    Analyzes one seed model (configurable — uses primary_seed by default).
+    """
+    mgr = SAEManager({"device": device})
     mgr.load(model_dirs[0])
 
     with torch.no_grad():
@@ -55,7 +63,7 @@ def compute_concept_clustering(model_dirs: list[Path], embeddings: torch.Tensor)
 
     logger.info(f"  Active features: {n_active}/{sparse.shape[1]}")
 
-    # Normalized co-occurrence matrix
+    # Cosine similarity of binary activation patterns across samples
     sparse_active = sparse[:, active_indices]
     binary = (sparse_active != 0).float()
 
@@ -64,7 +72,7 @@ def compute_concept_clustering(model_dirs: list[Path], embeddings: torch.Tensor)
     co_occurrence = (binary_norm.T @ binary_norm).cpu()
 
     # Count highly correlated pairs (potential redundancy)
-    threshold = 0.7
+    threshold = config.training.correlation_threshold
     high_corr_pairs = (co_occurrence > threshold).sum().item() - n_active
     high_corr_pairs //= 2
 
@@ -77,22 +85,31 @@ def compute_concept_clustering(model_dirs: list[Path], embeddings: torch.Tensor)
     }
 
 
-def main():
-    model_dirs = [config.paths.models_dir / f"sae_seed{s}" for s in config.training.seeds]
-    missing = [d for d in model_dirs if not (d / "ae.pt").exists()]
+def run() -> Path:
+    """Run stability analysis stage. Returns path to output file."""
+    model_dirs = [
+        config.paths.models_dir / f"sae_seed{s}" for s in config.training.seeds
+    ]
+    missing = [d for d in model_dirs if not (d / "ae.pt").exists()
+               and not (d / "trainer_0" / "ae.pt").exists()]
     if missing:
-        logger.error(f"Missing models: {[str(m) for m in missing]}")
-        logger.error("Run first: python src/02a_train_sae.py")
-        sys.exit(1)
+        raise FileNotFoundError(
+            f"Missing models: {[str(m) for m in missing]}. "
+            f"Run first: python src/autoencoder/train_sae.py"
+        )
 
-    if not config.paths.visual_embeddings_path.exists():
-        logger.error(f"Embeddings not found: {config.paths.visual_embeddings_path}")
-        sys.exit(1)
+    # Use TEST embeddings for stability analysis
+    embeddings_path = config.paths.test_embeddings_path
+    if not embeddings_path.exists():
+        raise FileNotFoundError(
+            f"Test embeddings not found: {embeddings_path}. "
+            f"Run first: python src/autoencoder/train_sae.py"
+        )
 
-    embeddings = torch.load(config.paths.visual_embeddings_path, map_location="cpu", weights_only=True)
+    embeddings = torch.load(embeddings_path, map_location="cpu", weights_only=True)
     if config.training.stability_max_samples:
         embeddings = embeddings[: config.training.stability_max_samples]
-    logger.info(f"Embeddings: {embeddings.shape}")
+    logger.info(f"Test embeddings: {embeddings.shape}")
 
     # 1. Cross-seed Jaccard stability
     logger.info("Computing Jaccard stability across seeds...")
@@ -110,27 +127,45 @@ def main():
         mgr.load(model_dir)
 
         mse = mgr.compute_reconstruction_mse(embeddings)
+        cosine = mgr.compute_cosine_reconstruction(embeddings)
         sparsity = mgr.compute_sparsity_metrics(embeddings)
         freq = compute_feature_frequency(mgr, embeddings)
 
         per_seed_metrics[seed] = {
             "mse": mse,
+            "cosine_sim": cosine,
             **sparsity,
             "feature_frequency_mean": freq.mean().item(),
             "feature_frequency_std": freq.std().item(),
         }
         logger.info(
-            f"  Seed {seed:3d}: MSE={mse:.6f}, L0={sparsity['l0_mean']:.1f}, "
-            f"Dead={sparsity['dead_features_pct']:.1f}%"
+            f"  Seed {seed:3d}: MSE={mse:.6f}, Cosine={cosine:.4f}, "
+            f"L0={sparsity['l0_mean']:.1f}, Dead={sparsity['dead_features_pct']:.1f}%, "
+            f"Util={sparsity['dict_utilization_pct']:.1f}%"
         )
 
     # 3. Clustering
     logger.info("\nConcept clustering analysis...")
-    clustering = compute_concept_clustering(model_dirs, embeddings)
-    logger.info(f"  High-correlation pairs (>{clustering['correlation_threshold']}): "
-                f"{clustering['high_correlation_pairs']}")
+    clustering = compute_concept_clustering(
+        model_dirs, embeddings, config.hardware.device
+    )
+    logger.info(
+        f"  High-similarity pairs (>{clustering['correlation_threshold']}): "
+        f"{clustering['high_correlation_pairs']}"
+    )
 
-    # 4. Save results
+    # 4. Visualization
+    jaccard_np = stability["jaccard_matrix"].numpy()
+    plot_jaccard_heatmap(
+        jaccard_np, list(config.training.seeds),
+        config.paths.figures_dir / "jaccard_heatmap.png",
+    )
+    plot_per_seed_metrics(
+        per_seed_metrics,
+        config.paths.figures_dir / "per_seed_metrics.png",
+    )
+
+    # 5. Save results
     results = {
         "stability": {
             "mean_jaccard": stability["mean_jaccard"],
@@ -139,7 +174,11 @@ def main():
         },
         "per_seed_metrics": per_seed_metrics,
         "clustering": clustering,
-        "config": {"seeds": list(config.training.seeds), "n_samples": embeddings.shape[0]},
+        "config": {
+            "seeds": list(config.training.seeds),
+            "n_samples": embeddings.shape[0],
+            "dataset": "test",
+        },
     }
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -147,6 +186,22 @@ def main():
         json.dump(results, f, indent=2)
 
     logger.info(f"\nResults saved to: {OUTPUT_PATH}")
+
+    # Tracking
+    if config.wandb_cfg.enabled:
+        init_tracking("stability_analysis", {
+            "project": config.wandb_cfg.project,
+            "mean_jaccard": stability["mean_jaccard"],
+            "std_jaccard": stability["std_jaccard"],
+        })
+        log_artifact(OUTPUT_PATH, "stability_analysis", "results")
+        finish_tracking()
+
+    return OUTPUT_PATH
+
+
+def main():
+    run()
 
 
 if __name__ == "__main__":

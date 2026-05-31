@@ -1,8 +1,9 @@
 # concept_naming.py - Documentazione completa
 
 Questo documento descrive ogni sezione di `src/autoencoder/concept_naming.py`, lo script
-che assegna nomi medici alle 4096 feature apprese dal SAE tramite cosine similarity
-con un vocabolario medico (RadLex).
+che assegna nomi medici alle feature apprese dal SAE tramite cosine similarity con un
+vocabolario medico (RadLex), produce statistiche riassuntive e genera una visualizzazione
+della distribuzione degli score.
 
 ---
 
@@ -10,13 +11,13 @@ con un vocabolario medico (RadLex).
 
 ```python
 """
-concept_naming.py - Assign names to SAE concepts
+concept_naming.py -- Assign names to SAE concepts
 
-Assign medical names to the 4096 SAE features using cosine similarity
+Assign medical names to the SAE features using cosine similarity
 between decoder weights and vocabulary embeddings.
 
 Prerequisites:
-    - models/sae_seed{SEED}/ae.pt
+    - models/sae_seed{PRIMARY_SEED}/ae.pt
     - embeddings/text_vocab_embeddings.pt
     - data/vocabulary.json
 
@@ -27,206 +28,228 @@ Run:
 
 **Perche:**
 
-Lo script necessita di tre input:
-1. Un SAE addestrato (da train_sae) - per estrarre i pesi del decoder
-2. Le embedding del vocabolario medico - vettori 512-dim dei termini RadLex
-3. Le label del vocabolario - i nomi human-readable dei termini
-
-L'idea: ogni colonna del decoder rappresenta una "direzione" nello spazio 512-dim.
-Se quella direzione e' simile all'embedding di "pneumothorax", allora quella
-feature cattura il concetto di pneumotorace.
+Lo script necessita di tre input: un SAE addestrato (pesi decoder), embedding
+del vocabolario medico (vettori 512-dim RadLex), e le label human-readable.
+L'idea: ogni riga del decoder e' una "direzione" nello spazio 512-dim. Se quella
+direzione e' simile all'embedding di "pneumothorax", la feature cattura il
+concetto di pneumotorace. `{PRIMARY_SEED}` indica che il seed e' configurabile.
 
 ---
 
-## 2. Importazioni e configurazione
+## 2. Importazioni e costanti
 
 ```python
-import json
-import logging
-import sys
+import json, logging, sys
 from pathlib import Path
-
 import torch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 import config
 from autoencoder.sae_module import SAEManager
-```
+from autoencoder.tracking import init_tracking, log_artifact, finish_tracking
+from autoencoder.visualization import plot_concept_score_distribution
 
-**Perche:**
-
-- `json`: per caricare il vocabolario (lista di stringhe) e salvare i risultati
-- Stessa struttura di train_sae: path injection, config centralizzata, SAEManager facade
-
----
-
-## 3. Costanti
-
-```python
-SEED = config.training.seeds[1]  # Use seed 42 as the primary/reference model
+# Use primary_seed from config (not fragile seeds[1] index)
+SEED = config.training.primary_seed
 OUTPUT_PATH = config.paths.results_dir / "concept_names.json"
 ```
 
 **Perche:**
 
-- Usa seed 42 (indice 1 nella tupla) come modello di riferimento. E' il seed
-  piu' usato in letteratura e sara' lo stesso usato per le spiegazioni (generate_explanations).
-- Il risultato va in `results/concept_names.json`, un JSON con mapping
-  feature_id -> nome medico.
+- `tracking`: integrazione wandb per tracciare risultati del naming.
+- `visualization.plot_concept_score_distribution`: genera istogramma degli score.
+- **`config.training.primary_seed` vs `seeds[1]`**: la versione precedente usava
+  `seeds[1]` (fragile: riordinando la tupla si cambia il modello silenziosamente).
+  Ora usa `primary_seed`, campo esplicito validato da `__post_init__` che verifica
+  sia nella tupla dei seed. Impossibile usare un seed non addestrato.
 
 ---
 
-## 4. Validazione prerequisiti
+## 3. Funzione `run()`
+
+La funzione `run()` contiene tutta la logica e restituisce il path dell'output.
+Separata da `main()` per testabilita' e composizione in pipeline.
+
+### 3.1 Validazione prerequisiti
 
 ```python
-def main():
+def run() -> Path:
     model_dir = config.paths.models_dir / f"sae_seed{SEED}"
-
     for path, desc in [
         (model_dir, "SAE model"),
         (config.paths.vocab_embeddings_path, "Vocab embeddings"),
         (config.paths.vocab_labels_path, "Vocabulary labels"),
     ]:
         if not path.exists():
-            logger.error(f"{desc} not found: {path}")
-            sys.exit(1)
+            raise FileNotFoundError(f"{desc} not found: {path}")
 ```
 
 **Perche:**
 
-Pattern riutilizzato in tutti gli script: prima di fare qualsiasi operazione
-costosa, verifica che tutti i file prerequisiti esistano. Il loop con tuple
-(path, descrizione) evita ripetizione di codice.
+Pattern standard della pipeline: verifica tutti i prerequisiti prima di operazioni
+costose. `raise FileNotFoundError` (non `sys.exit(1)`) permette al chiamante di
+gestire l'errore nel contesto appropriato (test, pipeline orchestrata).
 
----
-
-## 5. Caricamento vocabolario
+### 3.2 Caricamento vocabolario
 
 ```python
     with open(config.paths.vocab_labels_path) as f:
         vocab_labels = json.load(f)
-    logger.info(f"Vocabulary: {len(vocab_labels)} terms")
-
-    vocab_embeddings = torch.load(config.paths.vocab_embeddings_path, map_location="cpu", weights_only=True)
-    logger.info(f"Vocab embeddings shape: {vocab_embeddings.shape}")
+    vocab_embeddings = torch.load(
+        config.paths.vocab_embeddings_path, map_location="cpu", weights_only=True
+    )
 ```
 
 **Perche:**
 
-Due file complementari:
-- `vocabulary.json`: lista di stringhe tipo `["pneumothorax", "cardiomegaly", "pleural effusion", ...]`
-- `text_vocab_embeddings.pt`: tensor (V, 512) dove ogni riga e' l'embedding BiomedCLIP
-  del termine corrispondente nella lista
+Due file complementari con corrispondenza posizionale: `vocab_labels[i]` corrisponde
+a `vocab_embeddings[i]`. Entrambi prodotti da `00_build_vocabulary.py`.
 
-La corrispondenza e' posizionale: `vocab_labels[i]` corrisponde a `vocab_embeddings[i]`.
-Entrambi sono prodotti dallo script 00_build_vocabulary.py che processa i termini RadLex
-attraverso il text encoder di BiomedCLIP.
-
----
-
-## 6. Caricamento SAE e naming
+### 3.3 Naming dei concetti
 
 ```python
     mgr = SAEManager({"device": config.hardware.device})
     mgr.load(model_dir)
 
-    logger.info(f"Computing concept names (top_n={config.explanation.concept_top_n})...")
-    concept_names = mgr.name_concepts(vocab_embeddings, vocab_labels, top_n=config.explanation.concept_top_n)
+    concept_names = mgr.name_concepts(
+        vocab_embeddings, vocab_labels, top_n=config.explanation.concept_top_n
+    )
 ```
 
 **Perche:**
 
-- Carica il SAE seed=42
-- `name_concepts()` internamente:
-  1. Estrae la matrice decoder W_dec (4096, 512)
-  2. Normalizza W_dec e vocab_embeddings a norma unitaria
-  3. Calcola la cosine similarity tra ogni feature e ogni termine
-  4. Per ogni feature, seleziona i top_n=3 termini piu' simili
+`name_concepts()` internamente: (1) estrae W_dec (dict_size, 512), (2) normalizza
+W_dec e vocab a norma unitaria, (3) calcola cosine similarity, (4) per ogni feature
+seleziona i top_n=3 termini piu' simili. Risultato:
 
-Il risultato e' un dizionario:
 ```json
 {
   "0": {"name": "pneumothorax", "score": 0.72, "candidates": [...]},
-  "1": {"name": "cardiomegaly", "score": 0.68, "candidates": [...]},
   ...
-  "4095": {"name": "rib fracture", "score": 0.45, "candidates": [...]}
 }
 ```
 
----
-
-## 7. Salvataggio risultati
-
-```python
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(OUTPUT_PATH, "w") as f:
-        json.dump(concept_names, f, indent=2, ensure_ascii=False)
-```
-
-**Perche:**
-
-- `mkdir(parents=True, exist_ok=True)`: crea la directory `results/` se non esiste.
-- `ensure_ascii=False`: mantiene caratteri Unicode nei nomi medici (es. accenti
-  in terminologia non-inglese) senza escape `\uXXXX`.
-- `indent=2`: formattazione leggibile per ispezione manuale.
-
----
-
-## 8. Statistiche riassuntive
+### 3.4 Statistiche riassuntive
 
 ```python
     scores = [v["score"] for v in concept_names.values()]
-    logger.info(f"Concept naming complete:")
-    logger.info(f"  Total features: {len(concept_names)}")
-    logger.info(f"  Mean score: {sum(scores)/len(scores):.4f}")
-    logger.info(f"  Min/Max: {min(scores):.4f} / {max(scores):.4f}")
-    logger.info(f"  Saved to: {OUTPUT_PATH}")
+    mean_score = sum(scores) / len(scores)
+    logger.info(f"Total features: {len(concept_names)}")
+    logger.info(f"Mean score: {mean_score:.4f}")
+    logger.info(f"Min/Max: {min(scores):.4f} / {max(scores):.4f}")
 ```
 
 **Perche:**
 
-Feedback immediato sulla qualita' del naming:
-- **Mean score**: cosine similarity media tra feature e nome assegnato.
-  Valori attesi: 0.3-0.6 per un buon naming. Se < 0.2 i concetti non hanno
-  corrispondenza chiara nel vocabolario.
-- **Min/Max**: identifica feature con naming eccellente (>0.7) o problematico (<0.2).
+Feedback immediato sulla qualita'. Mean score atteso: 0.3-0.6 per buon naming.
+Min/Max identifica feature eccellenti (>0.7) o problematiche (<0.2). Total features
+deve essere uguale a `dict_size` (4096).
 
----
-
-## 9. Top-10 log
+### 3.5 Top-10 per score
 
 ```python
     sorted_concepts = sorted(concept_names.items(), key=lambda x: x[1]["score"], reverse=True)
-    logger.info(f"\nTop-10 concepts:")
     for feat_id, info in sorted_concepts[:10]:
-        logger.info(f"  Feature {feat_id:>4s}: {info['name']:30s} ({info['score']:.4f})")
+        logger.info(f"  Feature {feat_id:>4}: {info['name']:30s} ({info['score']:.4f})")
 ```
 
 **Perche:**
 
-Mostra le 10 feature con naming piu' sicuro (score piu' alto). Questo da'
-un'idea rapida della qualita' senza dover aprire il JSON. Se i nomi hanno senso
-clinico e gli score sono >0.5, il naming e' riuscito.
+Verifica rapida senza aprire il JSON. Se i top-10 nomi hanno senso clinico e
+score >0.5, il naming e' riuscito. Formattazione tabellare con allineamento.
+
+### 3.6 Visualizzazione
+
+```python
+    fig_path = config.paths.figures_dir / "concept_score_distribution.png"
+    plot_concept_score_distribution(scores, fig_path)
+```
+
+**Perche:**
+
+Genera un istogramma con KDE della distribuzione degli score. Rivela:
+- Distribuzione unimodale (buono) vs bimodale ("interpretabili" vs "non interpretabili").
+- Molti score bassi: vocabolario inadeguato per il dominio visivo.
+- Linea rossa verticale per la media. Salvato in `results/figures/`.
+
+### 3.7 Tracking Weights & Biases
+
+```python
+    if config.wandb_cfg.enabled:
+        init_tracking("concept_naming", {
+            "project": config.wandb_cfg.project,
+            "seed": SEED,
+            "total_features": len(concept_names),
+            "mean_score": mean_score,
+        })
+        log_artifact(OUTPUT_PATH, "concept_names", "results")
+        finish_tracking()
+```
+
+**Perche:**
+
+Run wandb dedicata per il naming. Passa seed, numero feature e score medio come
+config. Salva JSON come artefatto. Protetto da `if wandb_cfg.enabled`.
+
+---
+
+## 4. Funzione `main()`
+
+```python
+def main():
+    run()
+
+if __name__ == "__main__":
+    main()
+```
+
+**Perche:**
+
+Pattern standard: `run()` testabile e con valore di ritorno, `main()` wrapper
+per esecuzione diretta. `__name__` guard per import senza side effects.
 
 ---
 
 ## Diagramma del flusso
 
 ```
-[Input 1: models/sae_seed42/ae.pt]
+[Input 1: models/sae_seed{primary_seed}/ae.pt]
             |
-    [Estrai W_dec (4096, 512)]
+    [Estrai W_dec (dict_size, 512)]
             |
 [Input 2: text_vocab_embeddings.pt (V, 512)]
             |
-    [Normalizza entrambi]
+    [Normalizza + cosine similarity]
+    [Per ogni feature: top-n termini piu' simili]
             |
-    [Cosine similarity: W_dec_norm @ V_norm.T = (4096, V)]
-            |
-    [Per ogni feature: top-3 termini piu' simili]
-            |
-[Output: results/concept_names.json]
+    +--[Salva results/concept_names.json]--+
+    |   +--[Statistiche: mean, min, max]    |
+    |   +--[Top-10 per score]              |
+    |   +--[Istogramma score distribution] |
+    |   +--[Tracking wandb]                |
+    +----------------------------------------+
 ```
+
+---
+
+## Formato dell'output
+
+```json
+{
+  "0": {
+    "name": "pneumothorax",
+    "score": 0.7234,
+    "candidates": [
+      {"label": "pneumothorax", "score": 0.7234},
+      {"label": "pleural line", "score": 0.6512},
+      {"label": "air space", "score": 0.6021}
+    ]
+  }
+}
+```
+
+`candidates` (top_n=3) utile per debugging: se il nome #1 e' errato, il #2
+potrebbe essere piu' appropriato.
 
 ---
 
@@ -234,11 +257,34 @@ clinico e gli score sono >0.5, il naming e' riuscito.
 
 | Score range | Significato |
 |-------------|-------------|
-| > 0.7 | Feature fortemente allineata con un termine medico preciso |
+| > 0.7 | Feature fortemente allineata con termine medico preciso |
 | 0.4 - 0.7 | Buon allineamento, nome probabilmente corretto |
-| 0.2 - 0.4 | Allineamento debole, il nome e' una approssimazione |
-| < 0.2 | Feature non ben catturata dal vocabolario (potrebbe rappresentare un concetto visivo non medico) |
+| 0.2 - 0.4 | Allineamento debole, approssimazione |
+| < 0.2 | Non catturata dal vocabolario (concetto visivo non medico?) |
 
-Features con score basso non sono necessariamente "cattive" - potrebbero catturare
-concetti visivi legittimi (orientamento, contrasto, struttura) che non hanno
-corrispondenti nel vocabolario medico testuale.
+---
+
+## Dipendenze dalla configurazione
+
+| Variabile | Section | Default | Usata per |
+|-----------|---------|---------|-----------|
+| `config.training.primary_seed` | TrainingConfig | 42 | Modello di riferimento |
+| `config.hardware.device` | HardwareConfig | auto | Device SAE |
+| `config.paths.vocab_embeddings_path` | PathsConfig | `embeddings/text_vocab_embeddings.pt` | Embedding vocab |
+| `config.paths.vocab_labels_path` | PathsConfig | `data/vocabulary.json` | Label vocab |
+| `config.paths.results_dir` | PathsConfig | `results/` | Output JSON |
+| `config.paths.figures_dir` | PathsConfig | `results/figures/` | Output grafico |
+| `config.explanation.concept_top_n` | ExplanationConfig | 3 | Candidati per feature |
+| `config.wandb_cfg.enabled` | WandbConfig | False | Tracking |
+
+---
+
+## Relazione con gli altri script
+
+```
+train_sae --> concept_naming (usa sae_seed{primary_seed})
+                +---> generate_explanations (usa concept_names.json)
+```
+
+I concept names sono il ponte tra feature IDs numeriche e spiegazioni leggibili.
+Senza questo step, le spiegazioni sarebbero solo numeri.

@@ -1,7 +1,8 @@
 """
 test_stability.py — Tests for multi-seed stability analysis.
 
-Verifies Jaccard computation and stability metrics using mock SAEs.
+Verifies Jaccard computation and stability metrics using real
+AutoEncoderTopK with random weights.
 """
 
 import pytest
@@ -87,3 +88,28 @@ class TestComputeStability:
         # Different models should have Jaccard < 1.0
         assert result["mean_jaccard"] < 1.0
         assert result["mean_jaccard"] >= 0.0
+
+    def test_trainer0_subdir_loading(self, tmp_model_dir_trainer0, fake_embeddings):
+        """Model saved under trainer_0/ should load correctly."""
+        mgr = SAEManager({"device": "cpu"})
+        mgr.load(tmp_model_dir_trainer0)
+        assert mgr.is_loaded
+
+        sparse = mgr.encode(fake_embeddings[:5])
+        assert sparse.shape == (5, 4096)
+
+    def test_n_parameter_limits_comparison(self, tmp_model_dir, fake_embeddings):
+        """n parameter should limit which features are compared."""
+        dirs = [tmp_model_dir, tmp_model_dir]
+
+        # n=32 (all features) should give Jaccard 1.0 for identical models
+        result_full = SAEManager.compute_stability(
+            dirs, fake_embeddings[:10], config={"device": "cpu"}, n=32
+        )
+        assert result_full["mean_jaccard"] == pytest.approx(1.0, abs=1e-6)
+
+        # n=5 (only top-5 features) should also give 1.0 for identical models
+        result_n5 = SAEManager.compute_stability(
+            dirs, fake_embeddings[:10], config={"device": "cpu"}, n=5
+        )
+        assert result_n5["mean_jaccard"] == pytest.approx(1.0, abs=1e-6)

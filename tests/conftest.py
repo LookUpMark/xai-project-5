@@ -8,7 +8,7 @@ so tests run without GPU or real model weights.
 import json
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 import torch
@@ -84,7 +84,7 @@ def mock_ae():
     ae.decode = mock_decode
     ae.__call__ = mock_forward
 
-    # Fake decoder weights
+    # Fake decoder weights (512, 4096) — transposed to (4096, 512)
     ae.decoder = MagicMock()
     ae.decoder.weight = MagicMock()
     ae.decoder.weight.data = torch.randn(512, 4096)
@@ -108,7 +108,7 @@ def tmp_model_dir(tmp_path, mock_ae):
     }
     torch.save(state_dict, model_dir / "ae.pt")
 
-    config = {
+    config_data = {
         "trainer": {
             "dict_class": "AutoEncoderTopK",
             "k": 32,
@@ -117,7 +117,27 @@ def tmp_model_dir(tmp_path, mock_ae):
         }
     }
     with open(model_dir / "config.json", "w") as f:
-        json.dump(config, f)
+        json.dump(config_data, f)
+
+    return model_dir
+
+
+@pytest.fixture
+def tmp_model_dir_trainer0(tmp_path):
+    """Model saved under trainer_0/ subdirectory (library convention)."""
+    model_dir = tmp_path / "sae_seed0"
+    trainer_dir = model_dir / "trainer_0"
+    trainer_dir.mkdir(parents=True)
+
+    state_dict = {
+        "encoder.weight": torch.randn(4096, 512),
+        "encoder.bias": torch.zeros(4096),
+        "decoder.weight": torch.randn(512, 4096),
+        "b_dec": torch.zeros(512),
+        "k": torch.tensor(32),
+        "threshold": torch.tensor(-1.0),
+    }
+    torch.save(state_dict, trainer_dir / "ae.pt")
 
     return model_dir
 

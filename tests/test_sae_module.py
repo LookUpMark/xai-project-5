@@ -1,17 +1,16 @@
 """
 test_sae_module.py — Unit tests for SAEManager.
 
-Tests the facade interface with mocked AutoEncoderTopK.
-No GPU or real model weights required.
+Tests the facade interface with real AutoEncoderTopK (random weights).
+No GPU or real training required.
 """
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
 
-from autoencoder.sae_module import SAEManager, DEFAULT_CONFIG
+from autoencoder.sae_module import SAEManager, _DEFAULTS
 
 
 class TestSAEManagerInit:
@@ -124,14 +123,22 @@ class TestSAEManagerMetrics:
         assert isinstance(mse, float)
         assert mse >= 0
 
+    def test_cosine_reconstruction(self, tmp_model_dir, fake_embeddings):
+        mgr = SAEManager({"device": "cpu"})
+        mgr.load(tmp_model_dir)
+        cosine = mgr.compute_cosine_reconstruction(fake_embeddings[:10])
+        assert isinstance(cosine, float)
+        assert -1.0 <= cosine <= 1.0
+
     def test_sparsity_metrics_keys(self, tmp_model_dir, fake_embeddings):
         mgr = SAEManager({"device": "cpu"})
         mgr.load(tmp_model_dir)
         metrics = mgr.compute_sparsity_metrics(fake_embeddings[:10])
         assert "l0_mean" in metrics
         assert "l0_std" in metrics
-        assert "hoyer_mean" in metrics
         assert "dead_features_pct" in metrics
+        assert "activation_entropy" in metrics
+        assert "dict_utilization_pct" in metrics
 
     def test_sparsity_l0_reasonable(self, tmp_model_dir, fake_embeddings):
         mgr = SAEManager({"device": "cpu"})
@@ -139,3 +146,5 @@ class TestSAEManagerMetrics:
         metrics = mgr.compute_sparsity_metrics(fake_embeddings[:10])
         # L0 should be <= k (32) since TopK enforces this
         assert metrics["l0_mean"] <= 32
+        # Utilization should be in [0, 100]
+        assert 0 <= metrics["dict_utilization_pct"] <= 100

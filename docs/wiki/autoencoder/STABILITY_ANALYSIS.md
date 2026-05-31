@@ -2,7 +2,8 @@
 
 Questo documento descrive ogni sezione di `src/autoencoder/stability_analysis.py`,
 lo script che valuta la robustezza dei concetti SAE confrontando le attivazioni
-di 5 modelli addestrati con seed diversi.
+di 5 modelli addestrati con seed diversi sul TEST set held-out, con visualizzazione
+della matrice Jaccard e delle metriche per-seed.
 
 ---
 
@@ -10,14 +11,15 @@ di 5 modelli addestrati con seed diversi.
 
 ```python
 """
-stability_analysis.py - Multi-seed stability analysis and clustering
+stability_analysis.py -- Multi-seed stability analysis and clustering
 
-Evaluate robustness of SAE concepts by comparing activations across 5 SAEs
-trained with different seeds. Computes Jaccard similarity and clustering metrics.
+Evaluate robustness of SAE concepts by comparing activations across
+multiple SAEs trained with different seeds. Uses HELD-OUT test embeddings.
+Computes Jaccard similarity, per-seed metrics, and concept clustering.
 
 Prerequisites:
     - models/sae_seed{0,42,123,456,789}/ae.pt (all 5 seeds)
-    - embeddings/visual_embeddings.pt
+    - embeddings/test_embeddings.pt
 
 Run:
     python src/autoencoder/stability_analysis.py
@@ -26,25 +28,34 @@ Run:
 
 **Perche:**
 
-La domanda fondamentale a cui questo script risponde: "I concetti che il SAE
-impara sono reali o sono artefatti dell'inizializzazione random?"
-
-Se 5 SAE addestrati con seed diversi attivano le stesse feature per le stesse
-immagini, allora quei concetti sono robusti e probabilmente catturano struttura
-reale nei dati.
+La domanda fondamentale: "I concetti SAE sono reali o artefatti dell'inizializzazione
+random?" Se 5 SAE con seed diversi attivano le stesse feature, i concetti sono robusti.
+"HELD-OUT test embeddings": stabilita' su dati mai visti, non da overfitting.
+Servono tutti e 5 i modelli per il confronto cross-seed.
 
 ---
 
-## 2. Costanti e importazioni
+## 2. Importazioni e costanti
 
 ```python
+import json, logging, sys
+from pathlib import Path
+import torch
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+import config
+from autoencoder.sae_module import SAEManager
+from autoencoder.tracking import init_tracking, log_artifact, finish_tracking
+from autoencoder.visualization import plot_jaccard_heatmap, plot_per_seed_metrics
+
 OUTPUT_PATH = config.paths.results_dir / "stability_analysis.json"
 ```
 
 **Perche:**
 
-Il risultato e' un singolo JSON con tutte le metriche di stabilita', salvato
-in `results/stability_analysis.json`.
+- `tracking`: integrazione wandb per metriche di stabilita'.
+- `plot_jaccard_heatmap`: heatmap Jaccard (seaborn, colormap "YlOrRd").
+- `plot_per_seed_metrics`: bar chart comparativo (MSE, dead %) per seed.
 
 ---
 
@@ -52,7 +63,6 @@ in `results/stability_analysis.json`.
 
 ```python
 def compute_feature_frequency(mgr: SAEManager, embeddings: torch.Tensor) -> torch.Tensor:
-    """Compute activation frequency of each feature across the dataset."""
     with torch.no_grad():
         sparse = mgr.encode(embeddings)
     return (sparse != 0).float().mean(dim=0)
@@ -60,170 +70,103 @@ def compute_feature_frequency(mgr: SAEManager, embeddings: torch.Tensor) -> torc
 
 **Perche:**
 
-Per ogni feature (0-4095), calcola la frazione di campioni in cui si attiva.
-
-- `sparse != 0` crea una maschera booleana (B, 4096): True dove la feature e' attiva
-- `.float().mean(dim=0)` media lungo i campioni -> vettore (4096,) con frequenze
-
-Esempio: se feature 127 ha frequenza 0.15, significa che si attiva nel 15% delle
-immagini. Feature con frequenza 0 sono "dead features" (mai usate).
-
-Questa metrica serve per:
-- Identificare dead features
-- Capire la distribuzione di utilizzo del dizionario
-- Individuare feature troppo generiche (frequenza alta) o troppo specifiche (frequenza ~0)
+Per ogni feature (0-4095), la frazione di campioni in cui si attiva. Feature con
+frequenza 0 = "dead features". Serve per identificare feature inutilizzate e
+capire la distribuzione del dizionario.
 
 ---
 
 ## 4. Funzione `compute_concept_clustering()`
 
 ```python
-def compute_concept_clustering(model_dirs: list[Path], embeddings: torch.Tensor) -> dict:
-    """Compute correlation between concept activation patterns."""
-    mgr = SAEManager({"device": config.hardware.device})
-    mgr.load(model_dirs[0])
-
-    with torch.no_grad():
-        sparse = mgr.encode(embeddings)
+def compute_concept_clustering(
+    model_dirs: list[Path], embeddings: torch.Tensor, device: str
+) -> dict:
 ```
 
-**Perche:**
-
-Analizza se ci sono concetti ridondanti nel dizionario: feature diverse che
-si attivano sempre insieme sugli stessi campioni.
-
-### 4.1 Filtraggio dead features
+Analizza ridondanza nel dizionario: feature diverse che si attivano sempre insieme.
+Usa il primo modello (seed[0]) perche' la co-occorrenza e' proprieta' del
+dizionario, non dell'inizializzazione.
 
 ```python
+    # Filtra dead features (correlazione spuria se entrambe zero)
     active_mask = (sparse != 0).float().sum(dim=0) > 0
     active_indices = active_mask.nonzero(as_tuple=True)[0]
-    n_active = active_indices.shape[0]
 
-    logger.info(f"  Active features: {n_active}/{sparse.shape[1]}")
-```
-
-**Perche:**
-
-Prima di calcolare correlazioni, rimuove le feature mai attivate (dead features).
-Includerle introdurrebbe correlazioni spurie (due feature entrambe sempre zero
-hanno correlazione perfetta ma non e' informativa).
-
-- `sum(dim=0) > 0`: una feature e' "attiva" se si attiva almeno una volta sul dataset
-- `.nonzero()`: ottiene gli indici delle feature attive
-
-### 4.2 Matrice di co-occorrenza normalizzata
-
-```python
-    sparse_active = sparse[:, active_indices]
-    binary = (sparse_active != 0).float()
-
+    # Cosine similarity tra pattern binari (ignora intensita')
+    binary = (sparse[:, active_indices] != 0).float()
     norms = binary.norm(dim=0, keepdim=True) + 1e-8
-    binary_norm = binary / norms
-    co_occurrence = (binary_norm.T @ binary_norm).cpu()
+    co_occurrence = (binary / norms).T @ (binary / norms)
 ```
 
 **Perche:**
 
-Calcola la cosine similarity tra i pattern di attivazione delle feature:
-
-1. `binary`: converte in 0/1 (ignora l'intensita', interessa solo se attiva o no)
-2. `binary_norm`: normalizza ogni colonna (feature) a norma unitaria
-3. `binary_norm.T @ binary_norm`: il prodotto scalare tra colonne normalizzate
-   e' il cosine similarity tra i pattern di attivazione
-
-Il risultato e' una matrice (n_active, n_active) dove [i,j] misura quanto
-spesso le feature i e j co-occorrono.
-
-- 1.0: si attivano sempre sugli stessi campioni (ridondanti)
-- 0.0: non si attivano mai insieme (complementari)
-
-### 4.3 Conteggio coppie correlate
+- Dead features (sempre zero) hanno cosine similarity perfetta ma non informativa.
+- `binary` ignora l'intensita': interessa solo attiva/non-attiva.
+- `1e-8` previene divisione per zero. Risultato: matrice (n_active, n_active).
 
 ```python
-    threshold = 0.7
+    threshold = config.training.correlation_threshold
     high_corr_pairs = (co_occurrence > threshold).sum().item() - n_active
     high_corr_pairs //= 2
-
-    return {
-        "n_active_features": n_active,
-        "n_dead_features": sparse.shape[1] - n_active,
-        "high_correlation_pairs": high_corr_pairs,
-        "correlation_threshold": threshold,
-        "mean_co_occurrence": co_occurrence.mean().item(),
-    }
 ```
 
 **Perche:**
 
-- `threshold = 0.7`: coppie con correlazione > 0.7 sono considerate potenzialmente
-  ridondanti (catturano informazione simile)
-- `- n_active`: sottrae la diagonale (ogni feature ha correlazione 1.0 con se stessa)
-- `// 2`: la matrice e' simmetrica, ogni coppia e' contata due volte
-
-Un numero alto di coppie correlate suggerisce che il `dict_size` potrebbe essere
-ridotto senza perdere informazione (supporta il suggerimento di ridurre da 4096).
+`threshold` da config (default: 0.7), non hardcoded. `- n_active`: sottrae la
+diagonale. `// 2`: matrice simmetrica, coppie contate due volte. Numero alto di
+coppie correlate suggerisce dict_size riducibile.
 
 ---
 
-## 5. Funzione `main()`
+## 5. Funzione `run()`
 
-### 5.1 Setup e validazione
+### 5.1 Validazione prerequisiti
 
 ```python
+def run() -> Path:
     model_dirs = [config.paths.models_dir / f"sae_seed{s}" for s in config.training.seeds]
-    missing = [d for d in model_dirs if not (d / "ae.pt").exists()]
+    missing = [d for d in model_dirs if not (d / "ae.pt").exists()
+               and not (d / "trainer_0" / "ae.pt").exists()]
     if missing:
-        logger.error(f"Missing models: {[str(m) for m in missing]}")
-        logger.error("Run first: python src/autoencoder/train_sae.py")
-        sys.exit(1)
+        raise FileNotFoundError(f"Missing models: {[str(m) for m in missing]}.")
 ```
 
 **Perche:**
 
-Verifica che tutti e 5 i modelli esistano. A differenza degli altri script che
-necessitano di un solo modello, qui servono tutti perche' lo scopo e' il confronto
-cross-seed.
+Servono tutti e 5 i modelli. Il check cerca `ae.pt` e `trainer_0/ae.pt` per
+compatibilita' con diverse versioni della libreria.
 
-### 5.2 Caricamento embeddings con limit opzionale
+### 5.2 Caricamento TEST embeddings
 
 ```python
-    embeddings = torch.load(config.paths.visual_embeddings_path, map_location="cpu", weights_only=True)
+    embeddings_path = config.paths.test_embeddings_path
+    embeddings = torch.load(embeddings_path, map_location="cpu", weights_only=True)
     if config.training.stability_max_samples:
         embeddings = embeddings[: config.training.stability_max_samples]
-    logger.info(f"Embeddings: {embeddings.shape}")
 ```
 
 **Perche:**
 
-`stability_max_samples` permette di limitare i campioni usati per l'analisi.
-L'analisi di stabilita' e' O(n_seeds^2 * n_samples) quindi con 7400 campioni
-e 5 seed puo' richiedere tempo significativo. In sviluppo si puo' testare con
-un sottoinsieme.
+Test set held-out: stabilita' generalizzabile, non stabilita' da overfitting.
+`stability_max_samples` limita in sviluppo (analisi e' O(n_seeds^2 * n_samples)).
 
-### 5.3 Cross-seed Jaccard stability
+### 5.3 Cross-seed Jaccard
 
 ```python
-    logger.info("Computing Jaccard stability across seeds...")
     stability = SAEManager.compute_stability(
         model_dirs, embeddings, config={"device": config.hardware.device}
     )
-    logger.info(f"  Mean Jaccard: {stability['mean_jaccard']:.4f}")
-    logger.info(f"  Std Jaccard:  {stability['std_jaccard']:.4f}")
 ```
 
-**Perche:**
-
-Delega al metodo statico `SAEManager.compute_stability()` (documentato nella
-wiki di sae_module). Il risultato chiave e' `mean_jaccard`:
-
-| Mean Jaccard | Interpretazione |
-|-------------|-----------------|
-| > 0.6 | Concetti molto stabili, alta robustezza |
+| Mean Jaccard | Significato |
+|-------------|------------|
+| > 0.6 | Concetti molto stabili |
 | 0.4 - 0.6 | Stabilita' ragionevole |
-| 0.2 - 0.4 | Stabilita' debole, i concetti sono parzialmente artefatti |
-| < 0.2 | I concetti dipendono fortemente dal seed - scarsa affidabilita' |
+| 0.2 - 0.4 | Stabilita' debole |
+| < 0.2 | Dipendono fortemente dal seed |
 
-### 5.4 Per-seed metrics
+### 5.4 Per-seed metrics (caricamento uno alla volta)
 
 ```python
     per_seed_metrics = {}
@@ -232,12 +175,12 @@ wiki di sae_module). Il risultato chiave e' `mean_jaccard`:
         mgr.load(model_dir)
 
         mse = mgr.compute_reconstruction_mse(embeddings)
+        cosine = mgr.compute_cosine_reconstruction(embeddings)
         sparsity = mgr.compute_sparsity_metrics(embeddings)
         freq = compute_feature_frequency(mgr, embeddings)
 
         per_seed_metrics[seed] = {
-            "mse": mse,
-            **sparsity,
+            "mse": mse, "cosine_sim": cosine, **sparsity,
             "feature_frequency_mean": freq.mean().item(),
             "feature_frequency_std": freq.std().item(),
         }
@@ -245,28 +188,30 @@ wiki di sae_module). Il risultato chiave e' `mean_jaccard`:
 
 **Perche:**
 
-Per ogni seed calcola metriche individuali:
-- **MSE**: dovrebbe essere simile tra i seed (stessa capacita' ricostruttiva)
-- **Sparsity (L0, Hoyer, dead %)**: dovrebbe essere simile
-- **Feature frequency**: distribuzione dell'uso del dizionario
+**Caricamento uno alla volta**: ogni SAE viene caricato e valutato, poi rimpiazzato
+nel prossimo ciclo (~5x risparmio memoria GPU). Metriche: MSE e Cosine
+(ricostruzione), sparsity (L0, Hoyer, dead %), feature frequency (mean, std).
+Un seed con metriche anomale indica convergenza problematica.
 
-Se un seed ha metriche molto diverse dagli altri, potrebbe indicare un problema
-di convergenza o un minimo locale particolarmente diverso.
-
-### 5.5 Clustering analysis
+### 5.5 Clustering e visualizzazione
 
 ```python
-    clustering = compute_concept_clustering(model_dirs, embeddings)
-    logger.info(f"  High-correlation pairs (>{clustering['correlation_threshold']}): "
-                f"{clustering['high_correlation_pairs']}")
+    clustering = compute_concept_clustering(model_dirs, embeddings, config.hardware.device)
+
+    jaccard_np = stability["jaccard_matrix"].numpy()
+    plot_jaccard_heatmap(jaccard_np, list(config.training.seeds),
+        config.paths.figures_dir / "jaccard_heatmap.png")
+    plot_per_seed_metrics(per_seed_metrics,
+        config.paths.figures_dir / "per_seed_metrics.png")
 ```
 
 **Perche:**
 
-Aggiunge informazione complementare alla Jaccard: non solo "i seed sono
-d'accordo?" ma anche "ci sono concetti ridondanti nel dizionario?"
+Complementare alla Jaccard: "ci sono concetti ridondanti?" Due grafici:
+(1) Heatmap Jaccard 5x5 -- coppie simili/dissimili a colpo d'occhio.
+(2) Bar chart MSE e dead % per seed -- uniformita' tra modelli.
 
-### 5.6 Salvataggio risultati
+### 5.6 Salvataggio e tracking
 
 ```python
     results = {
@@ -277,88 +222,99 @@ d'accordo?" ma anche "ci sono concetti ridondanti nel dizionario?"
         },
         "per_seed_metrics": per_seed_metrics,
         "clustering": clustering,
-        "config": {"seeds": list(config.training.seeds), "n_samples": embeddings.shape[0]},
+        "config": {"seeds": list(config.training.seeds),
+                   "n_samples": embeddings.shape[0], "dataset": "test"},
     }
-
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(OUTPUT_PATH, "w") as f:
-        json.dump(results, f, indent=2)
 ```
 
 **Perche:**
 
-- `.tolist()`: converte tensor PyTorch in liste Python (JSON-serializzabile)
-- Include la config usata per riproducibilita' (quanti campioni, quali seed)
-- Il JSON e' consultabile da notebook di analisi o da report automatici
+`.tolist()` converte tensor in liste JSON-serializzabili. `"dataset": "test"`
+documenta l'uso del test set. Config inclusa per riproducibilita'.
+
+```python
+    if config.wandb_cfg.enabled:
+        init_tracking("stability_analysis", {
+            "project": config.wandb_cfg.project,
+            "mean_jaccard": stability["mean_jaccard"],
+            "std_jaccard": stability["std_jaccard"],
+        })
+        log_artifact(OUTPUT_PATH, "stability_analysis", "results")
+        finish_tracking()
+```
+
+No-op se wandb disabilitato. Jaccard mean/std sono metriche chiave per
+confrontare esperimenti.
+
+---
+
+## 6. Funzione `main()`
+
+```python
+def main():
+    run()
+
+if __name__ == "__main__":
+    main()
+```
+
+Pattern standard: `run()` testabile con valore di ritorno, `main()` wrapper.
 
 ---
 
 ## Diagramma del flusso
 
 ```
-[Input: 5 modelli + embeddings]
+[Input: 5 modelli + embeddings/test_embeddings.pt]
             |
-    +---[1. Jaccard Stability]---+
-    |       |                    |
-    |   Per ogni coppia di seed: |
-    |   J(A,B) = |A&B| / |A|B|  |
-    |       |                    |
-    |   mean_jaccard, std_jaccard|
-    +----------------------------+
+    +--[1. Jaccard Stability]--+
+    |   J(A,B)=|A&B|/|A|B|   |
+    |   mean_jaccard, std      |
+    +--------------------------+
             |
-    +---[2. Per-seed Metrics]----+
-    |   MSE, L0, Hoyer, Dead%,  |
-    |   Feature frequency        |
-    +----------------------------+
+    +--[2. Per-seed Metrics]--+
+    |   UNO ALLA VOLTA (mem)  |
+    |   MSE, Cosine, L0, ...  |
+    +--------------------------+
             |
-    +---[3. Clustering]----------+
-    |   Co-occurrence matrix     |
-    |   High-correlation pairs   |
-    +----------------------------+
+    +--[3. Clustering]-------+
+    |   Co-occurrence, thresh  |
+    +--------------------------+
+            |
+    +--[4. Visualization]-----+
+    |   Heatmap + bar chart    |
+    +--------------------------+
             |
 [Output: results/stability_analysis.json]
 ```
 
 ---
 
-## Output di esempio
+## Dipendenze dalla configurazione
 
-```json
-{
-  "stability": {
-    "mean_jaccard": 0.4523,
-    "std_jaccard": 0.0312,
-    "jaccard_matrix": [[1.0, 0.45, 0.46, ...], ...]
-  },
-  "per_seed_metrics": {
-    "0":   {"mse": 0.0012, "l0_mean": 32.0, "dead_features_pct": 15.2, ...},
-    "42":  {"mse": 0.0011, "l0_mean": 32.0, "dead_features_pct": 14.8, ...},
-    ...
-  },
-  "clustering": {
-    "n_active_features": 3480,
-    "n_dead_features": 616,
-    "high_correlation_pairs": 234,
-    "correlation_threshold": 0.7,
-    "mean_co_occurrence": 0.023
-  },
-  "config": {"seeds": [0, 42, 123, 456, 789], "n_samples": 7400}
-}
-```
+| Variabile | Section | Default | Usata per |
+|-----------|---------|---------|-----------|
+| `config.training.seeds` | TrainingConfig | (0,42,123,456,789) | Quali modelli |
+| `config.paths.test_embeddings_path` | PathsConfig | `embeddings/test_embeddings.pt` | Input held-out |
+| `config.paths.models_dir` | PathsConfig | `models/` | Directory modelli |
+| `config.paths.results_dir` | PathsConfig | `results/` | Output JSON |
+| `config.paths.figures_dir` | PathsConfig | `results/figures/` | Output grafici |
+| `config.training.stability_max_samples` | TrainingConfig | None | Limit sviluppo |
+| `config.training.correlation_threshold` | TrainingConfig | 0.7 | Soglia ridondanza |
+| `config.wandb_cfg.enabled` | WandbConfig | False | Tracking |
 
 ---
 
 ## Relazione con gli altri script
 
 ```
-train_sae (train 5 SAEs) --> stability_analysis (compare them)
-                             |
-                       [Jaccard matrix]
-                       [Per-seed quality]
-                       [Redundancy check]
+train_sae (5 SAEs) --> stability_analysis (confronta su test set)
+                          |
+                    [Jaccard matrix]
+                    [Per-seed quality]
+                    [Redundancy check]
+                    [Heatmap + bar chart]
 ```
 
-I risultati di stability_analysis informano decisioni su:
-- Se il `dict_size` e' appropriato (troppi dead features? troppi pair correlati?)
-- Se il training e' stabile (Jaccard alto?)
-- Se servono piu' seed o piu' dati
+I risultati informano decisioni su: dict_size appropriato, stabilita' del training,
+necessita' di piu' seed/dati, correlation_threshold ottimale.

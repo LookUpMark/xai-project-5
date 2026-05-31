@@ -29,7 +29,6 @@ class TestFullPipelineFlow:
         x_hat = mgr.decode(sparse)
 
         assert x.shape == x_hat.shape
-        # Reconstruction won't be perfect with random weights, but shapes must match
 
     def test_encode_to_concepts_pipeline(self, tmp_model_dir, fake_embeddings):
         mgr = SAEManager({"device": "cpu"})
@@ -37,7 +36,6 @@ class TestFullPipelineFlow:
 
         concepts = mgr.get_top_concepts(fake_embeddings[:3], n=5)
 
-        # Verify structure
         assert len(concepts) == 3
         for sample_concepts in concepts:
             assert len(sample_concepts) == 5
@@ -96,11 +94,14 @@ class TestFullPipelineFlow:
         mgr.load(tmp_model_dir)
 
         mse = mgr.compute_reconstruction_mse(fake_embeddings[:10])
+        cosine = mgr.compute_cosine_reconstruction(fake_embeddings[:10])
         sparsity = mgr.compute_sparsity_metrics(fake_embeddings[:10])
 
         assert mse > 0
+        assert -1.0 <= cosine <= 1.0
         assert sparsity["l0_mean"] > 0
         assert 0 <= sparsity["dead_features_pct"] <= 100
+        assert 0 <= sparsity["dict_utilization_pct"] <= 100
 
     def test_json_serializable_output(
         self, tmp_model_dir, fake_embeddings, fake_vocab_embeddings, fake_vocab_labels
@@ -121,3 +122,17 @@ class TestFullPipelineFlow:
 
         # metrics should serialize
         json.dumps(metrics)
+
+    def test_trainer0_subdir_full_pipeline(self, tmp_model_dir_trainer0, fake_embeddings):
+        """Full pipeline with model saved under trainer_0/ subdirectory."""
+        mgr = SAEManager({"device": "cpu"})
+        mgr.load(tmp_model_dir_trainer0)
+
+        sparse = mgr.encode(fake_embeddings[:5])
+        assert sparse.shape == (5, 4096)
+
+        concepts = mgr.get_top_concepts(fake_embeddings[:3], n=3)
+        assert len(concepts) == 3
+
+        mse = mgr.compute_reconstruction_mse(fake_embeddings[:10])
+        assert isinstance(mse, float)

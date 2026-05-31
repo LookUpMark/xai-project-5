@@ -56,3 +56,21 @@ class TestNameConcepts:
         for feat_id, info in list(names.items())[:10]:
             scores = [c["score"] for c in info["candidates"]]
             assert scores == sorted(scores, reverse=True)
+
+    def test_shape_validation_wrong_dim(self, tmp_model_dir, fake_vocab_labels):
+        """Wrong embedding dimension should raise ValueError."""
+        mgr = SAEManager({"device": "cpu"})
+        mgr.load(tmp_model_dir)
+        wrong_emb = torch.randn(50, 256)  # 256 != 512
+
+        with pytest.raises(ValueError, match="activation_dim"):
+            mgr.name_concepts(wrong_emb, fake_vocab_labels)
+
+    def test_length_validation_mismatch(self, tmp_model_dir, fake_vocab_embeddings):
+        """Mismatched labels length should raise ValueError."""
+        mgr = SAEManager({"device": "cpu"})
+        mgr.load(tmp_model_dir)
+        wrong_labels = ["only_one_label"]
+
+        with pytest.raises(ValueError, match="vocab_labels length"):
+            mgr.name_concepts(fake_vocab_embeddings, wrong_labels)

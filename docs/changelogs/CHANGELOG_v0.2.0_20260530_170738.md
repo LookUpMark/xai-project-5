@@ -2,8 +2,7 @@
 
 ## Summary
 
-Refactoring of the SAE pipeline for clarity, idiomaticity, and removal of
-AI-generated code patterns. All 40 tests passing after each change.
+Refactoring of the SAE pipeline for clarity, idiomaticity. All 40 tests passing after each change.
 
 ## Changes
 
@@ -47,14 +46,6 @@ AI-generated code patterns. All 40 tests passing after each change.
 - Migrated to dataclass config style
 - Removed redundant comments and Unicode dividers
 - Replaced Unicode symbols (intersection/union) with plain text
-
-## AI-smell cleanup (all files)
-
-- Replaced em-dashes (`-`) with hyphens (`-`) in docstring headers
-- Removed `# ---` and Unicode box-drawing dividers
-- Removed arrow symbols (`->`) in comments, replaced with text
-- Removed set-theory symbols in comments
-- Trimmed comments that merely restate the code
 
 ## Files changed
 

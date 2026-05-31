@@ -3,3 +3,6 @@ filterwarnings = [
     "ignore::DeprecationWarning:importlib._bootstrap",
     "ignore:builtin type Swig:DeprecationWarning",
 ]
+
+[tool.ruff.lint]
+per-file-ignores = { "tests/*" = ["E402"] }

@@ -10,7 +10,7 @@ Tests for load_vlm from utils.py.
 ---
 
 ### How to run tests
-    
+
     # Only unit tests (without GPU):
     python -m pytest tests/test_load_vlm.py -v -k "not Integration"
 
@@ -20,7 +20,6 @@ Tests for load_vlm from utils.py.
 """
 
 import sys
-import importlib
 from unittest.mock import MagicMock, patch
 import torch
 import pytest
@@ -35,12 +34,10 @@ import utils
 
 load_vlm = utils.load_vlm
 
+
 def test_load_vlm_success():
     """Test load_vlm successfully loads the model and processor, sets eval mode, and moves model to CUDA."""
-    config = VLMConfig(
-        model_name="dummy-model",
-        processor_name="dummy-processor"
-    )
+    config = VLMConfig(model_name="dummy-model", processor_name="dummy-processor")
 
     mock_model = MagicMock()
     mock_processor = MagicMock()
@@ -48,22 +45,21 @@ def test_load_vlm_success():
     mock_model.eval.return_value = mock_model
     mock_model.to.return_value = mock_model
 
-    with patch.object(utils, "AutoModel") as mock_auto_model, \
-         patch.object(utils, "AutoProcessor") as mock_auto_processor:
-        
+    with (
+        patch.object(utils, "AutoModel") as mock_auto_model,
+        patch.object(utils, "AutoProcessor") as mock_auto_processor,
+    ):
         mock_auto_model.from_pretrained.return_value = mock_model
         mock_auto_processor.from_pretrained.return_value = mock_processor
 
         model, processor = load_vlm(config)
 
         mock_auto_model.from_pretrained.assert_called_once_with(
-            "dummy-model",
-            trust_remote_code=True
+            "dummy-model", trust_remote_code=True
         )
 
         mock_auto_processor.from_pretrained.assert_called_once_with(
-            "dummy-processor",
-            trust_remote_code=True
+            "dummy-processor", trust_remote_code=True
         )
 
         mock_model.eval.assert_called_once()
@@ -75,32 +71,31 @@ def test_load_vlm_success():
 
 def test_load_vlm_model_loading_failure():
     """Test that load_vlm propagates any exception raised during model loading."""
-    config = VLMConfig(
-        model_name="invalid-model",
-        processor_name="dummy-processor"
-    )
+    config = VLMConfig(model_name="invalid-model", processor_name="dummy-processor")
 
     with patch.object(utils, "AutoModel") as mock_auto_model:
-        mock_auto_model.from_pretrained.side_effect = RuntimeError("Failed to download model weights")
-        
+        mock_auto_model.from_pretrained.side_effect = RuntimeError(
+            "Failed to download model weights"
+        )
+
         with pytest.raises(RuntimeError, match="Failed to download model weights"):
             load_vlm(config)
 
 
 def test_load_vlm_processor_loading_failure():
     """Test that load_vlm propagates any exception raised during processor loading."""
-    config = VLMConfig(
-        model_name="dummy-model",
-        processor_name="invalid-processor"
-    )
+    config = VLMConfig(model_name="dummy-model", processor_name="invalid-processor")
 
     mock_model = MagicMock()
 
-    with patch.object(utils, "AutoModel") as mock_auto_model, \
-         patch.object(utils, "AutoProcessor") as mock_auto_processor:
-        
+    with (
+        patch.object(utils, "AutoModel") as mock_auto_model,
+        patch.object(utils, "AutoProcessor") as mock_auto_processor,
+    ):
         mock_auto_model.from_pretrained.return_value = mock_model
-        mock_auto_processor.from_pretrained.side_effect = ValueError("Invalid processor name")
+        mock_auto_processor.from_pretrained.side_effect = ValueError(
+            "Invalid processor name"
+        )
 
         with pytest.raises(ValueError, match="Invalid processor name"):
             load_vlm(config)
@@ -109,6 +104,7 @@ def test_load_vlm_processor_loading_failure():
 # =========================================================================
 # Integration test – real model loading
 # =========================================================================
+
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 class TestLoadVLMIntegration:

@@ -5,7 +5,6 @@ Tests the facade interface with real AutoEncoderTopK (random weights).
 No GPU or real training required.
 """
 
-
 import pytest
 
 from autoencoder.sae_module import SAEManager

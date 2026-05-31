@@ -9,7 +9,7 @@ Tests for extract_visual_embeddings and extract_text_embeddings from extract_emb
 ---
 
 ### How to run tests
-    
+
     # Only unit tests (without GPU):
     python -m pytest tests/test_extract_embeddings.py -v -k "not Integration"
 
@@ -22,7 +22,7 @@ import sys
 import torch
 import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock
 from torch.utils.data import Dataset
 from PIL import Image
 
@@ -40,6 +40,7 @@ extract_text_embeddings = extract_embeddings.extract_text_embeddings
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 class FakeImageDataset(Dataset):
     """Minimal image dataset returning dummy PIL images."""
@@ -88,6 +89,7 @@ def _make_config(tmp_path: Path, batch_size: int = 2) -> VLMConfig:
 # Unit tests – extract_visual_embeddings
 # =========================================================================
 
+
 class TestExtractVisualEmbeddings:
     """Unit-tests for the visual embedding extraction pipeline."""
 
@@ -113,7 +115,9 @@ class TestExtractVisualEmbeddings:
 
         extract_visual_embeddings(mock_model, mock_processor, dataset, config)
 
-        assert config.visual_output_path.exists(), "Visual embeddings file was not created"
+        assert config.visual_output_path.exists(), (
+            "Visual embeddings file was not created"
+        )
 
         loaded = torch.load(config.visual_output_path, weights_only=True)
         assert loaded.shape == (4, 512), f"Expected shape (4, 512), got {loaded.shape}"
@@ -131,11 +135,13 @@ class TestExtractVisualEmbeddings:
         mock_processor.image_processor.return_value = proc_output
 
         # Return non-normalized vectors so we can verify the function normalizes
-        mock_model.get_image_features.return_value = torch.tensor([
-            [3.0, 4.0, 0.0],
-            [0.0, 5.0, 0.0],
-            [1.0, 1.0, 1.0],
-        ])
+        mock_model.get_image_features.return_value = torch.tensor(
+            [
+                [3.0, 4.0, 0.0],
+                [0.0, 5.0, 0.0],
+                [1.0, 1.0, 1.0],
+            ]
+        )
         mock_model.eval.return_value = None
 
         extract_visual_embeddings(mock_model, mock_processor, dataset, config)
@@ -204,7 +210,9 @@ class TestExtractVisualEmbeddings:
         # Return dynamic batch-sized tensors
         def fake_features(**kwargs):
             # Infer batch size from the image_processor call
-            return torch.randn(len(mock_processor.image_processor.call_args[1]["images"]), 512)
+            return torch.randn(
+                len(mock_processor.image_processor.call_args[1]["images"]), 512
+            )
 
         mock_model.get_image_features.side_effect = fake_features
         mock_model.eval.return_value = None
@@ -219,6 +227,7 @@ class TestExtractVisualEmbeddings:
 # =========================================================================
 # Unit tests – extract_text_embeddings
 # =========================================================================
+
 
 class TestExtractTextFeatures:
     """Unit-tests for the text embedding extraction pipeline."""
@@ -262,11 +271,13 @@ class TestExtractTextFeatures:
         proc_output.to.return_value = proc_output
         mock_processor.tokenizer.return_value = proc_output
 
-        mock_model.get_text_features.return_value = torch.tensor([
-            [3.0, 4.0, 0.0],
-            [0.0, 5.0, 0.0],
-            [1.0, 1.0, 1.0],
-        ])
+        mock_model.get_text_features.return_value = torch.tensor(
+            [
+                [3.0, 4.0, 0.0],
+                [0.0, 5.0, 0.0],
+                [1.0, 1.0, 1.0],
+            ]
+        )
         mock_model.eval.return_value = None
 
         extract_text_embeddings(mock_model, mock_processor, dataset, config)
@@ -349,6 +360,7 @@ class TestExtractTextFeatures:
 # Integration test – real model, 1 image + 1 text
 # =========================================================================
 
+
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 class TestIntegrationSingleSample:
     """
@@ -367,6 +379,7 @@ class TestIntegrationSingleSample:
     def model_and_processor(self):
         """Load the real BiomedCLIP model once for the whole class."""
         from utils import load_vlm
+
         config = VLMConfig()
         model, processor = load_vlm(config)
         yield model, processor
@@ -415,13 +428,11 @@ class TestIntegrationSingleSample:
             batch_size=1,
             num_workers=0,
             output_dir=str(tmp_path / "integration_embeddings"),
-            device="cuda"
+            device="cuda",
         )
 
         # -- Extract visual embedding -------------------------------------
-        extract_visual_embeddings(
-            model, processor, SingleImageDataset(), config
-        )
+        extract_visual_embeddings(model, processor, SingleImageDataset(), config)
         assert config.visual_output_path.exists()
         visual_emb = torch.load(config.visual_output_path, weights_only=True)
 
@@ -434,9 +445,7 @@ class TestIntegrationSingleSample:
         )
 
         # -- Extract text embedding ---------------------------------------
-        extract_text_embeddings(
-            model, processor, SingleTextDataset(), config
-        )
+        extract_text_embeddings(model, processor, SingleTextDataset(), config)
         assert config.text_output_path.exists()
         text_emb = torch.load(config.text_output_path, weights_only=True)
 

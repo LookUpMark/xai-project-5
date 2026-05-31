@@ -241,3 +241,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Weights & Biases
+wandb/
+
+# Project-specific: mock/training outputs (large binary files)
+models/mock/
+results/mock/

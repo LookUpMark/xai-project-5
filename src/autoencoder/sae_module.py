@@ -349,6 +349,7 @@ class SAEManager:
             concepts = [
                 (idx.item(), val.item())
                 for idx, val in zip(topk.indices[i], topk.values[i])
+                if val.item() > 0  # filter out zero-activation entries
             ]
             results.append(concepts)
         return results
@@ -390,14 +391,30 @@ class SAEManager:
 
         W_dec = self.get_decoder_weights()  # (dict_size, 512)
 
+        # Identify dead features (zero or near-zero decoder vectors)
+        norms = W_dec.norm(dim=1)
+        dead_mask = norms < 1e-8
+
         # Normalize → dot product equals cosine similarity
+        # For dead features, F.normalize produces NaN; set them to zero instead
         W_norm = F.normalize(W_dec, dim=1)
+        W_norm[dead_mask] = 0.0  # dead features get zero similarity everywhere
+
         V_norm = F.normalize(vocab_embeddings.to(self._device), dim=1)
 
         similarities = W_norm @ V_norm.T  # (dict_size, V)
 
         concept_names = {}
         for feat_id in range(self.config["dict_size"]):
+            if dead_mask[feat_id]:
+                concept_names[feat_id] = {
+                    "name": "DEAD_FEATURE",
+                    "score": 0.0,
+                    "candidates": [],
+                    "is_dead": True,
+                }
+                continue
+
             topk = similarities[feat_id].topk(top_n)
             candidates = [
                 {"label": vocab_labels[idx.item()], "score": val.item()}
@@ -407,6 +424,7 @@ class SAEManager:
                 "name": candidates[0]["label"],
                 "score": candidates[0]["score"],
                 "candidates": candidates,
+                "is_dead": False,
             }
 
         return concept_names

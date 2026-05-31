@@ -4,6 +4,11 @@ protocols.py — Interface definitions for SAE pipeline stages.
 Each pipeline stage should implement the relevant protocol,
 enabling type-safe composition, testing with mocks, and
 independent development of each stage.
+
+NOTE: These protocols are *aspirational interfaces*, not currently
+implemented by the pipeline scripts. The scripts use standalone
+run() functions with the same signature. The protocols exist as
+design documentation for future orchestration or composition.
 """
 
 from __future__ import annotations

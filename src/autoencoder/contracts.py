@@ -4,6 +4,10 @@ contracts.py — Typed data contracts for the SAE pipeline.
 These dataclasses define the shape of data flowing between pipeline stages.
 They wrap tensors and raw types in structured containers for type safety
 and validation at stage boundaries.
+
+NOTE: These contracts are *schema documentation*, not enforced at runtime.
+Pipeline stages currently return plain dicts (for direct JSON serialization).
+The contracts serve as the canonical reference for dict key/value schemas.
 """
 
 from __future__ import annotations

@@ -39,7 +39,15 @@ OUTPUT_PATH = config.paths.results_dir / "stability_analysis.json"
 def compute_feature_frequency(
     mgr: SAEManager, embeddings: torch.Tensor
 ) -> torch.Tensor:
-    """Compute activation frequency of each feature across the dataset."""
+    """Compute activation frequency of each feature across the dataset.
+
+    Args:
+        mgr: Loaded SAEManager instance.
+        embeddings: Input tensor of shape (N, 512).
+
+    Returns:
+        Tensor of shape (dict_size,) with per-feature activation frequencies.
+    """
     with torch.no_grad():
         sparse = mgr.encode(embeddings)
     return (sparse != 0).float().mean(dim=0)
@@ -48,9 +56,18 @@ def compute_feature_frequency(
 def compute_concept_clustering(
     model_dirs: list[Path], embeddings: torch.Tensor, device: str
 ) -> dict:
-    """
-    Compute co-activation similarity between concept activation patterns.
+    """Compute co-activation similarity between concept activation patterns.
+
     Analyzes one seed model (configurable — uses primary_seed by default).
+
+    Args:
+        model_dirs: Paths to trained SAE model directories.
+        embeddings: Input tensor of shape (N, 512).
+        device: Torch device string (e.g. "cpu", "cuda").
+
+    Returns:
+        Dict with keys: n_active_features, n_dead_features,
+        high_correlation_pairs, correlation_threshold, mean_co_occurrence.
     """
     mgr = SAEManager({"device": device})
     mgr.load(model_dirs[0])
@@ -209,7 +226,8 @@ def run() -> Path:
     return OUTPUT_PATH
 
 
-def main():
+def main() -> None:
+    """CLI entry point for stability analysis."""
     run()
 
 

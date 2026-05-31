@@ -112,7 +112,8 @@ def run() -> Path:
     return OUTPUT_PATH
 
 
-def main():
+def main() -> None:
+    """CLI entry point for concept naming."""
     run()
 
 

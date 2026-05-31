@@ -18,7 +18,12 @@ _tracking_enabled: bool = False
 
 
 def init_tracking(stage_name: str, config: dict[str, Any]) -> None:
-    """Initialize wandb run for a pipeline stage."""
+    """Initialize wandb run for a pipeline stage.
+
+    Args:
+        stage_name: Human-readable stage identifier (used as run name).
+        config: Dict with project, entity, and stage-specific hyperparams.
+    """
     global _tracking_enabled
     try:
         import wandb

@@ -61,7 +61,19 @@ class Explanation:
 
 @dataclass(frozen=True)
 class SeedMetrics:
-    """Per-seed training metrics."""
+    """Per-seed training metrics.
+
+    Attributes:
+        seed: Random seed used for training.
+        mse: Reconstruction MSE on held-out test set.
+        l0_mean: Mean L0 norm (non-zero activations per sample).
+        l0_std: Std of L0 norm across samples.
+        dead_features_pct: Percentage of features that never activate.
+        dict_utilization_pct: Percentage of dictionary capacity in use.
+        activation_entropy: Shannon entropy of feature frequencies.
+        feature_frequency_mean: Mean activation frequency across features.
+        feature_frequency_std: Std of activation frequency.
+    """
 
     seed: int
     mse: float
@@ -87,7 +99,16 @@ class ClusteringResult:
 
 @dataclass(frozen=True)
 class StabilityResult:
-    """Output of stability_analysis stage — cross-seed comparison."""
+    """Output of stability_analysis stage — cross-seed comparison.
+
+    Attributes:
+        mean_jaccard: Mean pairwise Jaccard similarity (upper triangle).
+        std_jaccard: Std of pairwise Jaccard similarities.
+        jaccard_matrix: n_seeds x n_seeds similarity matrix (nested list).
+        per_seed_metrics: Dict mapping seed int to SeedMetrics.
+        clustering: ClusteringResult for the primary seed.
+        config_snapshot: Frozen copy of config used for this run.
+    """
 
     mean_jaccard: float
     std_jaccard: float

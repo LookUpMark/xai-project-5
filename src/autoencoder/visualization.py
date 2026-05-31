@@ -25,7 +25,16 @@ def plot_jaccard_heatmap(
     seeds: list[int],
     save_path: Path,
 ) -> Path:
-    """Plot pairwise Jaccard similarity heatmap across seeds."""
+    """Plot pairwise Jaccard similarity heatmap across seeds.
+
+    Args:
+        jaccard_matrix: Array of shape (n_seeds, n_seeds) with Jaccard values.
+        seeds: List of seed integers used as axis labels.
+        save_path: Destination path for the saved figure.
+
+    Returns:
+        The save_path after writing the figure to disk.
+    """
     import matplotlib.pyplot as plt
     import seaborn as sns
 
@@ -56,7 +65,15 @@ def plot_concept_score_distribution(
     scores: list[float],
     save_path: Path,
 ) -> Path:
-    """Plot histogram of concept naming cosine similarity scores."""
+    """Plot histogram of concept naming cosine similarity scores.
+
+    Args:
+        scores: List of cosine similarity scores (one per feature).
+        save_path: Destination path for the saved figure.
+
+    Returns:
+        The save_path after writing the figure to disk.
+    """
     import matplotlib.pyplot as plt
     import seaborn as sns
 
@@ -79,7 +96,16 @@ def plot_per_seed_metrics(
     metrics: dict[int, dict],
     save_path: Path,
 ) -> Path:
-    """Plot grouped bar chart comparing metrics across seeds."""
+    """Plot grouped bar chart comparing metrics across seeds.
+
+    Args:
+        metrics: Dict mapping seed int to metric dict
+            (keys: mse, dead_features_pct, etc.).
+        save_path: Destination path for the saved figure.
+
+    Returns:
+        The save_path after writing the figure to disk.
+    """
     import matplotlib.pyplot as plt
     import pandas as pd
     import seaborn as sns
@@ -131,7 +157,17 @@ def plot_sparsity_summary(
     entropy: float,
     save_path: Path,
 ) -> Path:
-    """Plot sparsity summary metrics as annotated bar chart."""
+    """Plot sparsity summary metrics as annotated bar chart.
+
+    Args:
+        dead_pct: Percentage of dead (never-activated) features.
+        utilization: Percentage of dictionary capacity in use.
+        entropy: Shannon entropy of feature activation frequencies.
+        save_path: Destination path for the saved figure.
+
+    Returns:
+        The save_path after writing the figure to disk.
+    """
     import matplotlib.pyplot as plt
     import seaborn as sns
 
@@ -165,7 +201,18 @@ def plot_loss_curve(
     save_path: Path,
     title: str | None = None,
 ) -> Path:
-    """Plot training and test loss curves over training steps."""
+    """Plot training and test loss curves over training steps.
+
+    Args:
+        steps: List of training step indices (x-axis).
+        train_losses: Train MSE values at each step.
+        test_losses: Test MSE values at each step.
+        save_path: Destination path for the saved figure.
+        title: Optional custom plot title.
+
+    Returns:
+        The save_path after writing the figure to disk.
+    """
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots(figsize=(10, 5))

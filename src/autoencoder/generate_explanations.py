@@ -43,16 +43,15 @@ def generate_explanation(
     top_concepts: list[tuple[int, float]],
     concept_names: dict[str, dict],
 ) -> dict:
-    """
-    Generate a structured explanation for a single sample.
+    """Generate a structured explanation for a single sample.
 
     Args:
-        top_concepts: List of (feature_id, activation_value).
-        concept_names: Dict {feature_id_str: {"name": str, "score": float}}.
-            Keys are strings (after JSON serialization).
+        top_concepts: List of (feature_id, activation_value) tuples.
+        concept_names: Dict mapping feature_id strings to
+            {"name": str, "score": float} (JSON-serialized keys).
 
     Returns:
-        Dict with structured pseudo-report for the LLM Judge.
+        Dict with keys: findings, pseudo_report, n_active_concepts.
     """
     findings = []
     for feat_id, activation in top_concepts:
@@ -160,7 +159,8 @@ def run() -> Path:
     return OUTPUT_PATH
 
 
-def main():
+def main() -> None:
+    """CLI entry point for explanation generation."""
     run()
 
 

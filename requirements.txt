@@ -4,7 +4,7 @@
 torch>=2.2.0
 torchvision
 torchaudio
-transformers==4.38.2
+transformers==4.44.2
 dictionary-learning>=0.1.0
 
 # Experiment tracking

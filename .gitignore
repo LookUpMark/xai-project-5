@@ -194,6 +194,12 @@ cython_debug/
 #   Learn more at https://abstra.io/docs
 .abstra/
 
+# macOS
+.DS_Store
+
+# Claude Code
+.claude/
+
 # === Project-specific ===
 # Large data files (download locally, don't commit)
 data/iu_xray/images/*

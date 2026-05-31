@@ -9,8 +9,6 @@ import json
 import sys
 from pathlib import Path
 
-import pytest
-import torch
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -43,7 +41,9 @@ class TestFullPipelineFlow:
                 assert 0 <= feat_id < 4096
                 assert activation >= 0
 
-    def test_naming_pipeline(self, tmp_model_dir, fake_vocab_embeddings, fake_vocab_labels):
+    def test_naming_pipeline(
+        self, tmp_model_dir, fake_vocab_embeddings, fake_vocab_labels
+    ):
         mgr = SAEManager({"device": "cpu"})
         mgr.load(tmp_model_dir)
 
@@ -123,7 +123,9 @@ class TestFullPipelineFlow:
         # metrics should serialize
         json.dumps(metrics)
 
-    def test_trainer0_subdir_full_pipeline(self, tmp_model_dir_trainer0, fake_embeddings):
+    def test_trainer0_subdir_full_pipeline(
+        self, tmp_model_dir_trainer0, fake_embeddings
+    ):
         """Full pipeline with model saved under trainer_0/ subdirectory."""
         mgr = SAEManager({"device": "cpu"})
         mgr.load(tmp_model_dir_trainer0)

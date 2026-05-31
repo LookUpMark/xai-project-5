@@ -86,17 +86,35 @@ def plot_per_seed_metrics(
 
     rows = []
     for seed, m in metrics.items():
-        rows.append({
-            "seed": str(seed),
-            "MSE": m.get("mse", 0),
-            "Dead %": m.get("dead_features_pct", 0),
-        })
+        rows.append(
+            {
+                "seed": str(seed),
+                "MSE": m.get("mse", 0),
+                "Dead %": m.get("dead_features_pct", 0),
+            }
+        )
     df = pd.DataFrame(rows)
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-    sns.barplot(data=df, x="seed", y="MSE", ax=axes[0], hue="seed", palette="Blues_d", legend=False)
+    sns.barplot(
+        data=df,
+        x="seed",
+        y="MSE",
+        ax=axes[0],
+        hue="seed",
+        palette="Blues_d",
+        legend=False,
+    )
     axes[0].set_title("Reconstruction MSE per Seed")
-    sns.barplot(data=df, x="seed", y="Dead %", ax=axes[1], hue="seed", palette="Reds_d", legend=False)
+    sns.barplot(
+        data=df,
+        x="seed",
+        y="Dead %",
+        ax=axes[1],
+        hue="seed",
+        palette="Reds_d",
+        legend=False,
+    )
     axes[1].set_title("Dead Features % per Seed")
     fig.suptitle("Per-Seed Metrics Comparison")
     fig.tight_layout()
@@ -123,7 +141,14 @@ def plot_sparsity_summary(
         "Dead %": dead_pct,
     }
     colors = ["#2ecc71" if v > 50 else "#e74c3c" for v in metrics.values()]
-    sns.barplot(x=list(metrics.keys()), y=list(metrics.values()), ax=ax, palette=colors, hue=list(metrics.keys()), legend=False)
+    sns.barplot(
+        x=list(metrics.keys()),
+        y=list(metrics.values()),
+        ax=ax,
+        palette=colors,
+        hue=list(metrics.keys()),
+        legend=False,
+    )
     ax.set_title(f"Sparsity Metrics (Entropy={entropy:.2f})")
     ax.set_ylabel("Percentage")
     _ensure_dir(save_path)

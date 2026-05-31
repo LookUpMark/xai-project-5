@@ -71,7 +71,9 @@ class TestGenerateExplanation:
         assert isinstance(result["pseudo_report"], str)
         assert "cardiomegaly" in result["pseudo_report"]
 
-    def test_pseudo_report_mentions_dominant(self, generate_explanation, sample_concept_names):
+    def test_pseudo_report_mentions_dominant(
+        self, generate_explanation, sample_concept_names
+    ):
         top_concepts = [(20, 0.99), (10, 0.50)]
         result = generate_explanation(top_concepts, sample_concept_names)
 

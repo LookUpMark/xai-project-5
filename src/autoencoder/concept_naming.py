@@ -62,7 +62,9 @@ def run() -> Path:
     mgr = SAEManager({"device": config.hardware.device})
     mgr.load(model_dir)
 
-    logger.info(f"Computing concept names (top_n={config.explanation.concept_top_n})...")
+    logger.info(
+        f"Computing concept names (top_n={config.explanation.concept_top_n})..."
+    )
     concept_names = mgr.name_concepts(
         vocab_embeddings, vocab_labels, top_n=config.explanation.concept_top_n
     )
@@ -75,7 +77,7 @@ def run() -> Path:
     # Summary statistics
     scores = [v["score"] for v in concept_names.values()]
     mean_score = sum(scores) / len(scores)
-    logger.info(f"Concept naming complete:")
+    logger.info("Concept naming complete:")
     logger.info(f"  Total features: {len(concept_names)}")
     logger.info(f"  Mean score: {mean_score:.4f}")
     logger.info(f"  Min/Max: {min(scores):.4f} / {max(scores):.4f}")
@@ -85,7 +87,7 @@ def run() -> Path:
     sorted_concepts = sorted(
         concept_names.items(), key=lambda x: x[1]["score"], reverse=True
     )
-    logger.info(f"\nTop-10 concepts:")
+    logger.info("\nTop-10 concepts:")
     for feat_id, info in sorted_concepts[:10]:
         logger.info(f"  Feature {feat_id:>4}: {info['name']:30s} ({info['score']:.4f})")
 
@@ -95,12 +97,15 @@ def run() -> Path:
 
     # Tracking
     if config.wandb_cfg.enabled:
-        init_tracking("concept_naming", {
-            "project": config.wandb_cfg.project,
-            "seed": SEED,
-            "total_features": len(concept_names),
-            "mean_score": mean_score,
-        })
+        init_tracking(
+            "concept_naming",
+            {
+                "project": config.wandb_cfg.project,
+                "seed": SEED,
+                "total_features": len(concept_names),
+                "mean_score": mean_score,
+            },
+        )
         log_artifact(OUTPUT_PATH, "concept_names", "results")
         finish_tracking()
 

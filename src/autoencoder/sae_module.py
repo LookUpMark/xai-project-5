@@ -124,10 +124,11 @@ class SAEManager:
         _set_global_seed(seed)
 
         # Load and validate embeddings
-        embeddings = torch.load(
-            embeddings_path, map_location="cpu", weights_only=True
-        )
-        if embeddings.dim() != 2 or embeddings.shape[1] != self.config["activation_dim"]:
+        embeddings = torch.load(embeddings_path, map_location="cpu", weights_only=True)
+        if (
+            embeddings.dim() != 2
+            or embeddings.shape[1] != self.config["activation_dim"]
+        ):
             raise ValueError(
                 f"Expected shape (N, {self.config['activation_dim']}), "
                 f"got {embeddings.shape}"
@@ -189,7 +190,9 @@ class SAEManager:
         )
 
         # Save training manifest for reproducibility
-        self._save_manifest(model_dir, seed, steps, batch_size, embeddings_path, embeddings)
+        self._save_manifest(
+            model_dir, seed, steps, batch_size, embeddings_path, embeddings
+        )
 
         logger.info(f"Model saved to {model_dir}")
         self.load(model_dir)
@@ -228,9 +231,7 @@ class SAEManager:
         k = self.config["k"]
 
         if "k" in state_dict and k != state_dict["k"].item():
-            raise ValueError(
-                f"Config k={k} != saved k={state_dict['k'].item()}"
-            )
+            raise ValueError(f"Config k={k} != saved k={state_dict['k'].item()}")
 
         self._ae = AutoEncoderTopK(activation_dim, dict_size, k)
         self._ae.load_state_dict(state_dict)
@@ -563,14 +564,18 @@ class SAEManager:
         return {
             "jaccard_matrix": jaccard_matrix,
             "mean_jaccard": upper_vals.mean().item() if upper_vals.numel() > 0 else 0.0,
-            "std_jaccard": upper_vals.std(correction=0).item() if upper_vals.numel() > 1 else 0.0,
+            "std_jaccard": upper_vals.std(correction=0).item()
+            if upper_vals.numel() > 1
+            else 0.0,
         }
 
     # ── Internals ─────────────────────────────────────────────────────
 
     def _check_loaded(self):
         if not self.is_loaded:
-            raise RuntimeError("SAE not loaded. Call .load(model_dir) or .train() first.")
+            raise RuntimeError(
+                "SAE not loaded. Call .load(model_dir) or .train() first."
+            )
 
     @property
     def _device(self) -> str:

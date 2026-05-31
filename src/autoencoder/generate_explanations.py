@@ -64,12 +64,14 @@ def generate_explanation(
             name = f"unknown_feature_{feat_id}"
             similarity = 0.0
 
-        findings.append({
-            "concept": name,
-            "feature_id": feat_id,
-            "activation": round(activation, 4),
-            "naming_confidence": round(similarity, 4),
-        })
+        findings.append(
+            {
+                "concept": name,
+                "feature_id": feat_id,
+                "activation": round(activation, 4),
+                "naming_confidence": round(similarity, 4),
+            }
+        )
 
     # Guard against empty findings
     if not findings:
@@ -144,11 +146,14 @@ def run() -> Path:
 
     # Tracking
     if config.wandb_cfg.enabled:
-        init_tracking("generate_explanations", {
-            "project": config.wandb_cfg.project,
-            "seed": SEED,
-            "n_samples": len(explanations),
-        })
+        init_tracking(
+            "generate_explanations",
+            {
+                "project": config.wandb_cfg.project,
+                "seed": SEED,
+                "n_samples": len(explanations),
+            },
+        )
         log_artifact(OUTPUT_PATH, "sample_explanations", "results")
         finish_tracking()
 

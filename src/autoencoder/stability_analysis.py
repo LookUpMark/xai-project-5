@@ -36,7 +36,9 @@ logger = logging.getLogger(__name__)
 OUTPUT_PATH = config.paths.results_dir / "stability_analysis.json"
 
 
-def compute_feature_frequency(mgr: SAEManager, embeddings: torch.Tensor) -> torch.Tensor:
+def compute_feature_frequency(
+    mgr: SAEManager, embeddings: torch.Tensor
+) -> torch.Tensor:
     """Compute activation frequency of each feature across the dataset."""
     with torch.no_grad():
         sparse = mgr.encode(embeddings)
@@ -90,8 +92,11 @@ def run() -> Path:
     model_dirs = [
         config.paths.models_dir / f"sae_seed{s}" for s in config.training.seeds
     ]
-    missing = [d for d in model_dirs if not (d / "ae.pt").exists()
-               and not (d / "trainer_0" / "ae.pt").exists()]
+    missing = [
+        d
+        for d in model_dirs
+        if not (d / "ae.pt").exists() and not (d / "trainer_0" / "ae.pt").exists()
+    ]
     if missing:
         raise FileNotFoundError(
             f"Missing models: {[str(m) for m in missing]}. "
@@ -157,7 +162,8 @@ def run() -> Path:
     # 4. Visualization
     jaccard_np = stability["jaccard_matrix"].numpy()
     plot_jaccard_heatmap(
-        jaccard_np, list(config.training.seeds),
+        jaccard_np,
+        list(config.training.seeds),
         config.paths.figures_dir / "jaccard_heatmap.png",
     )
     plot_per_seed_metrics(
@@ -189,11 +195,14 @@ def run() -> Path:
 
     # Tracking
     if config.wandb_cfg.enabled:
-        init_tracking("stability_analysis", {
-            "project": config.wandb_cfg.project,
-            "mean_jaccard": stability["mean_jaccard"],
-            "std_jaccard": stability["std_jaccard"],
-        })
+        init_tracking(
+            "stability_analysis",
+            {
+                "project": config.wandb_cfg.project,
+                "mean_jaccard": stability["mean_jaccard"],
+                "std_jaccard": stability["std_jaccard"],
+            },
+        )
         log_artifact(OUTPUT_PATH, "stability_analysis", "results")
         finish_tracking()
 

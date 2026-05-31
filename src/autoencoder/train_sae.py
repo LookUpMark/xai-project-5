@@ -21,7 +21,7 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 import config
-from autoencoder.sae_module import SAEManager, _set_global_seed
+from autoencoder.sae_module import SAEManager
 from autoencoder.tracking import (
     init_tracking,
     log_metrics,
@@ -56,9 +56,11 @@ def prepare_split() -> None:
         )
 
     embeddings = torch.load(source, map_location="cpu", weights_only=True)
-    logger.info(f"Creating {config.training.train_split_ratio:.0%} / "
-                f"{1 - config.training.train_split_ratio:.0%} split "
-                f"from {embeddings.shape[0]} embeddings")
+    logger.info(
+        f"Creating {config.training.train_split_ratio:.0%} / "
+        f"{1 - config.training.train_split_ratio:.0%} split "
+        f"from {embeddings.shape[0]} embeddings"
+    )
 
     indices = np.arange(len(embeddings))
     train_idx, test_idx = train_test_split(
@@ -82,16 +84,18 @@ def train_single(seed: int) -> Path:
     """Train a single SAE with the given seed."""
     logger.info(f"Training SAE with seed={seed}")
 
-    mgr = SAEManager({
-        "device": config.hardware.device,
-        "activation_dim": config.sae.activation_dim,
-        "dict_size": config.sae.dict_size,
-        "k": config.sae.k,
-        "lr": config.sae.lr,
-        "warmup_steps": config.sae.warmup_steps,
-        "log_steps": config.sae.log_steps,
-        "decay_start_frac": config.sae.decay_start_frac,
-    })
+    mgr = SAEManager(
+        {
+            "device": config.hardware.device,
+            "activation_dim": config.sae.activation_dim,
+            "dict_size": config.sae.dict_size,
+            "k": config.sae.k,
+            "lr": config.sae.lr,
+            "warmup_steps": config.sae.warmup_steps,
+            "log_steps": config.sae.log_steps,
+            "decay_start_frac": config.sae.decay_start_frac,
+        }
+    )
 
     model_dir = mgr.train(
         embeddings_path=config.paths.train_embeddings_path,
@@ -124,13 +128,17 @@ def train_single(seed: int) -> Path:
 
     # Log to wandb if enabled
     if config.wandb_cfg.enabled:
-        log_metrics({
-            f"train/seed{seed}/test_mse": mse,
-            f"train/seed{seed}/test_cosine": cosine,
-            f"train/seed{seed}/dead_pct": sparsity["dead_features_pct"],
-            f"train/seed{seed}/dict_util": sparsity["dict_utilization_pct"],
-        })
-        log_artifact(model_dir / "training_manifest.json", f"sae_seed{seed}_manifest", "manifest")
+        log_metrics(
+            {
+                f"train/seed{seed}/test_mse": mse,
+                f"train/seed{seed}/test_cosine": cosine,
+                f"train/seed{seed}/dead_pct": sparsity["dead_features_pct"],
+                f"train/seed{seed}/dict_util": sparsity["dict_utilization_pct"],
+            }
+        )
+        log_artifact(
+            model_dir / "training_manifest.json", f"sae_seed{seed}_manifest", "manifest"
+        )
 
     return model_dir
 
@@ -140,28 +148,37 @@ def main():
     prepare_split()
 
     if not config.paths.train_embeddings_path.exists():
-        logger.error(f"Train embeddings not found: {config.paths.train_embeddings_path}")
+        logger.error(
+            f"Train embeddings not found: {config.paths.train_embeddings_path}"
+        )
         sys.exit(1)
 
     # Log environment info
     logger.info(f"PyTorch: {torch.__version__}, CUDA: {torch.version.cuda or 'N/A'}")
     logger.info(f"Device: {config.hardware.device}")
-    logger.info(f"Training {len(config.training.seeds)} SAEs: seeds={config.training.seeds}")
-    logger.info(f"SAE config: k={config.sae.k}, dict_size={config.sae.dict_size}, "
-                f"lr={'auto' if config.sae.lr is None else config.sae.lr}, "
-                f"steps={config.sae.steps}")
+    logger.info(
+        f"Training {len(config.training.seeds)} SAEs: seeds={config.training.seeds}"
+    )
+    logger.info(
+        f"SAE config: k={config.sae.k}, dict_size={config.sae.dict_size}, "
+        f"lr={'auto' if config.sae.lr is None else config.sae.lr}, "
+        f"steps={config.sae.steps}"
+    )
 
     # Init tracking
     if config.wandb_cfg.enabled:
-        init_tracking("train_sae", {
-            "project": config.wandb_cfg.project,
-            "entity": config.wandb_cfg.entity,
-            "seeds": list(config.training.seeds),
-            "k": config.sae.k,
-            "dict_size": config.sae.dict_size,
-            "steps": config.sae.steps,
-            "lr": config.sae.lr,
-        })
+        init_tracking(
+            "train_sae",
+            {
+                "project": config.wandb_cfg.project,
+                "entity": config.wandb_cfg.entity,
+                "seeds": list(config.training.seeds),
+                "k": config.sae.k,
+                "dict_size": config.sae.dict_size,
+                "steps": config.sae.steps,
+                "lr": config.sae.lr,
+            },
+        )
 
     # Step 2: Train all seeds
     model_dirs = []

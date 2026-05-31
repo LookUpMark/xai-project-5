@@ -5,12 +5,10 @@ Tests the facade interface with real AutoEncoderTopK (random weights).
 No GPU or real training required.
 """
 
-from pathlib import Path
 
 import pytest
-import torch
 
-from autoencoder.sae_module import SAEManager, _DEFAULTS
+from autoencoder.sae_module import SAEManager
 
 
 class TestSAEManagerInit:

@@ -12,7 +12,9 @@ from autoencoder.sae_module import SAEManager
 
 
 class TestNameConcepts:
-    def test_output_structure(self, tmp_model_dir, fake_vocab_embeddings, fake_vocab_labels):
+    def test_output_structure(
+        self, tmp_model_dir, fake_vocab_embeddings, fake_vocab_labels
+    ):
         mgr = SAEManager({"device": "cpu"})
         mgr.load(tmp_model_dir)
         names = mgr.name_concepts(fake_vocab_embeddings, fake_vocab_labels, top_n=3)
@@ -23,14 +25,18 @@ class TestNameConcepts:
         assert "score" in names[0]
         assert "candidates" in names[0]
 
-    def test_candidates_count(self, tmp_model_dir, fake_vocab_embeddings, fake_vocab_labels):
+    def test_candidates_count(
+        self, tmp_model_dir, fake_vocab_embeddings, fake_vocab_labels
+    ):
         mgr = SAEManager({"device": "cpu"})
         mgr.load(tmp_model_dir)
         names = mgr.name_concepts(fake_vocab_embeddings, fake_vocab_labels, top_n=5)
 
         assert len(names[0]["candidates"]) == 5
 
-    def test_name_from_vocab(self, tmp_model_dir, fake_vocab_embeddings, fake_vocab_labels):
+    def test_name_from_vocab(
+        self, tmp_model_dir, fake_vocab_embeddings, fake_vocab_labels
+    ):
         mgr = SAEManager({"device": "cpu"})
         mgr.load(tmp_model_dir)
         names = mgr.name_concepts(fake_vocab_embeddings, fake_vocab_labels, top_n=1)
@@ -39,7 +45,9 @@ class TestNameConcepts:
         for feat_id, info in names.items():
             assert info["name"] in fake_vocab_labels or info["name"] == "DEAD_FEATURE"
 
-    def test_scores_in_range(self, tmp_model_dir, fake_vocab_embeddings, fake_vocab_labels):
+    def test_scores_in_range(
+        self, tmp_model_dir, fake_vocab_embeddings, fake_vocab_labels
+    ):
         mgr = SAEManager({"device": "cpu"})
         mgr.load(tmp_model_dir)
         names = mgr.name_concepts(fake_vocab_embeddings, fake_vocab_labels, top_n=1)
@@ -48,7 +56,9 @@ class TestNameConcepts:
         for feat_id, info in names.items():
             assert -1.0 <= info["score"] <= 1.0
 
-    def test_candidates_sorted_descending(self, tmp_model_dir, fake_vocab_embeddings, fake_vocab_labels):
+    def test_candidates_sorted_descending(
+        self, tmp_model_dir, fake_vocab_embeddings, fake_vocab_labels
+    ):
         mgr = SAEManager({"device": "cpu"})
         mgr.load(tmp_model_dir)
         names = mgr.name_concepts(fake_vocab_embeddings, fake_vocab_labels, top_n=5)
@@ -75,7 +85,9 @@ class TestNameConcepts:
         with pytest.raises(ValueError, match="vocab_labels length"):
             mgr.name_concepts(fake_vocab_embeddings, wrong_labels)
 
-    def test_dead_features_flagged(self, tmp_path, fake_vocab_embeddings, fake_vocab_labels):
+    def test_dead_features_flagged(
+        self, tmp_path, fake_vocab_embeddings, fake_vocab_labels
+    ):
         """Dead features (zero decoder vectors) should be flagged with is_dead=True."""
         # Create model with some zero decoder rows (dead features)
         model_dir = tmp_path / "sae_dead"

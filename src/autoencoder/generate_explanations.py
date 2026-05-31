@@ -16,23 +16,16 @@ Run:
 """
 
 import json
-import logging
 import sys
 from pathlib import Path
 
-import torch
-
 sys.path.insert(0, str(Path(__file__).parent.parent))
 import config
+import utils
 from autoencoder.sae_module import SAEManager
 from autoencoder.tracking import init_tracking, log_artifact, finish_tracking
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s",
-    datefmt="%H:%M:%S",
-)
-logger = logging.getLogger(__name__)
+logger = utils.setup_logging(__name__)
 
 SEED = config.training.primary_seed
 CONCEPT_NAMES_PATH = config.paths.results_dir / "concept_names.json"
@@ -111,7 +104,7 @@ def run() -> Path:
         if not path.exists():
             raise FileNotFoundError(f"{desc} not found: {path}")
 
-    embeddings = torch.load(embeddings_path, map_location="cpu", weights_only=True)
+    embeddings = utils.load_tensor(embeddings_path)
     with open(CONCEPT_NAMES_PATH) as f:
         concept_names = json.load(f)
 

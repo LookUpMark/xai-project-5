@@ -8,16 +8,15 @@ and stability evaluation. Figures are saved to results/figures/.
 from __future__ import annotations
 
 import logging
+import sys
 from pathlib import Path
 
 import numpy as np
 
+sys.path.insert(0, str(Path(__file__).parent.parent))
+import utils
+
 logger = logging.getLogger(__name__)
-
-
-def _ensure_dir(path: Path) -> None:
-    """Create parent directories if they don't exist."""
-    path.parent.mkdir(parents=True, exist_ok=True)
 
 
 def plot_jaccard_heatmap(
@@ -54,7 +53,7 @@ def plot_jaccard_heatmap(
     ax.set_title("Cross-Seed Jaccard Similarity")
     ax.set_xlabel("Seed")
     ax.set_ylabel("Seed")
-    _ensure_dir(save_path)
+    utils.ensure_dir(save_path)
     fig.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     logger.info(f"Saved Jaccard heatmap to {save_path}")
@@ -85,7 +84,7 @@ def plot_concept_score_distribution(
     mean_score = float(np.mean(scores))
     ax.axvline(mean_score, color="red", linestyle="--", label=f"Mean={mean_score:.3f}")
     ax.legend()
-    _ensure_dir(save_path)
+    utils.ensure_dir(save_path)
     fig.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     logger.info(f"Saved concept score distribution to {save_path}")
@@ -144,7 +143,7 @@ def plot_per_seed_metrics(
     axes[1].set_title("Dead Features % per Seed")
     fig.suptitle("Per-Seed Metrics Comparison")
     fig.tight_layout()
-    _ensure_dir(save_path)
+    utils.ensure_dir(save_path)
     fig.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     logger.info(f"Saved per-seed metrics to {save_path}")
@@ -187,7 +186,7 @@ def plot_sparsity_summary(
     )
     ax.set_title(f"Sparsity Metrics (Entropy={entropy:.2f})")
     ax.set_ylabel("Percentage")
-    _ensure_dir(save_path)
+    utils.ensure_dir(save_path)
     fig.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     logger.info(f"Saved sparsity summary to {save_path}")
@@ -227,7 +226,7 @@ def plot_loss_curve(
     ax.legend()
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
-    _ensure_dir(save_path)
+    utils.ensure_dir(save_path)
     fig.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     logger.info(f"Saved loss curve to {save_path}")

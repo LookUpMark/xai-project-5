@@ -12,7 +12,6 @@ Run:
     python src/autoencoder/train_sae.py
 """
 
-import logging
 import sys
 from pathlib import Path
 
@@ -21,6 +20,7 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 import config
+import utils
 from autoencoder.sae_module import SAEManager
 from autoencoder.tracking import (
     init_tracking,
@@ -29,12 +29,7 @@ from autoencoder.tracking import (
     finish_tracking,
 )
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s",
-    datefmt="%H:%M:%S",
-)
-logger = logging.getLogger(__name__)
+logger = utils.setup_logging(__name__)
 
 
 def prepare_split() -> None:
@@ -55,7 +50,7 @@ def prepare_split() -> None:
             f"Run first: python src/01_extract_embeddings.py"
         )
 
-    embeddings = torch.load(source, map_location="cpu", weights_only=True)
+    embeddings = utils.load_tensor(source)
     logger.info(
         f"Creating {config.training.train_split_ratio:.0%} / "
         f"{1 - config.training.train_split_ratio:.0%} split "
@@ -106,9 +101,7 @@ def train_single(seed: int) -> Path:
     )
 
     # Sanity check on HELD-OUT test set (not training data)
-    test_emb = torch.load(
-        config.paths.test_embeddings_path, map_location="cpu", weights_only=True
-    )
+    test_emb = utils.load_tensor(config.paths.test_embeddings_path)
     n_check = min(config.training.sanity_check_samples, len(test_emb))
     # Random subset, not positional slice
     rng = np.random.default_rng(seed)

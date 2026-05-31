@@ -14,7 +14,6 @@ Run:
 """
 
 import json
-import logging
 import sys
 from pathlib import Path
 
@@ -22,16 +21,12 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 import config
+import utils
 from autoencoder.sae_module import SAEManager
 from autoencoder.tracking import init_tracking, log_artifact, finish_tracking
 from autoencoder.visualization import plot_jaccard_heatmap, plot_per_seed_metrics
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s",
-    datefmt="%H:%M:%S",
-)
-logger = logging.getLogger(__name__)
+logger = utils.setup_logging(__name__)
 
 OUTPUT_PATH = config.paths.results_dir / "stability_analysis.json"
 
@@ -128,7 +123,7 @@ def run() -> Path:
             f"Run first: python src/autoencoder/train_sae.py"
         )
 
-    embeddings = torch.load(embeddings_path, map_location="cpu", weights_only=True)
+    embeddings = utils.load_tensor(embeddings_path)
     if config.training.stability_max_samples:
         embeddings = embeddings[: config.training.stability_max_samples]
     logger.info(f"Test embeddings: {embeddings.shape}")

@@ -14,24 +14,17 @@ Run:
 """
 
 import json
-import logging
 import sys
 from pathlib import Path
 
-import torch
-
 sys.path.insert(0, str(Path(__file__).parent.parent))
 import config
+import utils
 from autoencoder.sae_module import SAEManager
 from autoencoder.tracking import init_tracking, log_artifact, finish_tracking
 from autoencoder.visualization import plot_concept_score_distribution
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s",
-    datefmt="%H:%M:%S",
-)
-logger = logging.getLogger(__name__)
+logger = utils.setup_logging(__name__)
 
 # Use primary_seed from config (not fragile seeds[1] index)
 SEED = config.training.primary_seed
@@ -54,9 +47,7 @@ def run() -> Path:
         vocab_labels = json.load(f)
     logger.info(f"Vocabulary: {len(vocab_labels)} terms")
 
-    vocab_embeddings = torch.load(
-        config.paths.vocab_embeddings_path, map_location="cpu", weights_only=True
-    )
+    vocab_embeddings = utils.load_tensor(config.paths.vocab_embeddings_path)
     logger.info(f"Vocab embeddings shape: {vocab_embeddings.shape}")
 
     mgr = SAEManager({"device": config.hardware.device})

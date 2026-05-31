@@ -16,21 +16,20 @@ Usage:
 
 from __future__ import annotations
 
-import dataclasses
 import hashlib
 import json
 import logging
-import random
 from pathlib import Path
 from typing import Optional
 
-import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 
 from dictionary_learning.trainers.top_k import AutoEncoderTopK, TopKTrainer
 from dictionary_learning.training import trainSAE
+
+import utils
 
 logger = logging.getLogger(__name__)
 
@@ -55,10 +54,7 @@ _DEFAULTS = {
 
 def _extract_sae_config(cfg) -> dict:
     """Convert a frozen SAEConfig dataclass to a plain dict."""
-    result = {}
-    for f in dataclasses.fields(cfg):
-        result[f.name] = getattr(cfg, f.name)
-    return result
+    return utils.dataclass_to_dict(cfg)
 
 
 class SAEManager:
@@ -121,10 +117,10 @@ class SAEManager:
         lr = self.config.get("lr")  # None = auto-scale
 
         # Full seed propagation for reproducibility
-        _set_global_seed(seed)
+        utils.set_global_seed(seed)
 
         # Load and validate embeddings
-        embeddings = torch.load(embeddings_path, map_location="cpu", weights_only=True)
+        embeddings = utils.load_tensor(embeddings_path)
         if (
             embeddings.dim() != 2
             or embeddings.shape[1] != self.config["activation_dim"]
@@ -224,9 +220,7 @@ class SAEManager:
                 )
 
         # Safe load with weights_only=True (bypasses unsafe library default)
-        state_dict = torch.load(
-            ae_path, map_location=self.config["device"], weights_only=True
-        )
+        state_dict = utils.load_tensor(ae_path, device=self.config["device"])
         dict_size, activation_dim = state_dict["encoder.weight"].shape
         k = self.config["k"]
 
@@ -623,13 +617,3 @@ class SAEManager:
 
         with open(model_dir / "training_manifest.json", "w") as f:
             json.dump(manifest, f, indent=2)
-
-
-def _set_global_seed(seed: int) -> None:
-    """Set all random seeds for full reproducibility."""
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False

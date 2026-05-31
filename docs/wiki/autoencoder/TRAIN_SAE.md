@@ -89,22 +89,27 @@ def prepare_split() -> None:
 **Perche:**
 
 ### Skip se gia' esiste
+
 Se `train_embeddings.pt` e `test_embeddings.pt` esistono gia', non ricrea lo
 split. Lo split e' deterministico (`split_seed=42`), quindi riproducibile.
 
 ### Import lazy di sklearn
+
 L'import e' dentro la funzione perche' sklearn e' pesante. Se lo split esiste,
 non viene mai importato. Rende sklearn una dipendenza de facto opzionale.
 
 ### train_test_split con indici
+
 ```python
 indices = np.arange(len(embeddings))
 train_idx, test_idx = train_test_split(indices, train_size=0.8, random_state=42)
 ```
+
 Si passano indici (non le embedding direttamente) per garantire deterministicita'
 e per poter tracciare quali campioni vanno in train vs test.
 
 ### Config
+
 - `train_split_ratio=0.8`: 80/20 e' lo standard per dataset di dimensione media.
 - `split_seed=42`: garantisce riproducibilita' dello split.
 
@@ -173,6 +178,7 @@ solo sull'80% dei dati. Il 20% e' tenuto da parte per il sanity check.
 **Perche:**
 
 Il sanity check valuta su dati **mai visti durante il training** (held-out test set):
+
 1. **Overfitting detection**: MSE su test molto piu' alto di train = overfitting.
 2. **Seed propagation**: `np.random.default_rng(seed)` seleziona un sottoinsieme
    casuale ma deterministico. Non uno slice posizionale (che potrebbe introdurre
@@ -240,19 +246,23 @@ def main():
 **Perche:**
 
 ### Validazione post-split
+
 Dopo `prepare_split()`, verifica che il file di train esista. Se `prepare_split()`
 ha fallito (es. sklearn non installato e file mancanti), questo check intercetta
 il problema.
 
 ### Log ambiente
+
 Versione PyTorch, device, seed e iperparametri per confronto tra run.
 
 ### Loop multi-seed
+
 Itera su `config.training.seeds = (0, 42, 123, 456, 789)`. Per ogni seed:
 allena, sanity check su test, salva. Al termine: 5 modelli in
 `models/sae_seed{N}/ae.pt`.
 
 ### Tracking
+
 Una singola run wandb per l'intero training multi-seed. `finish_tracking()`
 chiude la run garantendo sincronizzazione.
 
@@ -260,7 +270,7 @@ chiude la run garantendo sincronizzazione.
 
 ## Diagramma del flusso
 
-```
+```text
 [Input: embeddings/visual_embeddings.pt (7400, 512)]
             |
     +--[prepare_split()]-------+
@@ -304,7 +314,7 @@ chiude la run garantendo sincronizzazione.
 
 ## Relazione con gli altri script
 
-```
+```text
 train_sae (split + train 5 SAEs + sanity check)
     +---> concept_naming (usa sae_seed42)
     +---> generate_explanations (usa sae_seed42 + test embeddings)

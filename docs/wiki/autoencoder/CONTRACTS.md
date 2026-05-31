@@ -71,7 +71,7 @@ la creazione — e' un dato osservazionale, non uno stato mutabile.
 
 **Posizione nella pipeline:**
 
-```
+```text
 sae_module.name_concepts()
     --> calcola similarita' per ogni feature
         --> crea CandidateName per ogni termine candidato
@@ -96,6 +96,7 @@ class ConceptName:
 **Perche:**
 
 E' il risultato unitario del naming per una singola feature SAE. Raggruppa:
+
 - `feature_id`: l'indice della feature nel dizionario (0-4095).
 - `name`: il termine migliore (primo candidato).
 - `score`: il cosine similarity del termine migliore.
@@ -124,7 +125,7 @@ ConceptName(
 
 **Posizione nella pipeline:**
 
-```
+```text
 concept_naming --> ConceptName (per ogni feature attiva)
     --> aggregato in ConceptMap.concepts
 ```
@@ -162,7 +163,7 @@ di nomi — include metadata essenziali per la riproducibilita' e il monitoring:
 
 **Posizione nella pipeline:**
 
-```
+```text
 concept_naming --> ConceptMap
     --> consumato da generate_explanations (per associare nomi alle attivazioni)
     --> consumato da visualization.plot_concept_score_distribution (per i grafici)
@@ -205,7 +206,7 @@ del modello su un campione specifico.
 
 **Posizione nella pipeline:**
 
-```
+```text
 generate_explanations
     --> per ogni campione, crea una lista di Finding
     --> raggruppati in Explanation.findings
@@ -249,7 +250,7 @@ sia la presentazione umana.
 
 **Posizione nella pipeline:**
 
-```
+```text
 generate_explanations --> list[Explanation] (una per campione)
     --> serializzate in JSON per il report finale
 ```
@@ -295,12 +296,13 @@ tra loro e identificare outlier:
   frequenza di attivazione delle feature (media e variazione).
 
 L'insieme di queste metriche permette di distinguere:
+
 - Seed sani (MSE basso, L0 ~ k, dead% moderato, entropia alta)
 - Seed problematici (MSE alto, dead% alto, entropia bassa)
 
 **Posizione nella pipeline:**
 
-```
+```text
 stability_analysis
     --> per ogni seed: calcola SeedMetrics
     --> aggregati in StabilityResult.per_seed_metrics
@@ -342,7 +344,7 @@ di ridurre da 4096.
 
 **Posizione nella pipeline:**
 
-```
+```text
 stability_analysis.compute_concept_clustering()
     --> ClusteringResult
     --> aggregato in StabilityResult.clustering
@@ -387,7 +389,7 @@ flessibilita' senza rompere il contratto.
 
 **Posizione nella pipeline:**
 
-```
+```text
 stability_analysis --> StabilityResult
     --> serializzato in results/stability_analysis.json
     --> consumato da visualization per le heatmap Jaccard
@@ -398,7 +400,7 @@ stability_analysis --> StabilityResult
 
 ## Diagramma del flusso dei contratti
 
-```
+```python
                     contracts.py (tutti i dataclass)
                                |
         +------+--------+------+--------+
@@ -428,7 +430,7 @@ I contratti si organizzano in tre "gruppi" che corrispondono agli stadi:
 
 ## Relazione con gli altri file
 
-```
+```text
 sae_module.py  --> produce i dati grezzi (tensor, similarita')
 concept_naming.py  --> usa CandidateName, ConceptName, ConceptMap
 generate_explanations.py  --> usa Finding, Explanation

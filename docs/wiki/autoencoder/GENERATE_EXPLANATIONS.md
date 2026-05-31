@@ -265,7 +265,7 @@ Pattern standard: `run()` testabile, `main()` wrapper, `__name__` guard.
 
 ## Diagramma del flusso
 
-```
+```text
 [Input 1: embeddings/test_embeddings.pt (N_test, 512)]   <-- HELD-OUT
             |
 [Input 2: models/sae_seed{primary_seed}/ae.pt]
@@ -330,6 +330,6 @@ Pattern standard: `run()` testabile, `main()` wrapper, `__name__` guard.
 
 ## Ruolo nella pipeline
 
-```
+```text
 01 (embedding) -> train_sae -> concept_naming -> generate_explanations (su test) -> 05 (LLM Judge)
 ```

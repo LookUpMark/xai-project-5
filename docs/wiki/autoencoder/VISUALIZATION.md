@@ -38,6 +38,7 @@ numeri in informazioni visive immediate:
 - Un bar chart con dead features al 30% = dizionario inefficiente.
 
 ### Perche' seaborn + matplotlib (non Plotly o altro)
+
 - **matplotlib + seaborn**: standard de facto in scientific Python, zero
   dipendenze extra (già usati da pandas, sklearn), output come file statici
   (PNG) perfetti per paper e report.
@@ -47,8 +48,10 @@ numeri in informazioni visive immediate:
   il problema.
 
 ### Perche' import lazy (dentro le funzioni)
+
 `matplotlib.pyplot` e `seaborn` non sono importati a livello di modulo.
 L'import e' dentro ogni funzione. Motivo:
+
 - Evita l'inizializzazione del backend grafico quando il modulo viene
   importato ma le funzioni non sono chiamate.
 - Evita crash se matplotlib non e' installato — il modulo si importa
@@ -138,6 +141,7 @@ di calore. E' il grafico piu' importante per valutare la robustezza del SAE.
 ### Scelte di design
 
 **Colormap `YlOrRd`** (giallo-arancio-rosso):
+
 - Giallo = Jaccard basso (concetti instabili tra questa coppia).
 - Rosso = Jaccard alto (concetti stabili tra questa coppia).
 - Questa colormap e' percettivamente uniforme e distinguibile anche in
@@ -226,6 +230,7 @@ sovrapposta all'istogramma. Aiuta a visualizzare la forma della
 distribuzione senza dipendere dal binning.
 
 **Linea rossa per la media** (`axvline`):
+
 - Linea verticale tratteggiata in rosso con etichetta "Mean=X.XXX".
 - Permette di valutare rapidamente se la media e' in una zona accettabile.
 - Il rosso e' un colore ad alto contrasto che si distingue dall'istogramma
@@ -303,6 +308,7 @@ riga e' un'osservazione (un seed), ogni colonna e' una variabile.
 se un seed non ha una metrica particolare, non crasha ma mostra 0.
 
 **Due subplot affiancati** (`1, 2`):
+
 - Sinistra: MSE (errore di ricostruzione) — palette "Blues_d" (blu scuro
   per valori alti = cattivo).
 - Destra: Dead Features % — palette "Reds_d" (rosso scuro per valori alti
@@ -374,6 +380,7 @@ il dizionario e' ben utilizzato o sprecato.
 ### Scelte di design
 
 **Colori semantici condizionali**:
+
 ```python
 colors = ["#2ecc71" if v > 50 else "#e74c3c" for v in metrics.values()]
 ```
@@ -475,7 +482,7 @@ analisi interattiva e per logging su W&B.
 
 ## Diagramma del flusso
 
-```
+```text
 [Dati dalla pipeline]
         |
         +---> StabilityResult.jaccard_matrix + seeds
@@ -523,7 +530,7 @@ analisi interattiva e per logging su W&B.
 
 ## Relazione con gli altri file
 
-```
+```text
 visualization.py  (questo file)
     |
     +---> consuma dati da: stability_analysis.py (jaccard_matrix,

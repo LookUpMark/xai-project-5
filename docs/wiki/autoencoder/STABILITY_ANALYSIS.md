@@ -264,7 +264,7 @@ Pattern standard: `run()` testabile con valore di ritorno, `main()` wrapper.
 
 ## Diagramma del flusso
 
-```
+```text
 [Input: 5 modelli + embeddings/test_embeddings.pt]
             |
     +--[1. Jaccard Stability]--+
@@ -307,7 +307,7 @@ Pattern standard: `run()` testabile con valore di ritorno, `main()` wrapper.
 
 ## Relazione con gli altri script
 
-```
+```text
 train_sae (5 SAEs) --> stability_analysis (confronta su test set)
                           |
                     [Jaccard matrix]

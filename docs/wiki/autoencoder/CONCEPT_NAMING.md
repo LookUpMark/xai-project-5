@@ -168,6 +168,7 @@ score >0.5, il naming e' riuscito. Formattazione tabellare con allineamento.
 **Perche:**
 
 Genera un istogramma con KDE della distribuzione degli score. Rivela:
+
 - Distribuzione unimodale (buono) vs bimodale ("interpretabili" vs "non interpretabili").
 - Molti score bassi: vocabolario inadeguato per il dominio visivo.
 - Linea rossa verticale per la media. Salvato in `results/figures/`.
@@ -212,7 +213,7 @@ per esecuzione diretta. `__name__` guard per import senza side effects.
 
 ## Diagramma del flusso
 
-```
+```text
 [Input 1: models/sae_seed{primary_seed}/ae.pt]
             |
     [Estrai W_dec (dict_size, 512)]
@@ -281,7 +282,7 @@ potrebbe essere piu' appropriato.
 
 ## Relazione con gli altri script
 
-```
+```text
 train_sae --> concept_naming (usa sae_seed{primary_seed})
                 +---> generate_explanations (usa concept_names.json)
 ```

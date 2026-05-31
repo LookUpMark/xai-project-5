@@ -88,7 +88,7 @@ def load_tensor(path: str | Path, device: str = "cpu") -> torch.Tensor:
   malevolo potrebbe eseguire codice al caricamento.
 - `map_location=device`: carica direttamente sul device target senza passare
   per la GPU (evita OOM su modelli pesanti).
-- Usato in 7 punti della pipeline: train_sae (2x), concept_naming, 
+- Usato in 7 punti della pipeline: train_sae (2x), concept_naming,
   generate_explanations, stability_analysis, sae_module (2x).
 
 ---
@@ -141,6 +141,7 @@ def dataclass_to_dict(obj) -> dict:
 **Perche:**
 
 Converte qualsiasi dataclass (frozen o mutable) in un dict piatto. Utile per:
+
 - Serializzazione JSON di configurazioni
 - Passaggio di config a librerie che accettano dict (es. `dictionary_learning`)
 - Logging di iperparametri su wandb

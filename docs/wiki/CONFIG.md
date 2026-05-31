@@ -32,6 +32,7 @@ globali sparse. Ogni dataclass raggruppa parametri dello stesso dominio:
 paths, backbone, SAE, training, explanation, wandb, hardware.
 
 Vantaggi:
+
 - Autocompletamento nell'IDE (`config.sae.` mostra solo parametri SAE)
 - Documentazione integrata (ogni classe ha docstring)
 - Validazione dei tipi tramite annotazioni e controlli in `__post_init__`
@@ -39,6 +40,7 @@ Vantaggi:
 - Facile da passare come argomento senza import circolari
 
 Novita' rispetto alla versione precedente:
+
 - `import torch` e' stato aggiunto per il rilevamento automatico della GPU
   in `HardwareConfig`.
 - `from __future__ import annotations` permette di usare `str | Path` come type hint
@@ -83,32 +85,38 @@ class PathsConfig:
 **Perche:**
 
 ### project_root
+
 `Path(__file__).parent.parent` calcola la root del progetto relativamente alla
 posizione di config.py stesso (`src/config.py` -> `src/` -> root del progetto).
 Questo rende i path indipendenti dalla directory di lavoro corrente.
 
 ### field(init=False)
+
 Questi campi non possono essere passati al costruttore. Sono sempre derivati
 da `project_root`. `field(init=False)` li esclude da `__init__` ma li include
 in `__repr__` e `__eq__`.
 
-### __post_init__
+### **post_init**
+
 Chiamato automaticamente alla fine di `__init__` generato dalla dataclass.
 Calcola tutti i path derivati. I path dei file composti (es. `visual_embeddings_path`)
 riutilizzano i campi directory (`self.embeddings_dir`) per evitare ripetizione.
 
 ### Non frozen
+
 A differenza delle altre dataclass, `PathsConfig` non e' frozen perche'
 `__post_init__` deve assegnare valori ai campi `init=False`. Con `frozen=True`
 servirebbe il workaround `object.__setattr__`.
 
 ### Novita': figures_dir
+
 `figures_dir = self.results_dir / "figures"` e' una nuova directory dedicata
 all'output dei grafici e delle figure (es. loss curves, activation histograms).
 Prima le figure venivano salvate direttamente in `results_dir`, creando confusione
 tra file JSON di risultati e immagini PNG/SVG.
 
 ### Novita': train_embeddings_path e test_embeddings_path
+
 I path separati per le embedding di train e test riflettono il nuovo flusso della
 pipeline in cui le embedding vengono divise in due set fin dallo script di split
 (vedi `TrainingConfig.train_split_ratio`). Questo e' fondamentale per la
@@ -116,7 +124,7 @@ valutazione out-of-sample del SAE, che prima non era possibile.
 
 ### Struttura delle directory
 
-```
+```text
 project_root/
   data/                 -> vocabulary.json, radlex.csv
   embeddings/           -> visual_embeddings.pt, train_embeddings.pt,
@@ -237,24 +245,28 @@ class SAEConfig:
 **Perche:**
 
 ### activation_dim = 512
+
 Dimensione degli embedding in input/output del SAE. Deve corrispondere a
 `backbone.embedding_dim`. E' la dimensione dello spazio in cui il SAE opera.
 
 ### dict_size = 4096
+
 Numero di "concetti" (feature) nel dizionario sparse. Rapporto di overcompleteness
 = 4096/512 = 8x. Un dizionario overcomplete permette al SAE di catturare
 piu' concetti distinti rispetto alla dimensionalita' dello spazio.
 
 ### k = 32
+
 Top-K sparsity: per ogni input, solo le 32 feature con attivazione piu' alta
 vengono mantenute, le altre sono azzerate. Questo forza una rappresentazione
 sparse dove ogni immagine e' descritta da esattamente 32 concetti.
 
 ### lr: Optional[float] = None (novita' importante)
+
 Il learning rate e' ora `Optional[float]` con default `None`. Questo attiva
 l'auto-scaling della libreria `dictionary_learning`:
 
-```
+```text
 lr_auto = 2e-4 / sqrt(dict_size / 16384)
 ```
 
@@ -274,31 +286,37 @@ sovrascrivere con un valore fisso piu' basso (es. `lr=5e-5`) direttamente
 nel costruttore o come argomento.
 
 ### steps = 50_000
+
 Il training e' step-based (non epoch-based). Con batch_size=256 e ~5900 campioni
 di train (80% di ~7400), 50k step corrispondono a ~2160 epoche. Valore di
 default -- potrebbe essere ridotto per dataset piccoli (vedi ablation presets).
 
 ### warmup_steps = 1_000
+
 Riscaldamento lineare del learning rate: LR cresce da 0 a `lr` nei primi 1000 step.
 Stabilizza l'inizio del training quando i pesi sono random e i gradienti grandi.
 
 ### batch_size = 256
+
 Numero di campioni per step di training. Con ~5900 campioni di train, ogni epoca
 completa richiede ~23 step. 256 e' un buon compromesso tra stabilita' del
 gradiente e velocita'.
 
 ### log_steps = 1_000 (novita')
+
 Frequenza di logging delle metriche di training (loss, sparsity, ecc.).
 Ogni 1000 step vengono stampati/loggati i valori correnti.
 Valore ragionevole: con 50k step totali si ottengono 50 punti di log,
 sufficienti per una loss curve senza inondare l'output.
 
 ### decay_start_frac = 0.8 (novita')
+
 Frazione dei passi totali a cui inizia il decay lineare del learning rate.
 Con `steps=50_000`, il decay inizia al passo 40.000 e il LR scende a zero
 al passo 50.000.
 
 **Perche' 0.8 e non 0.5 o 1.0?**
+
 - 0.5 sarebbe troppo presto: il modello perderebbe capacita' di apprendimento
   nella meta' finale del training, quando le feature meno frequenti stanno ancora
   venendo imparate.
@@ -307,7 +325,8 @@ al passo 50.000.
 - 0.8 permette un plateau di apprendimento solido (40k step) seguito da un
   raffinamento graduale (10k step).
 
-### __post_init__ (novita')
+### **post_init** (novita')
+
 La validazione e' stata introdotta per catturare errori di configurazione
 immediatamente all'import, anziche' scoprirli a runtime durante il training
 (magari dopo ore di calcolo). I controlli sono:
@@ -329,6 +348,7 @@ Tutti i controlli usano `raise ValueError` con messaggi descrittivi che
 includono il valore errato e il vincolo violato.
 
 ### Preset di ablation (novita' nella docstring)
+
 La docstring include tre preset per esperimenti di ablation, pensati per
 confrontare sistematicamente l'effetto dei parametri sul dataset piccolo:
 
@@ -339,6 +359,7 @@ confrontare sistematicamente l'effetto dei parametri sul dataset piccolo:
 | Aggressive | 64 | 4096 | None | 80_000 | 8x |
 
 **Perche' tre preset?** Permettono di studiare tre assi:
+
 - **Conservative vs Default**: effetto della sparsita' (k) e della dimensione
   del dizionario insieme.
 - **Default vs Aggressive**: effetto della sparsita' a parita' di dizionario
@@ -379,12 +400,15 @@ class TrainingConfig:
 **Perche:**
 
 ### seeds = (0, 42, 123, 456, 789)
+
 Cinque semi per l'analisi di stabilita'. Ogni seed produce un SAE con
 inizializzazione diversa. Confrontando i risultati si misura la robustezza.
+
 - 5 seed e' sufficiente per stimare media e varianza della Jaccard similarity.
 - Tuple (immutabile) per coerenza con `frozen=True`.
 
 ### primary_seed = 42 (novita')
+
 Seme di riferimento usato per il modello "principale" su cui vengono eseguiti
 il concept naming e la generazione delle spiegazioni.
 
@@ -396,6 +420,7 @@ Con `primary_seed` esplicito, l'intento e' dichiarativo e la validazione in
 `__post_init__` garantisce che il seed scelto sia effettivamente nella lista.
 
 ### sanity_check_samples = 256 (novita')
+
 Numero di campioni usati nei sanity check pre-training (verifica che le
 embedding siano caricate correttamente, che le dimensioni siano coerenti, ecc.).
 256 e' un sottoinsieme rappresentativo ma veloce da processare.
@@ -406,6 +431,7 @@ inutile. 256 campioni sono sufficienti per rilevare problemi di forma,
 valori NaN, o dimensioni errate.
 
 ### train_split_ratio = 0.8 (novita')
+
 Frazione del dataset usata per il training (80%). Il restante 20% e' usato
 come test set per la valutazione out-of-sample del SAE.
 
@@ -416,26 +442,31 @@ sparsita', ma abbastanza piccolo da non "sprecare" dati preziosi per il
 training (i dataset biomedici sono tipicamente piccoli).
 
 ### split_seed = 42 (novita')
+
 Seme per la riproducibilita' dello split train/test. Garantisce che lo stesso
 campione finisca sempre nello stesso set, indipendentemente dall'ordine
 dei dati su disco.
 
 ### stability_max_samples = None
+
 Limita opzionalmente il numero di campioni usati nell'analisi di stabilita'.
 `None` = usa tutto il dataset. Utile in sviluppo per velocizzare i test.
 
 ### correlation_threshold = 0.7 (novita')
+
 Soglia di correlazione usata nell'analisi di stabilita' per determinare se
 due feature (da seed diversi) rappresentano lo stesso concetto. Due feature
 con correlazione cosine >= 0.7 sono considerate "la stessa feature".
 
 **Perche' 0.7?** Valore empirico bilanciato:
+
 - Troppo basso (0.5): unisce feature che catturano concetti diversi ma
   con direzioni simili nel spazio latente.
 - Troppo alto (0.9): non riesce a unire feature che rappresentano lo
   stesso concetto ma con piccole variazioni dovute all'inizializzazione.
 
-### __post_init__ (novita')
+### **post_init** (novita')
+
 La validazione garantisce che:
 
 1. **`primary_seed in seeds`**: se il seed primario non e' nella lista,
@@ -463,14 +494,17 @@ class ExplanationConfig:
 **Perche:**
 
 ### concept_top_n = 3
+
 Quanti candidati di nome restituire per ogni feature nel concept naming (concept_naming).
 Top-3 permette di vedere alternative quando il primo nome non e' convincente.
 
 ### explanation_top_n = 5
+
 Quanti concetti includere nella spiegazione di ogni immagine (generate_explanations).
 5 concetti bilanciano completezza e leggibilita' nel pseudo-report.
 
 ### explanation_max_samples = None
+
 Come `stability_max_samples`: limita le immagini processate in generate_explanations.
 `None` = processa tutto il dataset.
 
@@ -493,9 +527,11 @@ class WandbConfig:
 **Perche:**
 
 ### Perche' una dataclass dedicata?
+
 Weights & Biases (wandb) e' uno strumento di experiment tracking che logga
 metriche di training (loss, learning rate, sparsita') su un dashboard web.
 Avere una config dedicata permette di:
+
 - Disabilitare wandb in sviluppo (`enabled=False`) senza dover cercare
   e commentare chiamate sparse nel codice.
 - Cambiare progetto/entity per esperimenti diversi senza modificare il
@@ -503,7 +539,9 @@ Avere una config dedicata permette di:
 - Centralizzare la configurazione del logging in un unico punto.
 
 ### enabled = False
+
 Wandb e' disabilitato di default. Questo evita:
+
 - Richieste di login a chiunque importi il modulo senza account wandb.
 - Upload non voluti di metriche durante esperimenti esplorativi.
 - Dipendenza implicita da wandb in ambienti dove non e' installato.
@@ -511,10 +549,12 @@ Wandb e' disabilitato di default. Questo evita:
 Per abilitare: `WandbConfig(enabled=True)` oppure modificare il default.
 
 ### project = "sae-concept-discovery"
+
 Nome del progetto su wandb. Tutti i run (diversi seed, diversi preset)
 vengono raggruppati sotto questo progetto.
 
 ### entity: Optional[str] = None
+
 L'entity (utente o team) su wandb. `None` usa l'entity di default
 dell'utente loggato. Puo' essere sovrascritto per loggare sotto un team
 condiviso (es. `"my-research-lab"`).
@@ -534,6 +574,7 @@ class HardwareConfig:
 **Perche:**
 
 ### Rilevamento automatico (novita')
+
 Nella versione precedente, `device` era hardcoded a `"cuda"`. Questo causava
 un errore immediato su macchine senza GPU NVIDIA (es. MacBook, server CPU-only).
 Ora il rilevamento e' automatico:
@@ -543,6 +584,7 @@ device: str = "cuda" if torch.cuda.is_available() else "cpu"
 ```
 
 **Perche' `torch.cuda.is_available()` e non un detect universale?**
+
 - MPS (Apple Silicon) non e' supportato dalla libreria `dictionary_learning`
   usata per il training SAE. Anche se torch lo supporta, il codice del trainer
   presume l'uso di CUDA o CPU.
@@ -554,6 +596,7 @@ Per forzare un device specifico (es. `"mps"` per test su Apple Silicon),
 istanziare esplicitamente: `HardwareConfig(device="mps")`.
 
 ### frozen=True
+
 Una volta determinato il device, non dovrebbe cambiare durante l'esecuzione.
 Modificare il device a runtime causerebbe copie di tensori tra device
 impreviste e possibili errori.
@@ -579,6 +622,7 @@ DEVICE = hardware.device
 **Perche:**
 
 Le istanze sono create a livello di modulo cosi' gli script possono fare:
+
 ```python
 import config
 config.sae.dict_size  # 4096
@@ -591,6 +635,7 @@ implicito di Python). Ogni script che fa `import config` condivide le stesse
 istanze.
 
 ### Nota sull'ordine di istanziazione
+
 L'ordine non e' casuale: `PathsConfig()` viene prima perche' non ha dipendenze,
 ma le altre dataclass con `__post_init__` vengono istanziate subito dopo.
 Se una di queste validazioni fallisse (es. `primary_seed` non in `seeds`),
@@ -598,12 +643,14 @@ l'errore viene sollevato all'import, prima che qualsiasi script possa
 usare una configurazione inconsistente.
 
 ### wandb_cfg (novita')
+
 Il nome usa l'abbreviazione `wandb_cfg` invece di `wandb` per evitare
 conflitti di namespace con il package `wandb` stesso importato negli script
 di training. Un modulo che fa `import wandb` e `import config` non avrebbe
 ambiguita'.
 
 ### DEVICE
+
 Alias di compatibilita' per codice legacy che usava `config.DEVICE` invece
 di `config.hardware.device`.
 
@@ -612,7 +659,9 @@ di `config.hardware.device`.
 ## Come modificare la configurazione
 
 ### Per cambiare un default
+
 Modificare il valore nel campo della dataclass:
+
 ```python
 dict_size: int = 2048  # era 4096
 ```
@@ -621,7 +670,9 @@ Attenzione: se la dataclass ha `__post_init__`, verificare che il nuovo
 valore soddisfi tutti i vincoli di validazione.
 
 ### Per aggiungere un parametro
+
 Aggiungere un campo nella dataclass appropriata:
+
 ```python
 @dataclass(frozen=True)
 class SAEConfig:
@@ -632,37 +683,46 @@ class SAEConfig:
 Se il parametro richiede validazione, aggiungere il controllo in `__post_init__`.
 
 ### Per usare un preset di ablation
+
 Sovrascrivere i campi del preset nel costruttore:
+
 ```python
 # Preset Conservative per dataset piccolo
 sae = SAEConfig(k=16, dict_size=2048, steps=30_000)
 ```
 
 Oppure creare un'istanza separata nel punto di uso:
+
 ```python
 from config import SAEConfig
 sae_conservative = SAEConfig(k=16, dict_size=2048, steps=30_000)
 ```
 
 ### Per abilitare wandb
+
 Non modificare config.py direttamente. Creare l'istanza con override:
+
 ```python
 wandb_cfg = WandbConfig(enabled=True, entity="my-team")
 ```
 
 ### Per forzare un device
+
 ```python
 hardware = HardwareConfig(device="cpu")
 ```
 
 ### Per override temporaneo in uno script
+
 Non modificare config.py. Passare il valore come argomento alla funzione
 o al manager che lo usa:
+
 ```python
 mgr = SAEManager({"device": "cpu", "dict_size": 2048})
 ```
 
 ### Per cambiare lo split train/test
+
 ```python
 training = TrainingConfig(train_split_ratio=0.9, split_seed=123)
 ```
@@ -671,7 +731,7 @@ training = TrainingConfig(train_split_ratio=0.9, split_seed=123)
 
 ## Relazione tra le configurazioni
 
-```
+```text
 BackboneConfig.embedding_dim = 512
         |
         v

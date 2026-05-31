@@ -45,6 +45,7 @@ I benefici concreti:
    rispetti l'interfaccia a compile-time.
 
 Le importazioni chiave:
+
 - `Protocol` (PEP 544): definisce interfacce strutturali — una classe
   implementa un Protocol se ha i metodi giusti, senza ereditarieta' esplicita.
 - `runtime_checkable`: abilita `isinstance(obj, MyProtocol)` per verificare
@@ -74,17 +75,20 @@ class PipelineStage(Protocol):
 **Perche:**
 
 ### Il problema risolto
+
 Nella pipeline SAE, ogni stadio (train, naming, explanation, stability)
 condivide lo stesso pattern: ha un nome, produce un artefatto su disco,
 e restituisce il path. Senza `PipelineStage`, questo pattern e' implicito
 — ogni script e' un file standalone senza struttura comune.
 
 ### Perche' un Protocol (non una classe astratta)
+
 Un Protocol Python e' un'interfaccia strutturale (structural typing):
 una classe la implementa automaticamente se ha gli attributi/metodi giusti,
 senza bisogno di `class MyStage(PipelineStage)`.
 
 Questo e' cruciale perche':
+
 - Gli script esistenti (`train_sae.py`, `concept_naming.py`, ecc.) possono
   implementare il Protocol **senza modificare il loro codice** — basta che
   abbiano una property `name` e un metodo `run() -> Path`.
@@ -92,18 +96,23 @@ Questo e' cruciale perche':
   del codice legacy.
 
 ### Perche' `@runtime_checkable`
+
 Normalmente i Protocol funzionano solo con il type checker statico (mypy).
 `@runtime_checkable` aggiunge la possibilita' di fare `isinstance(stage, PipelineStage)`
 a runtime, utile per:
+
 - Validazione degli stadi in un orchestratore di pipeline.
 - Errori precoci se uno stadio non rispetta l'interfaccia.
 
 ### `name` come property (non metodo)
+
 E' una `@property` perche' il nome di uno stadio e' un attributo immutabile,
 non un'azione. Consente di scrivere `stage.name` invece di `stage.name()`.
 
 ### `run() -> Path`
+
 Restituisce un `Path` al artefatto principale prodotto. Potrebbe essere:
+
 - Un file JSON (es. `results/stability_analysis.json`)
 - Un file pickle/tensor (es. `models/sae_seed42/ae.pt`)
 - Una directory di output
@@ -143,22 +152,27 @@ class TrackedStage(PipelineStage, Protocol):
 **Perche:**
 
 ### Estensione di PipelineStage
+
 `TrackedStage` eredita da `PipelineStage` (tramite Protocol, non
 classica ereditarieta'). Questo significa che un `TrackedStage` deve avere:
+
 - La property `name` (da `PipelineStage`)
 - Il metodo `run()` ( Ridefinito con firma diversa)
 
 ### Il problema risolto
+
 Alcuni stadi della pipeline producono metriche che devono essere tracciate
 in Weights & Biases (o sistemi simili). `PipelineStage.run()` restituisce
 solo un Path — non c'e' modo di estrarre le metriche senza leggere il
 file di output.
 
 `TrackedStage.run()` restituisce una tupla `(Path, dict)`:
+
 - `Path`: stesso artefatto di output di `PipelineStage`.
 - `dict`: metriche strutturate pronte per il logging (MSE, L0, dead%, ecc.).
 
 ### Perche' `run_id` e' Optional
+
 `run_id` permette di associare piu' stadi alla stessa run di tracking.
 Se `None`, ogni stadio crea la propria run. Se valorizzato (es. `"exp_42"`),
 tutti gli stadi con lo stesso `run_id loggano nella stessa run W&B.
@@ -167,6 +181,7 @@ E' `Optional` perche' non tutti gli stadi tracciati hanno bisogno di
 raggruppamento — in development, ogni stadio ha la sua run indipendente.
 
 ### Override di `run()` con firma diversa
+
 Attenzione: `TrackedStage.run()` ha una firma diversa da `PipelineStage.run()`
 — prende `run_id` e restituisce `tuple[Path, dict]` invece di `Path`. Questo
 e' intenzionale: i Protocol Python supportano l'overloading tramite
@@ -203,7 +218,7 @@ tracking.log_metrics(metrics)  # perfetta compatibilita' dei tipi
 
 ## Diagramma delle interfacce
 
-```
+```text
 PipelineStage (Protocol)
     |
     | @property name -> str
@@ -221,7 +236,7 @@ PipelineStage (Protocol)
 
 ### Relazione con i contratti (contracts.py)
 
-```
+```text
 protocols.py  <-- definisce COME si comportano gli stadi
 contracts.py  <-- definisce COSA producono e consumano (dati)
 
@@ -257,7 +272,7 @@ modifiche strutturali.
 
 ## Relazione con gli altri file
 
-```
+```text
 protocols.py  (questo file)
     |
     +---> train_sae.py       (implementa implicitamente PipelineStage)

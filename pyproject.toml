@@ -1,0 +1,5 @@
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning:importlib._bootstrap",
+    "ignore:builtin type Swig:DeprecationWarning",
+]

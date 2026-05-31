@@ -45,6 +45,7 @@ logger = logging.getLogger(__name__)
 - Il logger standard permette di tracciare il progresso senza print() sparse.
 
 **Note sul refactoring:**
+
 - `random`, `numpy`, `dataclasses` rimossi — la loro logica e' ora in `utils.py`
   (`set_global_seed()`, `dataclass_to_dict()`).
 - `torch.load()` sostituito ovunque con `utils.load_tensor()` per sicurezza.
@@ -82,6 +83,7 @@ secondaria**: il valore canonico vive nella dataclass `SAEConfig` in `config.py`
 
 I campi `log_steps` e `decay_start_frac` sono nuovi rispetto alla vecchia
 `DEFAULT_CONFIG`:
+
 - `log_steps=1_000`: ogni quanti step la libreria stampa le metriche di training
   durante l'addestramento.
 - `decay_start_frac=0.8`: frazione dei passi totali a cui inizia il decay
@@ -90,6 +92,7 @@ I campi `log_steps` e `decay_start_frac` sono nuovi rispetto alla vecchia
   (`2e-4 / sqrt(dict_size / 16384)`). Per dict_size=4096 restituisce circa 4e-4.
 
 I valori fondamentali rimangono:
+
 - `activation_dim=512`: dimensione degli embedding BiomedCLIP (input/output del SAE).
 - `dict_size=4096`: dimensione del dizionario sparse (numero di "concetti" appresi).
   Rapporto di overcompleteness = 4096/512 = 8x.
@@ -337,6 +340,7 @@ Top-K dell'autoencoder sparse dove la sparsita' viene imposta selezionando solo
 le k attivazioni piu' alte, anziche' usare un termine di penalita' L1 nel loss.
 
 Novita' rispetto alla versione precedente:
+
 - `decay_start` viene calcolato e passato esplicitamente (prima non era presente).
 - `seed` viene incluso nel trainer_config (prima non veniva passato alla
   libreria).
@@ -560,12 +564,14 @@ def encode_topk(
 
 Variante di `encode()` che restituisce anche i valori e gli indici dei k neuroni
 attivati. Utile per:
+
 - Analisi di stabilita' (confronto degli indici tra seed diversi)
 - Naming dei concetti (sapere quali feature sono attive)
 - `_` ignora il quarto valore di ritorno (dettaglio implementativo della
   libreria -- pre-topk ReLU activations).
 
 I tre tensori restituiti sono:
+
 - `encoded` (B, 4096): la rappresentazione sparse completa (stessa di `encode()`)
 - `values` (B, k): i valori delle k attivazioni massime
 - `indices` (B, k): gli indici delle feature corrispondenti
@@ -683,6 +689,7 @@ for row in sparse:
 La nuova versione esegue `sparse.topk(n, dim=1)` **sulla matrice intera**,
 sfruttando la vettorizzazione di PyTorch. Il risultato e' identico, ma
 l'operazione e' significativamente piu' veloce perche':
+
 - Un'unica chiamata C++/CUDA invece di B chiamate
 - Migliore sfruttamento della parallelizzazione SIMD/GPU
 - Meno overhead del bridge Python <-> C++
@@ -732,6 +739,7 @@ gli input, il che poteva portare a errori criptici piu' avanti (es. una
 matmul con shape incompatibile che crashava con un messaggio poco chiaro).
 
 Le tre validazioni verificano che:
+
 1. `vocab_embeddings` sia 2D (B, dim) -- non un tensor 1D o 3D.
 2. La seconda dimensione sia `activation_dim` (512) -- altrimenti la
    cosine similarity con i concetti non ha senso.
@@ -866,6 +874,7 @@ Misura la qualita' della ricostruzione usando la cosine similarity anziche'
 il MSE.
 
 La cosine similarity cattura una metrica diversa rispetto all'MSE:
+
 - **MSE** e' sensibile alla scala: un errore grande su una dimensione
   con valore alto pesa molto.
 - **Cosine similarity** e' invariante alla scala: misura solo la "direzione"
@@ -918,14 +927,17 @@ restituiva `l0_mean`, `l0_std`, `hoyer_mean` e `dead_features_pct`. La nuova
 versione sostituisce `hoyer_mean` con due metriche piu' informative.
 
 ### L0 (pseudo-norma)
+
 Conta il numero di attivazioni non-zero per campione. Con k=32, ci aspettiamo
 L0 ~ 32.0 (con deviazione standard ~0, dato che il Top-K e' deterministico).
 Viene mantenuto come **sanity check**: se L0 diverge significativamente da k,
 c'e' un problema nel Top-K enforcement.
 
 ### Dead features e dict utilization (rimaneggiati)
+
 La logica e' la stessa, ma ora il risultato include sia `dead_features_pct`
 (Feature mai attivate) sia `dict_utilization_pct` (il complemento):
+
 - `dead_features_pct`: percentuale di feature nel dizionario che non si attivano
   mai. Una percentuale alta indica capacita' sprecata.
 - `dict_utilization_pct`: percentuale di feature che si attivano almeno una
@@ -935,6 +947,7 @@ La logica e' la stessa, ma ora il risultato include sia `dead_features_pct`
 usato" e' piu' chiaro di "il 15% delle feature sono morte".
 
 ### Activation entropy (NUOVA)
+
 ```python
     freq = active_per_feature / (active_per_feature.sum() + 1e-8)
     freq = freq[freq > 0]
@@ -949,6 +962,7 @@ feature in modo relativamente uniforme. Se poche feature catturano la maggior
 parte delle attivazioni, il dizionario non e' sfruttato efficacemente.
 
 Interpretazione dell'entropia:
+
 - **Entropia alta** (vicina a log(dict_size)): le feature sono usate in modo
   uniforme -- buona diversita' concettuale.
 - **Entropia bassa**: poche feature dominano -- possibile "collasso" del
@@ -959,6 +973,7 @@ Il filtro `freq[freq > 0]` esclude le dead features dal calcolo dell'entropia
 la divisione per zero.
 
 ### Perche' la Hoyer sparsity e' stata rimossa
+
 La vecchia metrica Hoyer sparsity, formula `(sqrt(n) - L1/L2) / (sqrt(n) - 1)`,
 e' **tautologica** per un Top-K SAE: il Top-K garantisce una sparsita'
 strutturale identica per ogni campione (esattamente k elementi non-zero),
@@ -1053,6 +1068,7 @@ si confrontavano 5 o piu' SAE contemporaneamente, perche' ogni modello
 occupa ~50-100 MB di VRAM.
 
 La nuova versione:
+
 1. **Carica un modello alla volta**: il loop `for d in model_dirs` carica,
    usa, e poi rilascia ogni modello prima di caricare il successivo.
 2. **`del mgr._ae; mgr._ae = None`**: rimuove il riferimento al modello,
@@ -1097,6 +1113,7 @@ piu' forti tendono ad essere piu' stabili).
 **Perche:**
 
 Jaccard Index J(A, B) = |A intersect B| / |A union B|:
+
 - J = 1.0: i due modelli attivano esattamente le stesse feature per quel campione.
 - J = 0.0: nessuna feature in comune.
 
@@ -1185,6 +1202,7 @@ per registrare il valore effettivo nel manifest, cosi' da sapere esattamente
 quale LR e' stato usato senza dover ispezionare i log di training.
 
 Per `dict_size=4096`:
+
 - `scale = 4096 / 16384 = 0.25`
 - `lr = 2e-4 / sqrt(0.25) = 2e-4 / 0.5 = 4e-4`
 
@@ -1230,14 +1248,17 @@ normalize_activations, device. Documentano l'ambiente di training.
 di verificare che lo stesso dataset venga usato nella riproduzione.
 
 **Hash dei dati (nuovo e importante)**:
+
 ```python
 "embeddings_hash": hashlib.sha256(
     embeddings[: min(100, len(embeddings))].cpu().numpy().tobytes()
 ).hexdigest()[:16]
 ```
+
 Calcola l'hash SHA-256 dei primi 100 embedding (troncato ai primi 16 caratteri
 esadecimali per leggibilita'). Questo serve a verificare che i dati di
 training non siano cambiati:
+
 - Se l'hash corrisponde, i primi 100 embedding sono identici.
 - Se l'hash differisce, i dati sono cambiati e il modello non e'
   riproducibile con lo stesso seed.
@@ -1294,7 +1315,7 @@ def _device(self) -> str:
 
 ## Diagramma del flusso dati
 
-```
+```text
 Input: embeddings (B, 512)
          |
     [encode: x @ W_enc + b_enc]
@@ -1315,7 +1336,7 @@ architetturalmente dal Top-K (non da un termine L1 nel loss).
 
 ## Diagramma del flusso del ciclo di vita
 
-```
+```python
                         SAEManager
                             |
          +------------------+------------------+

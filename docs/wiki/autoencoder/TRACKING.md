@@ -36,12 +36,14 @@ confrontare run, e condividere risultati — ma imporre `import wandb` come
 dipendenza obbligatoria blocca chi non ha W&B installato o non vuole usarlo.
 
 L'approccio adottato e' un **thin wrapper** con **graceful degradation**:
+
 - Se W&B e' disponibile e abilitato: le funzioni loggano normalmente.
 - Se W&B non e' installato: le funzioni sono no-op silenziosi.
 - Se W&B lancia un errore: l'errore viene catturato e loggato, la pipeline
   continua senza tracking.
 
 Le importazioni standard:
+
 - `logging`: per messaggi informativi e di warning.
 - `Path`: per il path degli artefatti da loggare.
 - `typing.Any, Optional`: per type hint flessibili.
@@ -65,6 +67,7 @@ Inizia come `False` (tracking disabilitato di default) e viene settato a
 `True` da `init_tracking()` se l'inizializzazione W&B ha successo.
 
 E' un nome con prefisso `_` (convenzione Python per "privato") perche':
+
 - Non e' parte dell'API pubblica del modulo.
 - I consumer dovrebbero usare le funzioni pubbliche, non controllare
   il flag direttamente.
@@ -146,7 +149,7 @@ con lo stesso nome (shadowing), e il flag globale resterebbe `False`.
 
 ### Posizione nella pipeline
 
-```
+```text
 stadio.begin()
     |
     v
@@ -208,6 +211,7 @@ essere costoso) e qualsiasi allocazione.
 
 A differenza di `init_tracking()`, qui gli errori sono silent (non loggati).
 Motivazione:
+
 - `log_metrics()` e' chiamato molto frequentemente (decine di volte per stadio).
 - Un warning per ogni chiamata fallita inonderebbe i log.
 - Se `init_tracking()` ha avuto successo ma `log_metrics()` fallisce,
@@ -261,6 +265,7 @@ tracking.log_artifact(
 ```
 
 Questo carica il modello nella W&B Artifact Store, permettendo di:
+
 - Scaricarlo da qualsiasi macchina con `wandb.use_artifact("name:latest")`.
 - Confrontare modelli tra run diverse.
 - Tenere uno storico versionato dei modelli prodotti.
@@ -293,6 +298,7 @@ def finish_tracking() -> None:
 
 Chiude la run W&B corrente. Deve essere chiamato alla fine di ogni stadio
 per:
+
 - Flushare eventuali metriche pendenti (W&B potrebbe bufferizzare).
 - Finalizzare la run nella dashboard W&B.
 - Rilasciare risorse (connessione di rete, thread interni).
@@ -323,7 +329,7 @@ su una run non inizializzata potrebbe lanciare un errore o un warning.
 
 ## Diagramma del flusso
 
-```
+```text
 [Inizio stadio]
        |
        v
@@ -372,7 +378,7 @@ _tracking_enabled = False
 
 ## Relazione con gli altri file
 
-```
+```text
 tracking.py  (questo file)
     |
     +---> chiamato da: train_sae.py (logga metriche training)

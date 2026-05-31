@@ -1,16 +1,11 @@
 """
-test_integration.py — Integration tests for the full SAE pipeline.
+test_sae_pipeline.py — Integration tests for the full SAE pipeline.
 
 Tests the end-to-end flow: load model -> encode -> get concepts -> name -> explain.
 Uses real AutoEncoderTopK with random weights (no training needed).
 """
 
 import json
-import sys
-from pathlib import Path
-
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from autoencoder.sae_module import SAEManager
 

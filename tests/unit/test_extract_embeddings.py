@@ -18,17 +18,12 @@ Tests for extract_visual_embeddings and extract_text_embeddings from extract_emb
 
 """
 
-import sys
 import torch
 import pytest
 from pathlib import Path
 from unittest.mock import MagicMock
 from torch.utils.data import Dataset
 from PIL import Image
-
-# Ensure src is on the path so that config / extract_embeddings can be imported
-src_path = Path(__file__).parent.parent / "src"
-sys.path.insert(0, str(src_path))
 
 from config import VLMConfig
 import extract_embeddings

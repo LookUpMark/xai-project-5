@@ -19,15 +19,9 @@ Tests for load_vlm from utils.py.
 
 """
 
-import sys
 from unittest.mock import MagicMock, patch
 import torch
 import pytest
-from pathlib import Path
-
-# Ensuring src is in python path so that imports (like from config import VLMConfig) work correctly
-src_path = Path(__file__).parent.parent / "src"
-sys.path.insert(0, str(src_path))
 
 from config import VLMConfig
 import utils

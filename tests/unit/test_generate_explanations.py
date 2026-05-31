@@ -4,13 +4,9 @@ test_generate_explanations.py — Tests for explanation generation.
 Verifies that pseudo-reports are correctly structured from SAE activations.
 """
 
-import sys
 from importlib import import_module
-from pathlib import Path
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 
 @pytest.fixture

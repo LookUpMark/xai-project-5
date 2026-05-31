@@ -199,6 +199,7 @@ cython_debug/
 
 # Claude Code
 .claude/
+CLAUDE.md
 
 # === Project-specific ===
 # Large data files (download locally, don't commit)

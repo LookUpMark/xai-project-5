@@ -3,6 +3,9 @@ torch>=2.2.0
 transformers>=4.40.0
 dictionary-learning>=0.1.0
 
+# Experiment tracking
+wandb
+
 # LLM Judge (MedGemma 4B via Ollama)
 ollama
 langchain-core>=0.2.0       # opzionale: solo per presentazione/demo con chain
@@ -22,3 +25,4 @@ scipy
 
 # Utilities
 tqdm
+nbformat

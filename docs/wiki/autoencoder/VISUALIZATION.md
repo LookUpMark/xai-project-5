@@ -406,6 +406,73 @@ dalle `SeedMetrics` (entropy).
 
 ---
 
+## 6. Funzione `plot_loss_curve()`
+
+```python
+def plot_loss_curve(
+    steps: list[int],
+    train_losses: list[float],
+    test_losses: list[float],
+    save_path: Path,
+    title: str | None = None,
+) -> Path:
+    """Plot training and test loss curves over training steps."""
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(steps, train_losses, "b-o", label="Train MSE", markersize=4)
+    ax.plot(steps, test_losses, "r-s", label="Test MSE", markersize=4)
+    ax.set_xlabel("Training Step")
+    ax.set_ylabel("MSE (Reconstruction Loss)")
+    if title:
+        ax.set_title(title)
+    else:
+        ax.set_title("Training & Test Loss Curve")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    _ensure_dir(save_path)
+    fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    logger.info(f"Saved loss curve to {save_path}")
+    return save_path
+```
+
+**Perche:**
+
+Visualizza l'andamento della loss durante il training, permettendo di
+diagnosticare convergenza, overfitting (divergenza train/test) e problemi
+di learning rate.
+
+### Parametri
+
+- `steps`: lista degli step di training (asse x).
+- `train_losses`: MSE di ricostruzione valutata sul train set ad ogni step.
+- `test_losses`: MSE di ricostruzione valutata sul test set held-out ad ogni step.
+- `save_path`: dove salvare il PNG.
+- `title`: titolo custom opzionale. Se `None`, usa "Training & Test Loss Curve".
+
+### Scelte di design
+
+**Due curve separate**: mostrare train e test loss insieme permette di individuare
+overfitting (train scende ma test sale) o underfitting (entrambe alte e piatte).
+
+**Marker diversi** (`"b-o"` blu cerchi, `"r-s"` rosso quadrati): distinguibili
+anche in stampa in bianco e nero (forma diversa), accessibili per daltonici
+(marker shape diverso oltre al colore).
+
+**Grid con alpha=0.3**: griglia leggera per leggere i valori senza dominare
+il grafico.
+
+### Dati di input
+
+I dati provengono tipicamente dal notebook `pipeline_smoke_test.ipynb`, dove
+il SAE viene addestrato con `save_steps` e la loss viene valutata a intervalli
+regolari. Non e' chiamata dagli script CLI automatici, ma dal notebook per
+analisi interattiva e per logging su W&B.
+
+---
+
 ## Diagramma del flusso
 
 ```
@@ -436,12 +503,20 @@ dalle `SeedMetrics` (entropy).
         |     results/figures/per_seed_metrics.png
         |
         +---> ClusteringResult + entropy
+        |           |
+        |           v
+        |     plot_sparsity_summary()
+        |           |
+        |           v
+        |     results/figures/sparsity_summary.png
+        |
+        +---> Training step losses (from notebook)
                     |
                     v
-              plot_sparsity_summary()
+              plot_loss_curve()
                     |
                     v
-              results/figures/sparsity_summary.png
+              results/figures/loss_curve.png
 ```
 
 ---
@@ -454,6 +529,7 @@ visualization.py  (questo file)
     +---> consuma dati da: stability_analysis.py (jaccard_matrix,
     |     per_seed_metrics, clustering)
     +---> consuma dati da: concept_naming.py (concept scores)
+    +---> consuma dati da: notebook (loss curves at training steps)
     +---> consuma contratti da: contracts.py (StabilityResult,
     |     ConceptMap, ClusteringResult, SeedMetrics)
     +---> salva output su: results/figures/ (directory di output)

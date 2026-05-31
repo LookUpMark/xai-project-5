@@ -42,7 +42,7 @@ import numpy as np, torch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 import config
-from autoencoder.sae_module import SAEManager, _set_global_seed
+from autoencoder.sae_module import SAEManager
 from autoencoder.tracking import init_tracking, log_metrics, log_artifact, finish_tracking
 ```
 

@@ -651,6 +651,7 @@ def get_top_concepts(
         concepts = [
             (idx.item(), val.item())
             for idx, val in zip(topk.indices[i], topk.values[i])
+            if val.item() > 0  # filter out zero-activation entries
         ]
         results.append(concepts)
     return results
@@ -662,6 +663,12 @@ Per ogni campione, identifica i top-n concetti con attivazione piu' alta.
 Restituisce una lista di tuple (feature_id, activation_value) ordinate per
 attivazione decrescente. Usato nella pipeline di spiegazione per selezionare
 i concetti dominanti di un'immagine.
+
+**Filtro `val.item() > 0`**: Novita' rispetto alla versione originale. Con Top-K
+SAE, `topk(n, dim=1)` puo' restituire valori zero se il campione ha meno di n
+feature attive (es. dead features o attivazioni nulle post-ReLU). Il filtro
+esclude queste entry vuote per evitare che la pipeline di spiegazione produca
+findings con activation=0 e nomi privi di significato.
 
 **Cambiamento rispetto alla versione precedente**: la versione vecchia faceva
 il `topk` riga per riga in un loop Python:
@@ -740,8 +747,15 @@ che spiegano esattamente cosa e' sbagliato.
 ```python
     W_dec = self.get_decoder_weights()  # (dict_size, 512)
 
+    # Identify dead features (zero or near-zero decoder vectors)
+    norms = W_dec.norm(dim=1)
+    dead_mask = norms < 1e-8
+
     # Normalize -> dot product equals cosine similarity
+    # For dead features, F.normalize produces NaN; set them to zero instead
     W_norm = F.normalize(W_dec, dim=1)
+    W_norm[dead_mask] = 0.0  # dead features get zero similarity everywhere
+
     V_norm = F.normalize(vocab_embeddings.to(self._device), dim=1)
 
     similarities = W_norm @ V_norm.T  # (dict_size, V)
@@ -752,19 +766,30 @@ che spiegano esattamente cosa e' sbagliato.
 Assegna nomi medici ai 4096 concetti appresi dal SAE:
 
 1. **Ottiene W_dec** (4096, 512): ogni riga e' un vettore-concetto.
-2. **Normalizza** entrambe le matrici (concetti e vocabolario) a norma L2
-   unitaria. Dopo la normalizzazione, il prodotto scalare equivale alla
-   cosine similarity. Questo evita di chiamare `F.cosine_similarity`
-   (che richiederebbe un broadcasting costoso).
-3. **Matmul** `W_norm @ V_norm.T` produce una matrice (4096, V) dove ogni
+2. **Identifica dead features**: feature con norma del decoder < 1e-8 sono
+   considerate "morte" — non hanno appreso una direzione significativa nello
+   spazio embedding. Senza questa gestione, `F.normalize` su un vettore
+   zero produce NaN, che propagherebbe attraverso la matmul.
+3. **Normalizza** entrambe le matrici. Le dead features sono azzerate dopo
+   la normalizzazione (non prima — per evitare divisione per zero in normalize).
+4. **Matmul** `W_norm @ V_norm.T` produce una matrice (4096, V) dove ogni
    cella [i,j] e' la similarita' tra il concetto i e il termine j del
-   vocabolario.
+   vocabolario. Le dead features avranno similarita' 0 con tutto il vocabolario.
 
-### 15.3 Selezione dei candidati
+### 15.3 Selezione dei candidati e gestione dead features
 
 ```python
     concept_names = {}
     for feat_id in range(self.config["dict_size"]):
+        if dead_mask[feat_id]:
+            concept_names[feat_id] = {
+                "name": "DEAD_FEATURE",
+                "score": 0.0,
+                "candidates": [],
+                "is_dead": True,
+            }
+            continue
+
         topk = similarities[feat_id].topk(top_n)
         candidates = [
             {"label": vocab_labels[idx.item()], "score": val.item()}
@@ -774,6 +799,7 @@ Assegna nomi medici ai 4096 concetti appresi dal SAE:
             "name": candidates[0]["label"],
             "score": candidates[0]["score"],
             "candidates": candidates,
+            "is_dead": False,
         }
 
     return concept_names
@@ -781,14 +807,22 @@ Assegna nomi medici ai 4096 concetti appresi dal SAE:
 
 **Perche:**
 
-Per ogni concetto, seleziona i top_n termini piu' simili come candidati per
-il naming. Il risultato e' un dizionario dove ogni feature ha:
-- `name`: il termine piu' simile (candidato #1)
-- `score`: il cosine similarity con quel termine
-- `candidates`: lista dei top_n candidati con i rispettivi score
+Per ogni concetto, il codice ora distingue tra feature vive e morte:
 
-La logica e' invariata rispetto alla versione precedente; l'unica aggiunta
-e' la validazione degli input.
+- **Dead features** (`dead_mask[feat_id]` == True): ricevono il nome speciale
+  `"DEAD_FEATURE"`, score 0.0, nessun candidato, e flag `is_dead: True`.
+  Questo e' informativo per l'utente (sa che quella feature non ha appreso nulla)
+  e sicuro (non produce nomi fuorvianti basati su similarita' ~0 con NaN).
+
+- **Feature attive**: selezionano i top_n termini piu' simili come candidati,
+  con flag `is_dead: False`.
+
+Il campo `is_dead` e' stato aggiunto per permettere ai consumatori downstream
+(generate_explanations, notebook) di filtrare le dead features senza dover
+ri-calcolare la condizione.
+
+La logica fondamentale per le feature attive e' invariata rispetto alla versione
+precedente; le aggiunte sono la gestione dei dead features e il campo `is_dead`.
 
 ---
 
@@ -1081,8 +1115,10 @@ piu' leggibile perche' `union` e' gia' stato calcolato.
 
     return {
         "jaccard_matrix": jaccard_matrix,
-        "mean_jaccard": upper_vals.mean().item(),
-        "std_jaccard": upper_vals.std().item(),
+        "mean_jaccard": upper_vals.mean().item() if upper_vals.numel() > 0 else 0.0,
+        "std_jaccard": upper_vals.std(correction=0).item()
+        if upper_vals.numel() > 1
+        else 0.0,
     }
 ```
 
@@ -1091,7 +1127,23 @@ piu' leggibile perche' `union` e' gia' stato calcolato.
 `torch.triu(..., diagonal=1)` crea una maschera per il triangolo superiore
 (esclusa la diagonale). Estrae solo i confronti unici (evitando duplicati e
 self-similarity). La media e la deviazione standard danno un riassunto
-della stabilita' complessiva. Invariato rispetto alla versione precedente.
+della stabilita' complessiva.
+
+**Cambiamenti rispetto alla versione precedente:**
+
+1. **`upper_vals.numel() > 0` guard**: con un solo seed (o zero seed) il
+   triangolo superiore e' vuoto. Senza questa guardia, `mean()` su un tensor
+   vuoto restituisce NaN. Ora restituisce 0.0.
+
+2. **`correction=0`** (Bessel's correction disabilitata): con soli 2 seed
+   c'e' un unico valore nel triangolo superiore. `std()` con la correzione
+   di default (`correction=1`) causerebbe divisione per zero (N-1 = 0),
+   risultando in NaN. Con `correction=0` si usa il denominatore N, producendo
+   std=0 per un singolo valore — matematicamente corretto.
+
+3. **`upper_vals.numel() > 1` guard per std**: con un solo confronto, la
+   deviazione standard e' necessariamente 0 — restituiamo direttamente 0.0
+   senza calcolo.
 
 ---
 

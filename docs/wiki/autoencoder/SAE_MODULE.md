@@ -11,21 +11,20 @@ Top-K: training, caricamento, inferenza, naming dei concetti e metriche.
 ```python
 from __future__ import annotations
 
-import dataclasses
 import hashlib
 import json
 import logging
-import random
 from pathlib import Path
 from typing import Optional
 
-import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 
 from dictionary_learning.trainers.top_k import AutoEncoderTopK, TopKTrainer
 from dictionary_learning.training import trainSAE
+
+import utils
 
 logger = logging.getLogger(__name__)
 ```
@@ -34,20 +33,21 @@ logger = logging.getLogger(__name__)
 
 - `from __future__ import annotations` permette di usare `str | Path` come type hint
   anche su Python < 3.10 (valutazione lazy delle annotazioni).
-- `dataclasses`: modulo standard per convertire una dataclass frozen `SAEConfig`
-  in un dizionario piatto tramite `_extract_sae_config()`.
 - `hashlib`: calcola l'hash SHA-256 dei primi 100 embedding nel manifest di
   training per verificare che i dati non siano cambiati.
-- `random` + `numpy.random` + `torch.manual_seed`: la propagazione completa del
-  seed richiede di impostare tutti e tre i generatori pseudo-casuali (vedi
-  `_set_global_seed()`).
 - `torch.nn.functional` (aliasato come `F`) fornisce operazioni stateless come
   `mse_loss`, `cosine_similarity` e `normalize` senza dover istanziare moduli.
 - `DataLoader` e `TensorDataset` servono per creare un iteratore efficiente
   e deterministico sui batch durante il training.
 - `dictionary_learning` e' la libreria esterna (saprmarks/dictionary_learning)
   che fornisce l'architettura `AutoEncoderTopK` e il training loop `trainSAE`.
+- `import utils`: modulo condiviso per seed, tensor I/O, dataclass conversion.
 - Il logger standard permette di tracciare il progresso senza print() sparse.
+
+**Note sul refactoring:**
+- `random`, `numpy`, `dataclasses` rimossi — la loro logica e' ora in `utils.py`
+  (`set_global_seed()`, `dataclass_to_dict()`).
+- `torch.load()` sostituito ovunque con `utils.load_tensor()` per sicurezza.
 
 ---
 

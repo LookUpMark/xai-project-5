@@ -151,7 +151,37 @@ class BackboneConfig:
 - `frozen=True`: questi valori non devono mai cambiare a runtime -- cambiarli
   renderebbe le embedding incompatibili con il SAE.
 
-Questa dataclass non e' stata modificata rispetto alla versione precedente.
+---
+
+## 3b. VLMConfig
+
+```python
+@dataclass
+class VLMConfig:
+    """VLM embedding extraction settings (Member 1 pipeline)."""
+
+    model_name: str = "chuhac/BiomedCLIP-vit-bert-hf"
+    processor_name: str = "chuhac/BiomedCLIP-vit-bert-hf"
+    batch_size: int = 64
+    num_workers: int = 4
+    device: str = "cuda" if torch.cuda.is_available() else "cpu"
+    image_dir: str = "data/iu_xray/images/images_normalized"
+    reports_dir: str = "data/iu_xray/reports"
+    output_dir: str = "embeddings"
+    visual_output_filename: str = "visual_embeddings.pt"
+    text_output_filename: str = "text_embeddings.pt"
+```
+
+**Perche:**
+
+- Config per lo script di estrazione embedding (`src/extract_embeddings.py`).
+- `model_name` / `processor_name`: identificativi HuggingFace separati (per BiomedCLIP
+  sono identici, ma la separazione supporta modelli con processor diverso).
+- `device`: auto-detected — usa CUDA se disponibile, altrimenti CPU.
+- `batch_size` / `num_workers`: parametri DataLoader per l'estrazione.
+- Properties `visual_output_path` / `text_output_path`: path derivati per output.
+- Non frozen: permette override da test.
+- Usata da `utils.load_vlm()` e `tests/test_load_vlm.py`.
 
 ---
 

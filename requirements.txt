@@ -27,6 +27,9 @@ matplotlib
 seaborn
 scipy
 
+# Dataset download
+kagglehub==0.3.13  # pin: 1.x requires kagglesdk>=0.1.28 not yet released
+
 # Utilities
 tqdm
 nbformat

@@ -1,6 +1,9 @@
 # datasets/iu_xray.py
-import xml.etree.ElementTree as ET
+from __future__ import annotations
+
+import csv
 from pathlib import Path
+
 from PIL import Image
 from torch.utils.data import Dataset
 
@@ -20,34 +23,47 @@ class IUXrayImageDataset(Dataset):
 
 
 class IUXrayTextDataset(Dataset):
-    """Dataset handling reports from IU Xray."""
-    def __init__(self, reports_dir: Path):
-        self.report_paths = sorted(list(reports_dir.glob("*.xml")))
-        
-    def __len__(self):
-        return len(self.report_paths)
-        
-    def _parse_xml(self, xml_path: Path) -> str:
-        try:
-            tree = ET.parse(xml_path)
-            root = tree.getroot()
-            
-            findings = ""
-            impression = ""
-            
-            for abstract in root.findall(".//AbstractText"):
-                label = abstract.get("Label")
-                if label == "FINDINGS" and abstract.text:
-                    findings = abstract.text
-                elif label == "IMPRESSION" and abstract.text:
-                    impression = abstract.text
-                    
-            full_text = f"Findings: {findings} Impression: {impression}".strip()
-            return full_text if len(full_text) > 30 else "No clinical report available."
-        except Exception:
-            return "Error parsing report."
+    """Dataset handling reports from IU X-Ray (indiana_reports.csv).
 
-    def __getitem__(self, idx):
-        xml_path = self.report_paths[idx]
-        text_content = self._parse_xml(xml_path)
-        return text_content, str(xml_path)
+    Legge ``indiana_reports.csv`` da *reports_dir* e concatena
+    i campi ``findings`` e ``impression`` in un'unica stringa clinica.
+    """
+
+    _CSV_NAME = "indiana_reports.csv"
+    _FINDINGS_COL = "findings"
+    _IMPRESSION_COL = "impression"
+    _UID_COL = "uid"
+
+    def __init__(self, reports_dir: Path) -> None:
+        csv_path = reports_dir / self._CSV_NAME
+        if not csv_path.exists():
+            raise FileNotFoundError(
+                f"Expected {self._CSV_NAME} at {csv_path}. "
+                "Run datasets/download_iu_xray.py first."
+            )
+        self._records: list[dict[str, str]] = []
+        with csv_path.open(newline="", encoding="utf-8") as fh:
+            reader = csv.DictReader(fh)
+            for row in reader:
+                self._records.append(dict(row))
+
+    def __len__(self) -> int:
+        return len(self._records)
+
+    def _build_text(self, row: dict[str, str]) -> str:
+        findings = (row.get(self._FINDINGS_COL) or "").strip()
+        impression = (row.get(self._IMPRESSION_COL) or "").strip()
+        parts: list[str] = []
+        if findings:
+            parts.append(f"Findings: {findings}")
+        if impression:
+            parts.append(f"Impression: {impression}")
+        if not parts:
+            return "No clinical report available."
+        return " ".join(parts)
+
+    def __getitem__(self, idx: int) -> tuple[str, str]:
+        row = self._records[idx]
+        text = self._build_text(row)
+        uid = row.get(self._UID_COL, str(idx))
+        return text, uid

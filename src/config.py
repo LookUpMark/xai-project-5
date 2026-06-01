@@ -63,7 +63,11 @@ class VLMConfig:
     processor_name: str = "chuhac/BiomedCLIP-vit-bert-hf"
     batch_size: int = 64
     num_workers: int = 4
-    device: str = "cuda" if torch.cuda.is_available() else "cpu"
+    device: str = (
+        "mps" if torch.backends.mps.is_available()
+        else "cuda" if torch.cuda.is_available()
+        else "cpu"
+    )
     image_dir: str = "data/iu_xray/images/images_normalized"
     reports_dir: str = "data/iu_xray/reports"
     output_dir: str = "embeddings"
@@ -102,6 +106,8 @@ class SAEConfig:
     batch_size: int = 256
     log_steps: int = 1_000
     decay_start_frac: float = 0.8  # fraction of steps to start LR decay
+    lr_base: float = 2e-4  # base LR for auto-scaling formula
+    lr_ref_dict_size: int = 16384  # reference dict_size for auto-scaling
 
     def __post_init__(self):
         if self.dict_size <= self.activation_dim:
@@ -170,7 +176,11 @@ class WandbConfig:
 class HardwareConfig:
     """Device and compute settings."""
 
-    device: str = "cuda" if torch.cuda.is_available() else "cpu"
+    device: str = (
+        "mps" if torch.backends.mps.is_available()
+        else "cuda" if torch.cuda.is_available()
+        else "cpu"
+    )
 
 
 # ── Instantiate configs ──────────────────────────────────────────────

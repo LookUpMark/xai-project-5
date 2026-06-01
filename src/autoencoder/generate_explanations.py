@@ -146,8 +146,10 @@ def run() -> Path:
                 "n_samples": len(explanations),
             },
         )
-        log_artifact(OUTPUT_PATH, "sample_explanations", "results")
-        finish_tracking()
+        try:
+            log_artifact(OUTPUT_PATH, "sample_explanations", "results")
+        finally:
+            finish_tracking()
 
     return OUTPUT_PATH
 

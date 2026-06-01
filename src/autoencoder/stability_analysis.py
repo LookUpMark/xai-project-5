@@ -215,8 +215,10 @@ def run() -> Path:
                 "std_jaccard": stability["std_jaccard"],
             },
         )
-        log_artifact(OUTPUT_PATH, "stability_analysis", "results")
-        finish_tracking()
+        try:
+            log_artifact(OUTPUT_PATH, "stability_analysis", "results")
+        finally:
+            finish_tracking()
 
     return OUTPUT_PATH
 

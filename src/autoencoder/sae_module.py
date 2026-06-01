@@ -48,7 +48,11 @@ _DEFAULTS = {
     "decay_start_frac": 0.8,
     "lm_name": "BiomedCLIP",
     "layer": 0,
-    "device": "cpu",
+    "device": (
+        "mps" if torch.backends.mps.is_available()
+        else "cuda" if torch.cuda.is_available()
+        else "cpu"
+    ),
 }
 
 
@@ -131,6 +135,12 @@ class SAEManager:
             )
         logger.info(f"Loaded {embeddings.shape[0]} embeddings from {embeddings_path}")
 
+        if embeddings.shape[0] < batch_size:
+            raise ValueError(
+                f"Dataset size ({embeddings.shape[0]}) must exceed "
+                f"batch_size ({batch_size})"
+            )
+
         model_dir = Path(save_dir) / f"sae_seed{seed}"
         model_dir.mkdir(parents=True, exist_ok=True)
 
@@ -141,7 +151,7 @@ class SAEManager:
             batch_size=batch_size,
             shuffle=True,
             drop_last=True,
-            pin_memory=(device != "cpu"),
+            pin_memory=(device not in ["cpu", "mps"]),
             generator=generator,
         )
 
@@ -180,8 +190,8 @@ class SAEManager:
             save_dir=str(model_dir),
             log_steps=self.config.get("log_steps", 1000),
             device=device,
-            autocast_dtype=torch.bfloat16,
-            normalize_activations=True,
+            autocast_dtype=torch.float32 if device in ["cpu", "mps"] else torch.bfloat16,
+            normalize_activations=False,
             verbose=True,
         )
 
@@ -449,6 +459,14 @@ class SAEManager:
         Returns:
             {"l0_mean", "l0_std", "dead_features_pct",
              "activation_entropy", "dict_utilization_pct"}
+
+        Notes:
+            - dead_features_pct: Features with zero activation across ALL samples.
+              A feature is "dead" if its decoder column has zero norm OR if no sample
+              ever activates it. High dead % (>30%) suggests dict_size is too large.
+            - activation_entropy: Shannon entropy over feature activation frequencies.
+              Higher values = more uniform utilization. Maximum = log(dict_size).
+              Very low entropy indicates a few features dominate.
         """
         self._check_loaded()
         with torch.no_grad():
@@ -498,6 +516,11 @@ class SAEManager:
 
         Returns:
             {"jaccard_matrix", "mean_jaccard", "std_jaccard"}
+
+        Notes:
+            Stability is measured on the TEST set (never seen during training).
+            Jaccard similarity is computed per-sample and averaged, giving a
+            distribution-aware measure rather than a corpus-level overlap.
         """
         if config is not None and not isinstance(config, dict):
             config = _extract_sae_config(config)
@@ -587,8 +610,10 @@ class SAEManager:
         """Save training manifest for exact reproduction."""
         lr_used = self.config.get("lr")
         if lr_used is None:
-            scale = self.config["dict_size"] / (2**14)
-            lr_used = 2e-4 / scale**0.5
+            lr_base = self.config.get("lr_base", 2e-4)
+            lr_ref = self.config.get("lr_ref_dict_size", 16384)
+            scale = self.config["dict_size"] / lr_ref
+            lr_used = lr_base / scale**0.5
 
         manifest = {
             "seed": seed,
@@ -601,14 +626,14 @@ class SAEManager:
             "warmup_steps": self.config["warmup_steps"],
             "decay_start_frac": self.config["decay_start_frac"],
             "log_steps": self.config.get("log_steps", 1000),
-            "autocast_dtype": "bfloat16",
-            "normalize_activations": True,
+            "autocast_dtype": "float32" if self.config["device"] in ["cpu", "mps"] else "bfloat16",
+            "normalize_activations": False,
             "device": self.config["device"],
             "embeddings_path": str(embeddings_path),
             "embeddings_shape": list(embeddings.shape),
             "embeddings_hash": hashlib.sha256(
-                embeddings[: min(100, len(embeddings))].cpu().numpy().tobytes()
-            ).hexdigest()[:16],
+                embeddings.cpu().numpy().tobytes()
+            ).hexdigest(),
             "torch_version": torch.__version__,
             "cuda_available": torch.cuda.is_available(),
         }

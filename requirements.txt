@@ -1,36 +1,35 @@
 --extra-index-url https://download.pytorch.org/whl/cu121
 
 # Core ML
-torch>=2.2.0
-torchvision
-torchaudio
+torch==2.12.0
+torchvision==0.27.0
 transformers==4.44.2
-dictionary-learning>=0.1.0
+dictionary-learning==0.1.0
 
 # Experiment tracking
-wandb
+wandb==0.27.0
 
 # LLM Judge (MedGemma 4B via Ollama)
-ollama
-langchain-core>=0.2.0       # opzionale: solo per presentazione/demo con chain
-langchain-ollama             # opzionale: solo per presentazione/demo con chain
+ollama==0.6.2
+langchain-core==1.4.0
+langchain-ollama==1.1.0
 
 # Data processing
-pandas
-numpy
-lxml
-Pillow
+pandas==3.0.3
+numpy==2.4.6
+lxml==6.1.1
+Pillow==12.2.0
 
 # Analysis & Visualization
-scikit-learn
-matplotlib
-seaborn
-scipy
+scikit-learn==1.8.0
+matplotlib==3.10.9
+seaborn==0.13.2
+scipy==1.17.1
 
 # Dataset download
-kagglehub==0.3.13  # pin: 1.x requires kagglesdk>=0.1.28 not yet released
+kagglehub==0.3.13
 
 # Utilities
-tqdm
+tqdm==4.67.3
 nbformat
 pytest

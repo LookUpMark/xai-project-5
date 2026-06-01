@@ -79,18 +79,9 @@ def train_single(seed: int) -> Path:
     """Train a single SAE with the given seed."""
     logger.info(f"Training SAE with seed={seed}")
 
-    mgr = SAEManager(
-        {
-            "device": config.hardware.device,
-            "activation_dim": config.sae.activation_dim,
-            "dict_size": config.sae.dict_size,
-            "k": config.sae.k,
-            "lr": config.sae.lr,
-            "warmup_steps": config.sae.warmup_steps,
-            "log_steps": config.sae.log_steps,
-            "decay_start_frac": config.sae.decay_start_frac,
-        }
-    )
+    sae_cfg = utils.dataclass_to_dict(config.sae)
+    sae_cfg["device"] = config.hardware.device
+    mgr = SAEManager(sae_cfg)
 
     model_dir = mgr.train(
         embeddings_path=config.paths.train_embeddings_path,

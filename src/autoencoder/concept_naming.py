@@ -50,6 +50,12 @@ def run() -> Path:
     vocab_embeddings = utils.load_tensor(config.paths.vocab_embeddings_path)
     logger.info(f"Vocab embeddings shape: {vocab_embeddings.shape}")
 
+    if vocab_embeddings.shape[0] != len(vocab_labels):
+        raise ValueError(
+            f"Vocab embeddings ({vocab_embeddings.shape[0]}) and labels "
+            f"({len(vocab_labels)}) count mismatch — rebuild embeddings."
+        )
+
     mgr = SAEManager({"device": config.hardware.device})
     mgr.load(model_dir)
 
@@ -97,8 +103,10 @@ def run() -> Path:
                 "mean_score": mean_score,
             },
         )
-        log_artifact(OUTPUT_PATH, "concept_names", "results")
-        finish_tracking()
+        try:
+            log_artifact(OUTPUT_PATH, "concept_names", "results")
+        finally:
+            finish_tracking()
 
     return OUTPUT_PATH
 

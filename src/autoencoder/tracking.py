@@ -26,6 +26,10 @@ def init_tracking(stage_name: str, config: dict[str, Any]) -> None:
     """
     global _tracking_enabled
     try:
+        import os
+        import subprocess
+
+        import torch
         import wandb
 
         wandb.init(
@@ -34,6 +38,30 @@ def init_tracking(stage_name: str, config: dict[str, Any]) -> None:
             name=stage_name,
             config=config,
         )
+
+        # Log reproducibility metadata
+        try:
+            git_commit = (
+                subprocess.check_output(
+                    ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL
+                )
+                .decode()
+                .strip()
+            )
+        except Exception:
+            git_commit = "unknown"
+
+        wandb.config.update(
+            {
+                "git_commit": git_commit,
+                "torch_version": torch.__version__,
+                "cuda_version": torch.version.cuda or "N/A",
+                "mps_available": torch.backends.mps.is_available(),
+                "pythonhashseed": os.getenv("PYTHONHASHSEED", "not_set"),
+            },
+            allow_val_change=True,
+        )
+
         _tracking_enabled = True
         logger.info(f"wandb tracking enabled: {stage_name}")
     except ImportError:

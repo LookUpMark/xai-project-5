@@ -19,6 +19,6 @@ def load_vlm(config: VLMConfig):
         trust_remote_code=True
     )
     
-    model.eval().to("cuda")
+    model.eval().to(config.device)
     
     return model, processor

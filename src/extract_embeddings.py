@@ -2,9 +2,12 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
-from config import VLMConfig
+from config import VLMConfig, EmbeddingConfig
 
-def extract_visual_embeddings(model, processor, dataset: Dataset, config: VLMConfig):
+def extract_visual_embeddings(
+    model, processor, dataset: Dataset, 
+    vlm_config: VLMConfig, embedding_config: EmbeddingConfig
+):
     """
     It extracts and save embeddings by processing images from the specified folder.
 
@@ -12,20 +15,21 @@ def extract_visual_embeddings(model, processor, dataset: Dataset, config: VLMCon
         model: loaded model
         processor: loaded processor
         dataset: the dataset you want to extract features on
-        config (VLMConfig): dataclass containing parameters.
+        vlm_config (VLMConfig): model runtime parameters.
+        embedding_config (EmbeddingConfig): I/O paths configuration.
     """
         
     print(f"\nFound {len(dataset)} images. Starting extraction...")
 
     dataloader = DataLoader(
         dataset,
-        batch_size=config.batch_size,
+        batch_size=vlm_config.batch_size,
         shuffle=False,
-        num_workers=config.num_workers,
+        num_workers=vlm_config.num_workers,
         collate_fn=lambda x: tuple(zip(*x))
     )
 
-    config.visual_output_path.parent.mkdir(parents=True, exist_ok=True)
+    embedding_config.visual_output_path.parent.mkdir(parents=True, exist_ok=True)
     all_embeddings = []
 
     model.eval()
@@ -36,7 +40,7 @@ def extract_visual_embeddings(model, processor, dataset: Dataset, config: VLMCon
             inputs = processor.image_processor(
                 images=list(batch_images), 
                 return_tensors="pt"
-            ).to(config.device)
+            ).to(vlm_config.device)
             
             # Inference
             outputs = model.get_image_features(**inputs)  # (B, 512)
@@ -46,12 +50,15 @@ def extract_visual_embeddings(model, processor, dataset: Dataset, config: VLMCon
             all_embeddings.append(outputs.cpu())
 
     visual_embeddings = torch.cat(all_embeddings)  # (N, 512)
-    torch.save(visual_embeddings, config.visual_output_path)
+    torch.save(visual_embeddings, embedding_config.visual_output_path)
 
-    print(f"Images Embedding Extraction completed. Saving on {config.visual_output_path}.")
+    print(f"Images Embedding Extraction completed. Saving on {embedding_config.visual_output_path}.")
 
 
-def extract_text_embeddings(model, processor, dataset: Dataset, config: VLMConfig):
+def extract_text_embeddings(
+    model, processor, dataset: Dataset, 
+    vlm_config: VLMConfig, embedding_config: EmbeddingConfig
+):
     """
     It extracts and save embeddings by processing textual reports from the specified folder.
 
@@ -59,19 +66,20 @@ def extract_text_embeddings(model, processor, dataset: Dataset, config: VLMConfi
         model: loaded model
         processor: loaded processor
         dataset: the dataset you want to extract features on
-        config (VLMConfig): dataclass containing parameters.
+        vlm_config (VLMConfig): model runtime parameters.
+        embedding_config (EmbeddingConfig): I/O paths configuration.
     """
     print(f"\nFound {len(dataset)} reports. Starting extraction...")
     
     dataloader = DataLoader(
         dataset,
-        batch_size=config.batch_size, 
+        batch_size=vlm_config.batch_size, 
         shuffle=False, 
-        num_workers=config.num_workers,
+        num_workers=vlm_config.num_workers,
         collate_fn=lambda x: tuple(zip(*x))
     )
     
-    config.text_output_path.parent.mkdir(parents=True, exist_ok=True)
+    embedding_config.text_output_path.parent.mkdir(parents=True, exist_ok=True)
     all_embeddings = []
     
     model.eval()
@@ -84,7 +92,7 @@ def extract_text_embeddings(model, processor, dataset: Dataset, config: VLMConfi
                 return_tensors="pt", 
                 padding=True, 
                 truncation=True
-            ).to(config.device)
+            ).to(vlm_config.device)
 
             # Inference
             outputs = model.get_text_features(**inputs)
@@ -94,5 +102,5 @@ def extract_text_embeddings(model, processor, dataset: Dataset, config: VLMConfi
             all_embeddings.append(outputs.cpu())
             
     text_embeddings = torch.cat(all_embeddings)
-    torch.save(text_embeddings, config.text_output_path)
-    print(f"Reports Embedding Extraction completed. Saving on {config.text_output_path}.")
+    torch.save(text_embeddings, embedding_config.text_output_path)
+    print(f"Reports Embedding Extraction completed. Saving on {embedding_config.text_output_path}.")

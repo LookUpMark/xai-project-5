@@ -129,6 +129,12 @@ class SAEConfig:
             raise ValueError(
                 f"decay_start_frac must be in (0, 1], got {self.decay_start_frac}"
             )
+        decay_start = int(self.steps * self.decay_start_frac)
+        if decay_start <= self.warmup_steps:
+            raise ValueError(
+                f"decay_start ({decay_start} = steps*decay_start_frac) must exceed "
+                f"warmup_steps ({self.warmup_steps})"
+            )
 
 
 @dataclass(frozen=True)

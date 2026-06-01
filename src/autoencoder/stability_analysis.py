@@ -81,6 +81,9 @@ def compute_concept_clustering(
     sparse_active = sparse[:, active_indices]
     binary = (sparse_active != 0).float()
 
+    # Epsilon prevents div-by-zero for features with single-sample activation.
+    # For such features, the resulting unit-normalized column has magnitude ~1,
+    # producing meaningful (not inflated) cosine similarity values.
     norms = binary.norm(dim=0, keepdim=True) + 1e-8
     binary_norm = binary / norms
     co_occurrence = (binary_norm.T @ binary_norm).cpu()

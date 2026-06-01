@@ -60,6 +60,19 @@ def load_tensor(path: str | Path, device: str = "cpu") -> torch.Tensor:
     return torch.load(path, map_location=device, weights_only=True)
 
 
+def load_state_dict(path: str | Path, device: str = "cpu") -> dict:
+    """Safely load a model state dict with weights_only=True.
+
+    Args:
+        path: Path to the .pt file containing a state dict.
+        device: Target device for map_location.
+
+    Returns:
+        Loaded state dict (OrderedDict).
+    """
+    return torch.load(path, map_location=device, weights_only=True)
+
+
 def ensure_dir(path: Path) -> None:
     """Create parent directories if they don't exist."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -124,6 +137,10 @@ def split_embeddings(
     from sklearn.model_selection import train_test_split as _sklearn_split
 
     embeddings = load_tensor(source_path)
+    if embeddings.dim() != 2:
+        raise ValueError(
+            f"Expected 2D embeddings tensor, got shape {embeddings.shape}"
+        )
     indices = np.arange(len(embeddings))
     train_idx, test_idx = _sklearn_split(
         indices,

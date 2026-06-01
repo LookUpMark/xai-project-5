@@ -129,6 +129,9 @@ def train_single(seed: int) -> Path:
 
 def main() -> None:
     """CLI entry point: create train/test split and train all seeds."""
+    # Set global seed for deterministic split
+    utils.set_global_seed(config.training.split_seed)
+
     # Step 1: Create train/test split
     prepare_split()
 

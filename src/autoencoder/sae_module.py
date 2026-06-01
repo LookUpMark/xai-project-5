@@ -48,6 +48,8 @@ _DEFAULTS = {
     "decay_start_frac": 0.8,
     "lm_name": "BiomedCLIP",
     "layer": 0,
+    "chunk_size": 512,  # Encoding chunk size for stability analysis
+    "dead_threshold": 1e-8,  # Decoder norm below this = dead feature
     "device": (
         "mps" if torch.backends.mps.is_available()
         else "cuda" if torch.cuda.is_available()
@@ -125,6 +127,8 @@ class SAEManager:
 
         # Load and validate embeddings
         embeddings = utils.load_tensor(embeddings_path)
+        if embeddings.numel() == 0:
+            raise ValueError("Embeddings tensor is empty.")
         if (
             embeddings.dim() != 2
             or embeddings.shape[1] != self.config["activation_dim"]
@@ -139,6 +143,13 @@ class SAEManager:
             raise ValueError(
                 f"Dataset size ({embeddings.shape[0]}) must exceed "
                 f"batch_size ({batch_size})"
+            )
+
+        dropped = embeddings.shape[0] % batch_size
+        if dropped > 0:
+            logger.info(
+                f"drop_last=True: {dropped} trailing samples skipped per epoch "
+                f"(step-based training cycles many epochs, so all data is seen)."
             )
 
         model_dir = Path(save_dir) / f"sae_seed{seed}"
@@ -230,7 +241,7 @@ class SAEManager:
                 )
 
         # Safe load with weights_only=True (bypasses unsafe library default)
-        state_dict = utils.load_tensor(ae_path, device=self.config["device"])
+        state_dict = utils.load_state_dict(ae_path, device=self.config["device"])
         dict_size, activation_dim = state_dict["encoder.weight"].shape
         k = self.config["k"]
 
@@ -398,7 +409,8 @@ class SAEManager:
 
         # Identify dead features (zero or near-zero decoder vectors)
         norms = W_dec.norm(dim=1)
-        dead_mask = norms < 1e-8
+        dead_threshold = self.config.get("dead_threshold", 1e-8)
+        dead_mask = norms < dead_threshold
 
         # Normalize → dot product equals cosine similarity
         # For dead features, F.normalize produces NaN; set them to zero instead
@@ -437,7 +449,11 @@ class SAEManager:
     # ── Metrics ───────────────────────────────────────────────────────
 
     def compute_reconstruction_mse(self, embeddings: torch.Tensor) -> float:
-        """Compute mean MSE between input and reconstruction."""
+        """Compute mean MSE between input and reconstruction.
+
+        Note: Returns corpus-level mean (average over all samples AND dimensions).
+        To get per-sample MSE, use (x - x_hat).pow(2).mean(dim=1).
+        """
         self._check_loaded()
         with torch.no_grad():
             x = embeddings.to(self._device)
@@ -445,7 +461,11 @@ class SAEManager:
             return F.mse_loss(x_hat, x).item()
 
     def compute_cosine_reconstruction(self, embeddings: torch.Tensor) -> float:
-        """Compute mean cosine similarity between input and reconstruction."""
+        """Compute mean cosine similarity between input and reconstruction.
+
+        Note: Per-sample cosine similarity averaged over the batch.
+        Range: [-1, 1]; higher is better. Values > 0.9 indicate good reconstruction.
+        """
         self._check_loaded()
         with torch.no_grad():
             x = embeddings.to(self._device)
@@ -535,7 +555,7 @@ class SAEManager:
             mgr.load(d)
 
             sample_sets: list[set[int]] = []
-            chunk_size = 512
+            chunk_size = effective_config.get("chunk_size", 512)
             for start in range(0, embeddings.shape[0], chunk_size):
                 chunk = embeddings[start : start + chunk_size]
                 _, _, indices = mgr.encode_topk(chunk)

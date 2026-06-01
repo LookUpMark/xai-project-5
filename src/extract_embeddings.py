@@ -5,6 +5,14 @@ from tqdm import tqdm
 from config import VLMConfig
 
 
+def _unzip_collate(batch: list) -> tuple:
+    """Collate that unzips (item, label) pairs into separate tuples.
+
+    Defined at module level so it can be pickled by multiprocessing workers.
+    """
+    return tuple(zip(*batch))
+
+
 def extract_visual_embeddings(model, processor, dataset: Dataset, config: VLMConfig):
     """
     It extracts and save embeddings by processing images from the specified folder.
@@ -23,7 +31,7 @@ def extract_visual_embeddings(model, processor, dataset: Dataset, config: VLMCon
         batch_size=config.batch_size,
         shuffle=False,
         num_workers=config.num_workers,
-        collate_fn=lambda x: tuple(zip(*x)),
+        collate_fn=_unzip_collate,
     )
 
     config.visual_output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -69,7 +77,7 @@ def extract_text_embeddings(model, processor, dataset: Dataset, config: VLMConfi
         batch_size=config.batch_size,
         shuffle=False,
         num_workers=config.num_workers,
-        collate_fn=lambda x: tuple(zip(*x)),
+        collate_fn=_unzip_collate,
     )
 
     config.text_output_path.parent.mkdir(parents=True, exist_ok=True)

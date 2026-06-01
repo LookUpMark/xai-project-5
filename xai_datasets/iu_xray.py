@@ -1,4 +1,4 @@
-# datasets/iu_xray.py
+# xai_datasets/iu_xray.py
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from PIL import Image

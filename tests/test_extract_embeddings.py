@@ -25,7 +25,7 @@ from unittest.mock import MagicMock, patch, call
 from torch.utils.data import Dataset
 from PIL import Image
 
-from config import VLMConfig
+from config import VLMConfig, EmbeddingConfig
 import extract_embeddings
 
 extract_visual_embeddings = extract_embeddings.extract_visual_embeddings
@@ -68,15 +68,17 @@ class FakeTextDataset(Dataset):
         return self.texts[idx], f"fake_report_{idx}.xml"
 
 
-def _make_config(tmp_path: Path, batch_size: int = 2) -> VLMConfig:
-    """Build a VLMConfig pointing to tmp_path for output and using CPU."""
-    config = VLMConfig(
+def _make_configs(tmp_path: Path, batch_size: int = 2):
+    """Build VLMConfig + EmbeddingConfig for unit tests (CPU, tmp output)."""
+    vlm_config = VLMConfig(
         batch_size=batch_size,
         num_workers=0,
-        output_dir=str(tmp_path / "embeddings"),
         device="cpu",
     )
-    return config
+    embedding_config = EmbeddingConfig(
+        output_dir=str(tmp_path / "embeddings"),
+    )
+    return vlm_config, embedding_config
 
 
 # =========================================================================
@@ -87,8 +89,8 @@ class TestExtractVisualEmbeddings:
     """Unit-tests for the visual embedding extraction pipeline."""
 
     def test_saves_file_to_correct_path(self, tmp_path):
-        """Verify that embeddings are saved to config.visual_output_path."""
-        config = _make_config(tmp_path)
+        """Verify that embeddings are saved to embedding_config.visual_output_path."""
+        vlm_config, embedding_config = _make_configs(tmp_path)
         dataset = FakeImageDataset(n=4)
 
         mock_model = MagicMock()
@@ -101,21 +103,21 @@ class TestExtractVisualEmbeddings:
 
         # Model returns a tensor of shape (B, 512) per batch
         def fake_image_features(**kwargs):
-            return torch.randn(config.batch_size, 512)
+            return torch.randn(vlm_config.batch_size, 512)
 
         mock_model.get_image_features.side_effect = fake_image_features
         mock_model.eval.return_value = None
 
-        extract_visual_embeddings(mock_model, mock_processor, dataset, config)
+        extract_visual_embeddings(mock_model, mock_processor, dataset, vlm_config, embedding_config)
 
-        assert config.visual_output_path.exists(), "Visual embeddings file was not created"
+        assert embedding_config.visual_output_path.exists(), "Visual embeddings file was not created"
 
-        loaded = torch.load(config.visual_output_path, weights_only=True)
+        loaded = torch.load(embedding_config.visual_output_path, weights_only=True)
         assert loaded.shape == (4, 512), f"Expected shape (4, 512), got {loaded.shape}"
 
     def test_embeddings_are_l2_normalized(self, tmp_path):
         """Each embedding vector must have unit L2 norm after normalization."""
-        config = _make_config(tmp_path, batch_size=3)
+        vlm_config, embedding_config = _make_configs(tmp_path, batch_size=3)
         dataset = FakeImageDataset(n=3)
 
         mock_model = MagicMock()
@@ -133,9 +135,9 @@ class TestExtractVisualEmbeddings:
         ])
         mock_model.eval.return_value = None
 
-        extract_visual_embeddings(mock_model, mock_processor, dataset, config)
+        extract_visual_embeddings(mock_model, mock_processor, dataset, vlm_config, embedding_config)
 
-        loaded = torch.load(config.visual_output_path, weights_only=True)
+        loaded = torch.load(embedding_config.visual_output_path, weights_only=True)
         norms = loaded.norm(dim=-1)
         assert torch.allclose(norms, torch.ones(3), atol=1e-5), (
             f"Embeddings are not L2 normalized. Norms: {norms}"
@@ -143,7 +145,7 @@ class TestExtractVisualEmbeddings:
 
     def test_processor_receives_images(self, tmp_path):
         """The image_processor must be called with `images=<list of PIL Images>`."""
-        config = _make_config(tmp_path, batch_size=2)
+        vlm_config, embedding_config = _make_configs(tmp_path, batch_size=2)
         dataset = FakeImageDataset(n=2)
 
         mock_model = MagicMock()
@@ -156,7 +158,7 @@ class TestExtractVisualEmbeddings:
         mock_model.get_image_features.return_value = torch.randn(2, 512)
         mock_model.eval.return_value = None
 
-        extract_visual_embeddings(mock_model, mock_processor, dataset, config)
+        extract_visual_embeddings(mock_model, mock_processor, dataset, vlm_config, embedding_config)
 
         # processor.image_processor must have been called at least once
         assert mock_processor.image_processor.call_count >= 1
@@ -167,7 +169,7 @@ class TestExtractVisualEmbeddings:
 
     def test_model_called_in_eval_and_no_grad(self, tmp_path):
         """model.eval() must be called before inference."""
-        config = _make_config(tmp_path, batch_size=2)
+        vlm_config, embedding_config = _make_configs(tmp_path, batch_size=2)
         dataset = FakeImageDataset(n=2)
 
         mock_model = MagicMock()
@@ -180,13 +182,13 @@ class TestExtractVisualEmbeddings:
         mock_model.get_image_features.return_value = torch.randn(2, 512)
         mock_model.eval.return_value = None
 
-        extract_visual_embeddings(mock_model, mock_processor, dataset, config)
+        extract_visual_embeddings(mock_model, mock_processor, dataset, vlm_config, embedding_config)
 
         mock_model.eval.assert_called()
 
     def test_handles_multiple_batches(self, tmp_path):
         """With 5 samples and batch_size=2, we expect 3 batches (2+2+1)."""
-        config = _make_config(tmp_path, batch_size=2)
+        vlm_config, embedding_config = _make_configs(tmp_path, batch_size=2)
         dataset = FakeImageDataset(n=5)
 
         mock_model = MagicMock()
@@ -204,9 +206,9 @@ class TestExtractVisualEmbeddings:
         mock_model.get_image_features.side_effect = fake_features
         mock_model.eval.return_value = None
 
-        extract_visual_embeddings(mock_model, mock_processor, dataset, config)
+        extract_visual_embeddings(mock_model, mock_processor, dataset, vlm_config, embedding_config)
 
-        loaded = torch.load(config.visual_output_path, weights_only=True)
+        loaded = torch.load(embedding_config.visual_output_path, weights_only=True)
         assert loaded.shape[0] == 5, f"Expected 5 embeddings, got {loaded.shape[0]}"
         assert mock_model.get_image_features.call_count == 3
 
@@ -219,8 +221,8 @@ class TestExtractTextFeatures:
     """Unit-tests for the text embedding extraction pipeline."""
 
     def test_saves_file_to_correct_path(self, tmp_path):
-        """Verify that text embeddings are saved to config.text_output_path."""
-        config = _make_config(tmp_path)
+        """Verify that text embeddings are saved to embedding_config.text_output_path."""
+        vlm_config, embedding_config = _make_configs(tmp_path)
         dataset = FakeTextDataset()
 
         mock_model = MagicMock()
@@ -238,16 +240,16 @@ class TestExtractTextFeatures:
         mock_model.get_text_features.side_effect = fake_features
         mock_model.eval.return_value = None
 
-        extract_text_embeddings(mock_model, mock_processor, dataset, config)
+        extract_text_embeddings(mock_model, mock_processor, dataset, vlm_config, embedding_config)
 
-        assert config.text_output_path.exists(), "Text embeddings file was not created"
+        assert embedding_config.text_output_path.exists(), "Text embeddings file was not created"
 
-        loaded = torch.load(config.text_output_path, weights_only=True)
+        loaded = torch.load(embedding_config.text_output_path, weights_only=True)
         assert loaded.shape == (3, 512), f"Expected shape (3, 512), got {loaded.shape}"
 
     def test_embeddings_are_l2_normalized(self, tmp_path):
         """Each text embedding vector must have unit L2 norm."""
-        config = _make_config(tmp_path, batch_size=3)
+        vlm_config, embedding_config = _make_configs(tmp_path, batch_size=3)
         dataset = FakeTextDataset()
 
         mock_model = MagicMock()
@@ -264,9 +266,9 @@ class TestExtractTextFeatures:
         ])
         mock_model.eval.return_value = None
 
-        extract_text_embeddings(mock_model, mock_processor, dataset, config)
+        extract_text_embeddings(mock_model, mock_processor, dataset, vlm_config, embedding_config)
 
-        loaded = torch.load(config.text_output_path, weights_only=True)
+        loaded = torch.load(embedding_config.text_output_path, weights_only=True)
         norms = loaded.norm(dim=-1)
         assert torch.allclose(norms, torch.ones(3), atol=1e-5), (
             f"Text embeddings are not L2 normalized. Norms: {norms}"
@@ -274,7 +276,7 @@ class TestExtractTextFeatures:
 
     def test_processor_receives_texts(self, tmp_path):
         """The tokenizer must be called with `text=<list of str>`."""
-        config = _make_config(tmp_path, batch_size=3)
+        vlm_config, embedding_config = _make_configs(tmp_path, batch_size=3)
         dataset = FakeTextDataset()
 
         mock_model = MagicMock()
@@ -287,7 +289,7 @@ class TestExtractTextFeatures:
         mock_model.get_text_features.return_value = torch.randn(3, 512)
         mock_model.eval.return_value = None
 
-        extract_text_embeddings(mock_model, mock_processor, dataset, config)
+        extract_text_embeddings(mock_model, mock_processor, dataset, vlm_config, embedding_config)
 
         # processor.tokenizer must have been called at least once
         assert mock_processor.tokenizer.call_count >= 1
@@ -297,7 +299,7 @@ class TestExtractTextFeatures:
 
     def test_model_called_in_eval_mode(self, tmp_path):
         """model.eval() must be called."""
-        config = _make_config(tmp_path, batch_size=3)
+        vlm_config, embedding_config = _make_configs(tmp_path, batch_size=3)
         dataset = FakeTextDataset()
 
         mock_model = MagicMock()
@@ -310,14 +312,14 @@ class TestExtractTextFeatures:
         mock_model.get_text_features.return_value = torch.randn(3, 512)
         mock_model.eval.return_value = None
 
-        extract_text_embeddings(mock_model, mock_processor, dataset, config)
+        extract_text_embeddings(mock_model, mock_processor, dataset, vlm_config, embedding_config)
 
         mock_model.eval.assert_called()
 
     def test_handles_multiple_batches(self, tmp_path):
         """With 5 texts and batch_size=2, we expect 3 batches."""
         texts = [f"Report number {i}" for i in range(5)]
-        config = _make_config(tmp_path, batch_size=2)
+        vlm_config, embedding_config = _make_configs(tmp_path, batch_size=2)
         dataset = FakeTextDataset(texts=texts)
 
         mock_model = MagicMock()
@@ -333,9 +335,9 @@ class TestExtractTextFeatures:
         mock_model.get_text_features.side_effect = fake_features
         mock_model.eval.return_value = None
 
-        extract_text_embeddings(mock_model, mock_processor, dataset, config)
+        extract_text_embeddings(mock_model, mock_processor, dataset, vlm_config, embedding_config)
 
-        loaded = torch.load(config.text_output_path, weights_only=True)
+        loaded = torch.load(embedding_config.text_output_path, weights_only=True)
         assert loaded.shape[0] == 5, f"Expected 5 embeddings, got {loaded.shape[0]}"
         assert mock_model.get_text_features.call_count == 3
 
@@ -405,20 +407,22 @@ class TestIntegrationSingleSample:
                     "synthetic_report.xml",
                 )
 
-        # -- Config for integration test ----------------------------------
-        config = VLMConfig(
+        # -- Configs for integration test ---------------------------------
+        vlm_config = VLMConfig(
             batch_size=1,
             num_workers=0,
+            device="cuda",
+        )
+        embedding_config = EmbeddingConfig(
             output_dir=str(tmp_path / "integration_embeddings"),
-            device="cuda"
         )
 
         # -- Extract visual embedding -------------------------------------
         extract_visual_embeddings(
-            model, processor, SingleImageDataset(), config
+            model, processor, SingleImageDataset(), vlm_config, embedding_config
         )
-        assert config.visual_output_path.exists()
-        visual_emb = torch.load(config.visual_output_path, weights_only=True)
+        assert embedding_config.visual_output_path.exists()
+        visual_emb = torch.load(embedding_config.visual_output_path, weights_only=True)
 
         assert visual_emb.shape == (1, self.EMBEDDING_DIM), (
             f"Visual embedding shape mismatch: {visual_emb.shape}"
@@ -430,10 +434,10 @@ class TestIntegrationSingleSample:
 
         # -- Extract text embedding ---------------------------------------
         extract_text_embeddings(
-            model, processor, SingleTextDataset(), config
+            model, processor, SingleTextDataset(), vlm_config, embedding_config
         )
-        assert config.text_output_path.exists()
-        text_emb = torch.load(config.text_output_path, weights_only=True)
+        assert embedding_config.text_output_path.exists()
+        text_emb = torch.load(embedding_config.text_output_path, weights_only=True)
 
         assert text_emb.shape == (1, self.EMBEDDING_DIM), (
             f"Text embedding shape mismatch: {text_emb.shape}"

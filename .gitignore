@@ -199,6 +199,7 @@ cython_debug/
 
 # AI agent customization (local-only)
 AGENTS.md
+.github/
 .claude/
 CLAUDE.md
 

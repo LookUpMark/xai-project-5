@@ -39,7 +39,7 @@ class EmbeddingConfig:
 class VocabularyConfig:
     """Configuration for the vocabulary building pipeline."""
     # I/O paths
-    radlex_csv_path: str = "data/radlex.csv"
+    input_csv_path: str = "data/radlex.csv"
     output_path: str = "data/medical_vocabulary.json"
     embeddings_output_path: str = "embeddings/vocab_embeddings.pt"
 
@@ -89,8 +89,8 @@ class VocabularyConfig:
     ])
 
     @property
-    def radlex_csv(self) -> Path:
-        return Path(self.radlex_csv_path)
+    def input_csv(self) -> Path:
+        return Path(self.input_csv_path)
 
     @property
     def output_file(self) -> Path:

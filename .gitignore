@@ -68,6 +68,9 @@ instance/
 # Scrapy stuff:
 .scrapy
 
+# VSCode stuff:
+.vscode 
+
 # Sphinx documentation
 docs/_build/
 
@@ -205,6 +208,7 @@ CLAUDE.md
 
 # === Project-specific ===
 # Large data files (download locally, don't commit)
+data/medical_vocabulary.json
 data/iu_xray/*
 data/iu_xray/*.zip
 !data/iu_xray/images/.gitkeep

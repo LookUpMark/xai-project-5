@@ -19,6 +19,7 @@ Tests for load_vlm from utils.py.
 
 """
 
+import importlib
 from unittest.mock import MagicMock, patch
 import torch
 import pytest

@@ -1,12 +1,17 @@
 [project]
-requires-python = ">=3.10,<3.13"
+name = "xai-project-5"
+version = "0.1.0"
+description = "Unsupervised Concept Discovery and Evaluation for Medical Vision-Language Models"
+requires-python = ">=3.10"
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-filterwarnings = [
-    "ignore::DeprecationWarning:importlib._bootstrap",
-    "ignore:builtin type Swig:DeprecationWarning",
-]
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
 
-[tool.ruff.lint]
-per-file-ignores = { "tests/**/*" = ["E402"] }
+[tool.setuptools]
+py-modules = ["config", "utils", "extract_embeddings", "build_vocabulary"]
+packages = ["xai_datasets"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+"xai_datasets" = "xai_datasets"

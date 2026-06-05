@@ -21,10 +21,9 @@ import json
 import sys
 import time
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypedDict
 
 from langgraph.graph import StateGraph, END
-from typing import TypedDict
 
 import pandas as pd
 import torch
@@ -69,7 +68,7 @@ RETRY_SUFFIX = (
     "You MUST answer with exactly one word: Aligned, Unaligned, or Uncertain."
 )
 
-VALID_VERDICTS = {"Aligned", "Unaligned", "Uncertain"}
+VALID_VERDICTS = ("Aligned", "Unaligned", "Uncertain")
 
 
 # ============================================================================

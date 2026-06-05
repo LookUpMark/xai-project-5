@@ -1,5 +1,5 @@
 """
-05_evaluate_llm_judge.py — LLM Judge Evaluation Pipeline
+evaluate_llm_judge.py — LLM Judge Evaluation Pipeline
 
 Uses LangGraph to orchestrate an LLM-based evaluation of discovered concepts
 against radiology reports. For each (concept, report) pair, the judge outputs:
@@ -10,10 +10,10 @@ against radiology reports. For each (concept, report) pair, the judge outputs:
 Uses unsloth/medgemma-4b-it via HuggingFace transformers as the judge LLM.
 
 Usage:
-    python src/05_evaluate_llm_judge.py
+    python src/evaluate_llm_judge.py
 
     # Resume from checkpoint
-    python src/05_evaluate_llm_judge.py --resume
+    python src/evaluate_llm_judge.py --resume
 """
 
 import argparse
@@ -31,14 +31,18 @@ import torch
 from tqdm import tqdm
 from transformers import pipeline
 
+from config import paths
+from utils import setup_logging
+
+logger = setup_logging(__name__)
+
 # ---------------------------------------------------------------------------
-# Project paths (relative to repo root)
+# Project paths (derived from centralised config.PathsConfig)
 # ---------------------------------------------------------------------------
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-EXPLANATIONS_PATH = PROJECT_ROOT / "results" / "sample_explanations.json"
-REPORTS_CSV_PATH = PROJECT_ROOT / "data" / "iu_xray" / "reports.csv"
-OUTPUT_CSV_PATH = PROJECT_ROOT / "results" / "aligned_scores.csv"
-CHECKPOINT_PATH = PROJECT_ROOT / "results" / ".judge_checkpoint.json"
+EXPLANATIONS_PATH = paths.results_dir / "sample_explanations.json"
+REPORTS_CSV_PATH = paths.data_dir / "iu_xray" / "reports.csv"
+OUTPUT_CSV_PATH = paths.results_dir / "aligned_scores.csv"
+CHECKPOINT_PATH = paths.results_dir / ".judge_checkpoint.json"
 
 # ---------------------------------------------------------------------------
 # Model config
@@ -59,6 +63,12 @@ Discovered concept:
 Does the report SUPPORT, CONTRADICT, or is AMBIGUOUS about this concept?
 Answer with exactly one word: Aligned, Unaligned, or Uncertain."""
 
+# Appended to the prompt on retries to reinforce the expected format
+RETRY_SUFFIX = (
+    "\n\nIMPORTANT: Your previous answer was not in the expected format. "
+    "You MUST answer with exactly one word: Aligned, Unaligned, or Uncertain."
+)
+
 VALID_VERDICTS = {"Aligned", "Unaligned", "Uncertain"}
 
 
@@ -73,14 +83,14 @@ def get_pipeline():
     """Load the MedGemma pipeline once and cache it globally."""
     global _pipe
     if _pipe is None:
-        print(f"Loading model {MODEL_NAME} ...")
+        logger.info("Loading model %s ...", MODEL_NAME)
         _pipe = pipeline(
             "text-generation",
             model=MODEL_NAME,
             torch_dtype=torch.bfloat16,
             device_map="auto",
         )
-        print("Model loaded successfully.")
+        logger.info("Model loaded successfully.")
     return _pipe
 
 
@@ -118,7 +128,15 @@ def build_judge_graph():
 
     # --- Node: call_llm ---
     def call_llm(state: JudgeState) -> dict:
+        retries = state.get("retries", 0)
         prompt_text = state["prompt"]
+
+        # On retries, append a reinforcement suffix so the model gets
+        # a different (stronger) prompt — and use sampling to break
+        # the deterministic loop that greedy decoding would cause.
+        if retries > 0:
+            prompt_text = prompt_text + RETRY_SUFFIX
+
         pipe = get_pipeline()
 
         messages = [
@@ -142,11 +160,16 @@ def build_judge_graph():
             },
         ]
 
-        outputs = pipe(
-            messages,
-            max_new_tokens=10,
-            do_sample=False,
-        )
+        # First attempt: greedy (deterministic). Retries: sample with
+        # low temperature so the model can explore different outputs.
+        generation_kwargs = {
+            "max_new_tokens": 10,
+            "do_sample": retries > 0,
+        }
+        if retries > 0:
+            generation_kwargs["temperature"] = 0.3
+
+        outputs = pipe(messages, **generation_kwargs)
 
         # Extract the assistant's reply from the generated output
         generated = outputs[0]["generated_text"]
@@ -269,21 +292,21 @@ def evaluate(
     """
     # --- Load inputs ---
     if not EXPLANATIONS_PATH.exists():
-        print(f"ERROR: Explanations file not found: {EXPLANATIONS_PATH}")
-        print("Run 04_generate_explanations.py first.")
+        logger.error("Explanations file not found: %s", EXPLANATIONS_PATH)
+        logger.error("Run 04_generate_explanations.py first.")
         sys.exit(1)
 
     if not REPORTS_CSV_PATH.exists():
-        print(f"ERROR: Reports CSV not found: {REPORTS_CSV_PATH}")
-        print("Ensure data/iu_xray/reports.csv exists.")
+        logger.error("Reports CSV not found: %s", REPORTS_CSV_PATH)
+        logger.error("Ensure data/iu_xray/reports.csv exists.")
         sys.exit(1)
 
     with open(EXPLANATIONS_PATH, "r") as f:
         explanations = json.load(f)
 
     reports_df = pd.read_csv(REPORTS_CSV_PATH)
-    print(f"Loaded {len(explanations)} sample explanations")
-    print(f"Loaded {len(reports_df)} reports")
+    logger.info("Loaded %d sample explanations", len(explanations))
+    logger.info("Loaded %d reports", len(reports_df))
 
     # Build a fast lookup: image_id → combined_text
     report_lookup = dict(
@@ -294,7 +317,7 @@ def evaluate(
     if resume:
         done_keys = load_checkpoint()
         records = load_checkpoint_records()
-        print(f"Resuming: {len(done_keys)} pairs already evaluated")
+        logger.info("Resuming: %d pairs already evaluated", len(done_keys))
     else:
         done_keys = set()
         records = []
@@ -321,18 +344,18 @@ def evaluate(
             })
 
     if skipped_no_report > 0:
-        print(f"Warning: skipped {skipped_no_report} samples with missing reports")
+        logger.warning("Skipped %d samples with missing reports", skipped_no_report)
 
     total = len(eval_pairs)
-    print(f"Pairs to evaluate: {total}")
+    logger.info("Pairs to evaluate: %d", total)
 
     if total == 0:
-        print("Nothing to evaluate. Saving final results.")
+        logger.info("Nothing to evaluate. Saving final results.")
         _save_final(records)
         return
 
     # --- Load model and compile judge graph ---
-    print(f"Building LangGraph judge (model={MODEL_NAME})...")
+    logger.info("Building LangGraph judge (model=%s)...", MODEL_NAME)
     get_pipeline()  # pre-load the model
     judge = build_judge_graph()
 
@@ -398,7 +421,7 @@ def _save_final(records: list[dict]):
     output_cols = ["image_id", "feature_id", "concept", "activation", "verdict"]
     existing_cols = [c for c in output_cols if c in df.columns]
     df[existing_cols].to_csv(OUTPUT_CSV_PATH, index=False)
-    print(f"\nResults saved to: {OUTPUT_CSV_PATH}")
+    logger.info("Results saved to: %s", OUTPUT_CSV_PATH)
 
 
 def _print_summary(records: list[dict], elapsed: float, errors: int):
@@ -440,10 +463,10 @@ def parse_args():
         epilog="""
 Examples:
   # Run evaluation
-  python src/05_evaluate_llm_judge.py
+  python src/evaluate_llm_judge.py
 
   # Resume an interrupted run
-  python src/05_evaluate_llm_judge.py --resume
+  python src/evaluate_llm_judge.py --resume
         """,
     )
     parser.add_argument(
@@ -463,11 +486,10 @@ Examples:
 def main():
     args = parse_args()
 
-    print(f"LLM Judge — model={MODEL_NAME}")
-    print(f"  Explanations : {EXPLANATIONS_PATH}")
-    print(f"  Reports      : {REPORTS_CSV_PATH}")
-    print(f"  Output       : {OUTPUT_CSV_PATH}")
-    print()
+    logger.info("LLM Judge — model=%s", MODEL_NAME)
+    logger.info("  Explanations : %s", EXPLANATIONS_PATH)
+    logger.info("  Reports      : %s", REPORTS_CSV_PATH)
+    logger.info("  Output       : %s", OUTPUT_CSV_PATH)
 
     evaluate(
         resume=args.resume,

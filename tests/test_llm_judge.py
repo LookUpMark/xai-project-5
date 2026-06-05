@@ -1,5 +1,5 @@
 """
-tests/test_llm_judge.py — Unit & integration tests for 05_evaluate_llm_judge.py
+tests/test_llm_judge.py — Unit & integration tests for evaluate_llm_judge.py
 
 All tests mock the HuggingFace pipeline so they can run without GPU or model
 download.  Run with:
@@ -39,13 +39,49 @@ if "transformers" in _mock_modules:
     sys.modules["transformers"].pipeline = MagicMock()
 
 # ---------------------------------------------------------------------------
-# Make sure `src/` is importable
+# Mock config and utils modules that evaluate_llm_judge now imports.
+# config.py imports torch at module level, so we provide a lightweight stub
+# with the same interface (paths.results_dir, paths.data_dir).
 # ---------------------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+# ---------------------------------------------------------------------------
+import logging
+import types
+
+_mock_config = types.ModuleType("config")
+
+class _FakePathsConfig:
+    """Minimal stand-in for config.PathsConfig used by the judge module."""
+    def __init__(self):
+        self.project_root = PROJECT_ROOT
+        self.results_dir = PROJECT_ROOT / "results"
+        self.data_dir = PROJECT_ROOT / "data"
+
+_mock_config.paths = _FakePathsConfig()
+sys.modules.setdefault("config", _mock_config)
+
+_mock_utils = types.ModuleType("utils")
+
+def _setup_logging(name: str = __name__) -> logging.Logger:
+    """Lightweight logger for tests — avoids importing the real utils.py."""
+    logger = logging.getLogger(name)
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(levelname)s | %(message)s"))
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+    return logger
+
+_mock_utils.setup_logging = _setup_logging
+sys.modules.setdefault("utils", _mock_utils)
+
+# ---------------------------------------------------------------------------
+# Make sure `src/` is importable
+# ---------------------------------------------------------------------------
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 import importlib
-judge_module = importlib.import_module("05_evaluate_llm_judge")
+judge_module = importlib.import_module("evaluate_llm_judge")
 
 
 # ============================================================================

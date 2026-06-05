@@ -9,10 +9,8 @@ dictionary-learning==0.1.0
 # Experiment tracking
 wandb==0.27.0
 
-# LLM Judge (MedGemma 4B via Ollama)
-ollama==0.6.2
-langchain-core==1.4.0
-langchain-ollama==1.1.0
+# LLM Judge (MedGemma 4B via HuggingFace + LangGraph)
+langgraph>=0.2
 
 # Data processing
 pandas==3.0.3

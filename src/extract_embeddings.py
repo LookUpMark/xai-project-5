@@ -99,6 +99,7 @@ def extract_text_embeddings(
                 return_tensors="pt",
                 padding=True,
                 truncation=True,
+                max_length=512,
             ).to(vlm_config.device)
 
             # Inference

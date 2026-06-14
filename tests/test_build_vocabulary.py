@@ -42,8 +42,8 @@ def _make_configs(tmp_path: Path):
         device="cpu",
     )
     vocab_config = VocabularyConfig(
-        output_path=str(tmp_path / "medical_vocabulary.json"),
-        embeddings_output_path=str(tmp_path / "vocab_embeddings.pt"),
+        output_path=str(tmp_path / "vocabulary.json"),
+        embeddings_output_path=str(tmp_path / "text_vocab_embeddings.pt"),
         top_k=2,
         nih_seed_terms=["cardiomegaly", "effusion"],
         anchor_queries=["chest radiograph finding"],

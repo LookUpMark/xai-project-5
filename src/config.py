@@ -105,8 +105,10 @@ class VocabularyConfig:
     """Configuration for the vocabulary building pipeline."""
     # I/O paths
     input_csv_path: str = "data/radlex.csv"
-    output_path: str = "data/medical_vocabulary.json"
-    embeddings_output_path: str = "embeddings/vocab_embeddings.pt"
+    # Aligned to PathsConfig.vocab_labels_path / vocab_embeddings_path (the
+    # canonical consumer names) so the builder writes where concept_naming reads.
+    output_path: str = "data/vocabulary.json"
+    embeddings_output_path: str = "embeddings/text_vocab_embeddings.pt"
 
     # Filtering parameters
     top_k: int = 300

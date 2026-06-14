@@ -162,5 +162,9 @@ the default `EmbeddingConfig` (`data/iu_xray/images/images_normalized/`,
   MedGemma is gated and needs GPU. See audit "Open Issues".
 - `test_vlm_autoencoder.py` and `test_iu_xray_datasets.py` are now fixed (were
   pre-existing breakage); only `test_llm_judge.py` stays uncollected (langgraph).
-- Vocab filename mismatch (`text_vocab_embeddings.pt` vs `vocab_embeddings.pt`)
-  currently moot on disk; should be reconciled in source.
+- Vocab filename mismatch reconciled in source: `VocabularyConfig` defaults now
+  match `PathsConfig` (`data/vocabulary.json` + `embeddings/text_vocab_embeddings.pt`).
+  **Caveat:** the producer's *schema* still diverges — it writes
+  `{term,similarity_score,source}` dicts while consumers read a string list, so
+  re-running the builder would overwrite the committed `data/vocabulary.json`.
+  Reconcile the schema separately before rebuilding.

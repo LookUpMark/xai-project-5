@@ -13,7 +13,7 @@ import pytest
 import torch
 from torch.utils.data import Dataset
 
-from config import VLMConfig
+from config import VLMConfig, EmbeddingConfig
 from autoencoder.sae_module import SAEManager
 import extract_embeddings
 
@@ -64,14 +64,24 @@ class FakeTextDataset(Dataset):
 
 
 @pytest.fixture
-def vlm_config(tmp_path):
-    """VLMConfig pointing to tmp output paths."""
+def vlm_config():
+    """VLMConfig — model identity + runtime params only.
+
+    I/O paths live in EmbeddingConfig since the VLMConfig/EmbeddingConfig split.
+    """
     return VLMConfig(
         model_name="mock-biomed-clip",
         processor_name="mock-biomed-clip",
         device="cpu",
         batch_size=4,
         num_workers=0,
+    )
+
+
+@pytest.fixture
+def embedding_config(tmp_path):
+    """EmbeddingConfig pointing to tmp I/O paths (image/reports dirs + output)."""
+    return EmbeddingConfig(
         image_dir=str(tmp_path / "images"),
         reports_dir=str(tmp_path / "reports"),
         output_dir=str(tmp_path / "embeddings"),
@@ -110,7 +120,7 @@ def mock_processor():
         result.to.return_value = {"pixel_values": torch.randn(len(images), 3, 224, 224)}
         return result
 
-    def process_text(text, return_tensors="pt", padding=True, truncation=True):
+    def process_text(text, return_tensors="pt", padding=True, truncation=True, max_length=512):
         result = MagicMock()
         n = len(text) if isinstance(text, list) else 1
         result.to.return_value = {
@@ -133,45 +143,45 @@ class TestVLMEmbeddingExtraction:
     """Test VLM produces correctly-shaped embeddings for SAE input."""
 
     def test_visual_extraction_produces_normalized_512d(
-        self, mock_vlm, mock_processor, vlm_config
+        self, mock_vlm, mock_processor, vlm_config, embedding_config
     ):
         """Full visual extraction pipeline: dataset → embeddings file."""
         dataset = FakeImageDataset(n=8)
         extract_embeddings.extract_visual_embeddings(
-            mock_vlm, mock_processor, dataset, vlm_config
+            mock_vlm, mock_processor, dataset, vlm_config, embedding_config
         )
 
-        saved = torch.load(vlm_config.visual_output_path, weights_only=True)
+        saved = torch.load(embedding_config.visual_output_path, weights_only=True)
         assert saved.shape == (8, 512)
         # Check L2-normalized (each row norm ≈ 1.0)
         norms = saved.norm(dim=-1)
         assert torch.allclose(norms, torch.ones(8), atol=1e-5)
 
     def test_text_extraction_produces_normalized_512d(
-        self, mock_vlm, mock_processor, vlm_config
+        self, mock_vlm, mock_processor, vlm_config, embedding_config
     ):
         """Full text extraction pipeline: reports → embeddings file."""
         dataset = FakeTextDataset(n=6)
         extract_embeddings.extract_text_embeddings(
-            mock_vlm, mock_processor, dataset, vlm_config
+            mock_vlm, mock_processor, dataset, vlm_config, embedding_config
         )
 
-        saved = torch.load(vlm_config.text_output_path, weights_only=True)
+        saved = torch.load(embedding_config.text_output_path, weights_only=True)
         assert saved.shape == (6, 512)
         norms = saved.norm(dim=-1)
         assert torch.allclose(norms, torch.ones(6), atol=1e-5)
 
     def test_batched_extraction_consistency(
-        self, mock_vlm, mock_processor, vlm_config
+        self, mock_vlm, mock_processor, vlm_config, embedding_config
     ):
         """Batch size doesn't affect output count."""
         dataset = FakeImageDataset(n=10)
         # batch_size=4 → 3 batches (4+4+2)
         extract_embeddings.extract_visual_embeddings(
-            mock_vlm, mock_processor, dataset, vlm_config
+            mock_vlm, mock_processor, dataset, vlm_config, embedding_config
         )
 
-        saved = torch.load(vlm_config.visual_output_path, weights_only=True)
+        saved = torch.load(embedding_config.visual_output_path, weights_only=True)
         assert saved.shape[0] == 10
 
 
@@ -179,22 +189,21 @@ class TestVLMEmbeddingExtraction:
 # Integration Tests: Embeddings → SAE → Concepts
 # ---------------------------------------------------------------------------
 
-
 class TestEmbeddingsToSAE:
     """Test that VLM embeddings flow correctly into SAE encoding."""
 
     def test_embeddings_encode_with_sae(
-        self, mock_vlm, mock_processor, vlm_config, tmp_model_dir
+        self, mock_vlm, mock_processor, vlm_config, embedding_config, tmp_model_dir
     ):
         """Extract embeddings → load into SAE → encode to sparse features."""
         # Step 1: Extract embeddings
         dataset = FakeImageDataset(n=5)
         extract_embeddings.extract_visual_embeddings(
-            mock_vlm, mock_processor, dataset, vlm_config
+            mock_vlm, mock_processor, dataset, vlm_config, embedding_config
         )
 
         # Step 2: Load embeddings and feed to SAE
-        embeddings = torch.load(vlm_config.visual_output_path, weights_only=True)
+        embeddings = torch.load(embedding_config.visual_output_path, weights_only=True)
         assert embeddings.shape == (5, 512)
 
         mgr = SAEManager({"device": "cpu"})
@@ -204,15 +213,15 @@ class TestEmbeddingsToSAE:
         assert sparse.shape == (5, 4096)
 
     def test_sae_reconstruction_from_vlm_embeddings(
-        self, mock_vlm, mock_processor, vlm_config, tmp_model_dir
+        self, mock_vlm, mock_processor, vlm_config, embedding_config, tmp_model_dir
     ):
         """VLM embeddings → SAE encode → decode → same shape."""
         dataset = FakeImageDataset(n=3)
         extract_embeddings.extract_visual_embeddings(
-            mock_vlm, mock_processor, dataset, vlm_config
+            mock_vlm, mock_processor, dataset, vlm_config, embedding_config
         )
 
-        embeddings = torch.load(vlm_config.visual_output_path, weights_only=True)
+        embeddings = torch.load(embedding_config.visual_output_path, weights_only=True)
         mgr = SAEManager({"device": "cpu"})
         mgr.load(tmp_model_dir)
 
@@ -222,15 +231,15 @@ class TestEmbeddingsToSAE:
         assert reconstructed.shape == embeddings.shape
 
     def test_top_concepts_from_vlm_embeddings(
-        self, mock_vlm, mock_processor, vlm_config, tmp_model_dir
+        self, mock_vlm, mock_processor, vlm_config, embedding_config, tmp_model_dir
     ):
         """VLM embeddings → SAE → top-k concepts extraction."""
         dataset = FakeImageDataset(n=4)
         extract_embeddings.extract_visual_embeddings(
-            mock_vlm, mock_processor, dataset, vlm_config
+            mock_vlm, mock_processor, dataset, vlm_config, embedding_config
         )
 
-        embeddings = torch.load(vlm_config.visual_output_path, weights_only=True)
+        embeddings = torch.load(embedding_config.visual_output_path, weights_only=True)
         mgr = SAEManager({"device": "cpu"})
         mgr.load(tmp_model_dir)
 
@@ -256,6 +265,7 @@ class TestFullVLMSAEPipeline:
         mock_vlm,
         mock_processor,
         vlm_config,
+        embedding_config,
         tmp_model_dir,
         fake_vocab_embeddings,
         fake_vocab_labels,
@@ -268,11 +278,11 @@ class TestFullVLMSAEPipeline:
         # Step 1: Extract visual embeddings
         dataset = FakeImageDataset(n=3)
         extract_embeddings.extract_visual_embeddings(
-            mock_vlm, mock_processor, dataset, vlm_config
+            mock_vlm, mock_processor, dataset, vlm_config, embedding_config
         )
 
         # Step 2: Load embeddings into SAE
-        embeddings = torch.load(vlm_config.visual_output_path, weights_only=True)
+        embeddings = torch.load(embedding_config.visual_output_path, weights_only=True)
         mgr = SAEManager({"device": "cpu"})
         mgr.load(tmp_model_dir)
 
@@ -301,17 +311,17 @@ class TestFullVLMSAEPipeline:
             assert len(exp["pseudo_report"]) > 0
 
     def test_text_embeddings_as_vocabulary(
-        self, mock_vlm, mock_processor, vlm_config, tmp_model_dir
+        self, mock_vlm, mock_processor, vlm_config, embedding_config, tmp_model_dir
     ):
         """Use text extraction output as vocabulary for concept naming."""
         # Extract text embeddings (simulating vocabulary creation)
         text_dataset = FakeTextDataset(n=5)
         extract_embeddings.extract_text_embeddings(
-            mock_vlm, mock_processor, text_dataset, vlm_config
+            mock_vlm, mock_processor, text_dataset, vlm_config, embedding_config
         )
 
         # Use extracted text embeddings as vocab
-        vocab_emb = torch.load(vlm_config.text_output_path, weights_only=True)
+        vocab_emb = torch.load(embedding_config.text_output_path, weights_only=True)
         vocab_labels = [f"concept_{i}" for i in range(5)]
 
         mgr = SAEManager({"device": "cpu"})
@@ -323,15 +333,15 @@ class TestFullVLMSAEPipeline:
         assert all_names.issubset(set(vocab_labels))
 
     def test_metrics_on_vlm_embeddings(
-        self, mock_vlm, mock_processor, vlm_config, tmp_model_dir
+        self, mock_vlm, mock_processor, vlm_config, embedding_config, tmp_model_dir
     ):
         """Compute SAE quality metrics on VLM-produced embeddings."""
         dataset = FakeImageDataset(n=10)
         extract_embeddings.extract_visual_embeddings(
-            mock_vlm, mock_processor, dataset, vlm_config
+            mock_vlm, mock_processor, dataset, vlm_config, embedding_config
         )
 
-        embeddings = torch.load(vlm_config.visual_output_path, weights_only=True)
+        embeddings = torch.load(embedding_config.visual_output_path, weights_only=True)
         mgr = SAEManager({"device": "cpu"})
         mgr.load(tmp_model_dir)
 
@@ -349,6 +359,7 @@ class TestFullVLMSAEPipeline:
         mock_vlm,
         mock_processor,
         vlm_config,
+        embedding_config,
         tmp_model_dir,
         fake_vocab_embeddings,
         fake_vocab_labels,
@@ -360,10 +371,10 @@ class TestFullVLMSAEPipeline:
 
         dataset = FakeImageDataset(n=2)
         extract_embeddings.extract_visual_embeddings(
-            mock_vlm, mock_processor, dataset, vlm_config
+            mock_vlm, mock_processor, dataset, vlm_config, embedding_config
         )
 
-        embeddings = torch.load(vlm_config.visual_output_path, weights_only=True)
+        embeddings = torch.load(embedding_config.visual_output_path, weights_only=True)
         mgr = SAEManager({"device": "cpu"})
         mgr.load(tmp_model_dir)
 

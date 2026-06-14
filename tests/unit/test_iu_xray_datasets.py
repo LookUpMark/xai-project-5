@@ -13,10 +13,11 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-# datasets/ è nella root del progetto, non in src/ — aggiunge al path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "datasets"))
+# xai_datasets/ è un package nella root del progetto (rinominato da datasets/) —
+# aggiunge la root al path. (conftest.py aggiunge solo src/.)
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from iu_xray import IUXrayImageDataset, IUXrayTextDataset
+from xai_datasets.iu_xray import IUXrayImageDataset, IUXrayTextDataset
 
 
 # ---------------------------------------------------------------------------

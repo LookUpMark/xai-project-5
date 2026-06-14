@@ -102,15 +102,20 @@ the default `EmbeddingConfig` (`data/iu_xray/images/images_normalized/`,
   `test_saves_image_ids_sidecar` (sidecar written, aligned with the tensor).
 - **`tests/integration/test_sae_pipeline.py`** — `test_full_explanation_flow`
   asserts the new schema.
-- **`tests/integration/test_vlm_autoencoder.py`** — explanation-schema
-  assertions updated only; **fixture still broken** (stale `VLMConfig(image_dir=…)`
-  + 4-arg `extract_*` calls) — out of scope this release, tracked as open issue.
+- **`tests/integration/test_vlm_autoencoder.py`** — fixture repaired to the
+  VLMConfig/EmbeddingConfig split (5-arg `extract_*`, output paths read from
+  `embedding_config`, mock processor `max_length` kwarg) + explanation-schema
+  assertions; 10 tests now pass (were setup-broken in v0.3.0).
+- **`tests/unit/test_iu_xray_datasets.py`** — import fixed
+  (`from xai_datasets.iu_xray import …`, repo-root on `sys.path`); 12 tests now
+  collect & pass (were collection-broken since the `datasets/`→`xai_datasets/`
+  rename).
 
 ---
 
 ## Validation
 
-- **62 passed, 7 skipped** (`tests/unit/` + `tests/integration/test_sae_pipeline.py`).
+- **89 passed, 8 skipped** (`tests/` minus `test_llm_judge.py`; `test_iu_xray_datasets.py` +12 and `test_vlm_autoencoder.py` +10 now collect/pass — were collection/setup-broken in v0.3.0).
 - **VLM notebook**: 8/8 cells run clean on MPS, no errors; produces
   `visual_embeddings.pt` (7470×512), `text_embeddings.pt`, and
   `visual_image_ids.json` (7470 basenames).
@@ -155,7 +160,7 @@ the default `EmbeddingConfig` (`data/iu_xray/images/images_normalized/`,
 - Judge still can't run end-to-end (environmental, not contract): `reports.csv`
   needs building (`image_id` = PNG basename), `langgraph` needs installing,
   MedGemma is gated and needs GPU. See audit "Open Issues".
-- `test_vlm_autoencoder.py` fixture and `test_iu_xray_datasets.py` import remain
-  broken (pre-existing).
+- `test_vlm_autoencoder.py` and `test_iu_xray_datasets.py` are now fixed (were
+  pre-existing breakage); only `test_llm_judge.py` stays uncollected (langgraph).
 - Vocab filename mismatch (`text_vocab_embeddings.pt` vs `vocab_embeddings.pt`)
   currently moot on disk; should be reconciled in source.

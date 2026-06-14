@@ -75,14 +75,18 @@ class TestFullPipelineFlow:
         explanations = []
         for idx, sample_concepts in enumerate(top_concepts):
             explanation = gen_module.generate_explanation(sample_concepts, str_names)
-            explanation["sample_idx"] = idx
+            explanation["image_id"] = f"sample_{idx}"
             explanations.append(explanation)
 
         assert len(explanations) == 3
         for exp in explanations:
+            assert "image_id" in exp
             assert "pseudo_report" in exp
-            assert "findings" in exp
-            assert len(exp["findings"]) == 5
+            assert "top_k_concepts" in exp
+            assert len(exp["top_k_concepts"]) == 5
+            # Judge schema: each concept carries feature_id / name / activation
+            concept = exp["top_k_concepts"][0]
+            assert {"feature_id", "name", "activation"} <= set(concept)
 
     def test_metrics_after_load(self, tmp_model_dir, fake_embeddings):
         mgr = SAEManager({"device": "cpu"})

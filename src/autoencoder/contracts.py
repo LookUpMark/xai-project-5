@@ -44,23 +44,30 @@ class ConceptMap:
 
 
 @dataclass(frozen=True)
-class Finding:
-    """A single concept activation in an explanation."""
+class ConceptActivation:
+    """A single activated concept in an explanation.
 
-    concept: str
+    Matches the schema consumed by evaluate_llm_judge.py (each entry of
+    ``top_k_concepts``): feature id, resolved concept name, activation value.
+    """
+
     feature_id: int
+    name: str
     activation: float
-    naming_confidence: float
 
 
 @dataclass(frozen=True)
 class Explanation:
-    """Output of generate_explanations stage — per-sample explanation."""
+    """Output of generate_explanations stage — per-sample explanation.
 
-    sample_idx: int
-    findings: list[Finding]
+    Matches the schema consumed by evaluate_llm_judge.py: each record carries
+    the originating ``image_id`` (used to join against reports.csv) and its
+    top-k activated concepts.
+    """
+
+    image_id: str
+    top_k_concepts: list[ConceptActivation]
     pseudo_report: str
-    n_active_concepts: int
 
 
 @dataclass(frozen=True)

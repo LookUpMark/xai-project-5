@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 import logging
 import random
 from pathlib import Path
@@ -107,17 +108,70 @@ def dataclass_to_dict(obj) -> dict:
     return {f.name: getattr(obj, f.name) for f in dataclasses.fields(obj)}
 
 
+def _split_ids(
+    train_idx,
+    test_idx,
+    source_ids_path: Path | None,
+    train_ids_path: Path | None,
+    test_ids_path: Path | None,
+) -> None:
+    """Split a sidecar image-id list with precomputed indices and write JSON files.
+
+    No-op when ``source_ids_path`` is None. ``train_idx``/``test_idx`` MUST be
+    the exact permutation used to split the embeddings tensor so the id list
+    stays row-aligned with it. All three id paths must be provided together.
+
+    Args:
+        train_idx: Train indices (same array used to slice the embeddings).
+        test_idx: Test indices.
+        source_ids_path: Source sidecar JSON (ordered list of image ids).
+        train_ids_path: Destination for the train split of ids.
+        test_ids_path: Destination for the test split of ids.
+    """
+    if source_ids_path is None:
+        return
+    if train_ids_path is None or test_ids_path is None:
+        raise ValueError(
+            "source_ids_path requires both train_ids_path and test_ids_path"
+        )
+    with open(source_ids_path) as f:
+        image_ids = json.load(f)
+    expected = len(train_idx) + len(test_idx)
+    if len(image_ids) != expected:
+        raise ValueError(
+            f"image-id count ({len(image_ids)}) != train+test rows ({expected}); "
+            f"the sidecar is not aligned with the embeddings tensor."
+        )
+    train_ids = [image_ids[i] for i in train_idx]
+    test_ids = [image_ids[i] for i in test_idx]
+    train_ids_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(train_ids_path, "w") as f:
+        json.dump(train_ids, f)
+    with open(test_ids_path, "w") as f:
+        json.dump(test_ids, f)
+
+
 def split_embeddings(
     source_path: Path,
     train_path: Path,
     test_path: Path,
     train_ratio: float = 0.8,
     seed: int = 42,
+    source_ids_path: Path | None = None,
+    train_ids_path: Path | None = None,
+    test_ids_path: Path | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Create and save a train/test split from a embeddings tensor.
 
     If both output files already exist, loads and returns them without
     recomputing the split.
+
+    Optionally splits the sidecar image-id list (``source_ids_path``) in
+    lockstep with the tensors, using the same permutation, writing
+    ``train_ids_path``/``test_ids_path``. All three id paths must be provided
+    together; they are only written during a fresh split (the skip-if-exists
+    guard for the tensors also short-circuits id splitting — delete the split
+    ``.pt`` files to regenerate ids).
 
     Args:
         source_path: Path to the source embeddings .pt file (N x D).
@@ -125,6 +179,9 @@ def split_embeddings(
         test_path: Destination path for test embeddings.
         train_ratio: Fraction of samples for the train set. Defaults to 0.8.
         seed: Random seed for reproducible splitting. Defaults to 42.
+        source_ids_path: Optional source sidecar JSON of image ids.
+        train_ids_path: Optional destination for the train split of ids.
+        test_ids_path: Optional destination for the test split of ids.
 
     Returns:
         Tuple of (train_embeddings, test_embeddings) tensors.
@@ -154,6 +211,8 @@ def split_embeddings(
     train_path.parent.mkdir(parents=True, exist_ok=True)
     torch.save(train_emb, train_path)
     torch.save(test_emb, test_path)
+
+    _split_ids(train_idx, test_idx, source_ids_path, train_ids_path, test_ids_path)
 
     return train_emb, test_emb
 

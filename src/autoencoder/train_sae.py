@@ -71,6 +71,19 @@ def prepare_split() -> None:
     torch.save(train_emb, train_path)
     torch.save(test_emb, test_path)
 
+    # Split the sidecar image-id list with the SAME permutation so the ids stay
+    # row-aligned with the tensors (needed downstream by generate_explanations
+    # to emit image_id for the LLM judge).
+    if config.paths.visual_image_ids_path.exists():
+        utils._split_ids(
+            train_idx,
+            test_idx,
+            config.paths.visual_image_ids_path,
+            config.paths.train_image_ids_path,
+            config.paths.test_image_ids_path,
+        )
+        logger.info("Image-id sidecar split alongside the embeddings.")
+
     logger.info(f"Train: {train_emb.shape[0]} samples → {train_path}")
     logger.info(f"Test:  {test_emb.shape[0]} samples → {test_path}")
 

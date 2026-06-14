@@ -289,13 +289,14 @@ class TestFullVLMSAEPipeline:
         explanations = []
         for idx, sample_concepts in enumerate(top_concepts):
             explanation = gen_module.generate_explanation(sample_concepts, str_names)
-            explanation["sample_idx"] = idx
+            explanation["image_id"] = f"image_{idx}.png"
             explanations.append(explanation)
 
         assert len(explanations) == 3
         for exp in explanations:
+            assert "image_id" in exp
             assert "pseudo_report" in exp
-            assert "findings" in exp
+            assert "top_k_concepts" in exp
             assert isinstance(exp["pseudo_report"], str)
             assert len(exp["pseudo_report"]) > 0
 

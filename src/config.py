@@ -30,6 +30,9 @@ class PathsConfig:
     visual_embeddings_path: Path = field(init=False)
     train_embeddings_path: Path = field(init=False)
     test_embeddings_path: Path = field(init=False)
+    visual_image_ids_path: Path = field(init=False)
+    train_image_ids_path: Path = field(init=False)
+    test_image_ids_path: Path = field(init=False)
     vocab_embeddings_path: Path = field(init=False)
     vocab_labels_path: Path = field(init=False)
 
@@ -42,6 +45,12 @@ class PathsConfig:
         self.visual_embeddings_path = self.embeddings_dir / "visual_embeddings.pt"
         self.train_embeddings_path = self.embeddings_dir / "train_embeddings.pt"
         self.test_embeddings_path = self.embeddings_dir / "test_embeddings.pt"
+        # Sidecar image-id lists (basename per row) kept in lockstep with the
+        # embedding tensors so downstream stages can recover the image identity
+        # (the tensors are bare (N, 512) with no row metadata).
+        self.visual_image_ids_path = self.embeddings_dir / "visual_image_ids.json"
+        self.train_image_ids_path = self.embeddings_dir / "train_image_ids.json"
+        self.test_image_ids_path = self.embeddings_dir / "test_image_ids.json"
         self.vocab_embeddings_path = self.embeddings_dir / "text_vocab_embeddings.pt"
         self.vocab_labels_path = self.data_dir / "vocabulary.json"
 

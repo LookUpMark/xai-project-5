@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 import torch
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
@@ -40,25 +43,35 @@ def extract_visual_embeddings(
 
     embedding_config.visual_output_path.parent.mkdir(parents=True, exist_ok=True)
     all_embeddings = []
+    all_image_ids = []  # basename per row, kept in lockstep with the embeddings
 
     model.eval()
     with torch.no_grad():
-        for batch_images, _ in tqdm(dataloader, desc="Images Processing"):
+        for batch_images, batch_paths in tqdm(dataloader, desc="Images Processing"):
             # Input preparation
             inputs = processor.image_processor(
-                images=list(batch_images), 
+                images=list(batch_images),
                 return_tensors="pt"
             ).to(vlm_config.device)
-            
+
             # Inference
             outputs = model.get_image_features(**inputs)  # (B, 512)
             outputs = outputs / outputs.norm(dim=-1, keepdim=True)  # L2 Normalization
 
             # Moving on CPU to avoid VRAM problems
             all_embeddings.append(outputs.cpu())
+            # Preserve the image identity (the tensor itself is bare (N, 512))
+            all_image_ids.extend(Path(p).name for p in batch_paths)
 
     visual_embeddings = torch.cat(all_embeddings)  # (N, 512)
     torch.save(visual_embeddings, embedding_config.visual_output_path)
+
+    # Sidecar JSON of image ids (basename) aligned row-for-row with the tensor.
+    # Consumed downstream by the train/test split and generate_explanations so
+    # the LLM judge can join concepts back to reports.csv on image_id.
+    image_ids_path = embedding_config.visual_output_path.with_name("visual_image_ids.json")
+    with open(image_ids_path, "w") as f:
+        json.dump(all_image_ids, f)
 
     print(f"Images Embedding Extraction completed. Saving on {embedding_config.visual_output_path}.")
 

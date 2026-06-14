@@ -218,6 +218,37 @@ class TestExtractVisualEmbeddings:
         assert loaded.shape[0] == 5, f"Expected 5 embeddings, got {loaded.shape[0]}"
         assert mock_model.get_image_features.call_count == 3
 
+    def test_saves_image_ids_sidecar(self, tmp_path):
+        """A visual_image_ids.json sidecar must be written, row-aligned with the tensor."""
+        import json
+
+        vlm_config, embedding_config = _make_configs(tmp_path, batch_size=2)
+        dataset = FakeImageDataset(n=4)
+
+        mock_model = MagicMock()
+        mock_processor = MagicMock()
+
+        proc_output = MagicMock()
+        proc_output.to.return_value = proc_output
+        mock_processor.image_processor.return_value = proc_output
+
+        def fake_image_features(**kwargs):
+            return torch.randn(vlm_config.batch_size, 512)
+
+        mock_model.get_image_features.side_effect = fake_image_features
+        mock_model.eval.return_value = None
+
+        extract_visual_embeddings(
+            mock_model, mock_processor, dataset, vlm_config, embedding_config
+        )
+
+        sidecar_path = embedding_config.visual_output_path.with_name("visual_image_ids.json")
+        assert sidecar_path.exists(), "Image-id sidecar was not created"
+        with open(sidecar_path) as f:
+            image_ids = json.load(f)
+        # Basenames of the FakeImageDataset labels, in row order
+        assert image_ids == [f"fake_image_{i}.png" for i in range(4)]
+
 
 # =========================================================================
 # Unit tests – extract_text_embeddings

@@ -30,6 +30,7 @@ logger = utils.setup_logging(__name__)
 SEED = config.training.primary_seed
 CONCEPT_NAMES_PATH = config.paths.results_dir / "concept_names.json"
 OUTPUT_PATH = config.paths.results_dir / "sample_explanations.json"
+TEST_IMAGE_IDS_PATH = config.paths.test_image_ids_path
 
 
 def generate_explanation(
@@ -44,48 +45,46 @@ def generate_explanation(
             {"name": str, "score": float} (JSON-serialized keys).
 
     Returns:
-        Dict with keys: findings, pseudo_report, n_active_concepts.
+        Dict with keys: top_k_concepts, pseudo_report. ``image_id`` is added by
+        ``run()`` once the test image-id sidecar is available. This shape
+        matches what ``evaluate_llm_judge.py`` consumes: each concept carries
+        ``feature_id`` / ``name`` / ``activation``.
     """
-    findings = []
+    top_k_concepts = []
     for feat_id, activation in top_concepts:
         feat_key = str(feat_id)
         if feat_key in concept_names:
             name = concept_names[feat_key]["name"]
-            similarity = concept_names[feat_key]["score"]
         else:
             name = f"unknown_feature_{feat_id}"
-            similarity = 0.0
 
-        findings.append(
+        top_k_concepts.append(
             {
-                "concept": name,
                 "feature_id": feat_id,
+                "name": name,
                 "activation": round(activation, 4),
-                "naming_confidence": round(similarity, 4),
             }
         )
 
-    # Guard against empty findings
-    if not findings:
+    # Guard against empty top_k_concepts
+    if not top_k_concepts:
         return {
-            "findings": [],
+            "top_k_concepts": [],
             "pseudo_report": "No active concepts detected.",
-            "n_active_concepts": 0,
         }
 
     # Build natural-language pseudo-report
-    concept_list = ", ".join(f["concept"] for f in findings[:5])
+    concept_list = ", ".join(c["name"] for c in top_k_concepts[:5])
     pseudo_report = (
         f"The model identifies the following visual concepts in this "
         f"radiograph: {concept_list}. "
-        f"The dominant concept is '{findings[0]['concept']}' "
-        f"(activation={findings[0]['activation']:.3f})."
+        f"The dominant concept is '{top_k_concepts[0]['name']}' "
+        f"(activation={top_k_concepts[0]['activation']:.3f})."
     )
 
     return {
-        "findings": findings,
+        "top_k_concepts": top_k_concepts,
         "pseudo_report": pseudo_report,
-        "n_active_concepts": len(findings),
     }
 
 
@@ -108,8 +107,26 @@ def run() -> Path:
     with open(CONCEPT_NAMES_PATH) as f:
         concept_names = json.load(f)
 
+    # Load the per-row image ids (basename) for the test split so each
+    # explanation carries the image_id the LLM judge joins reports.csv on.
+    # Falls back to a positional placeholder when the sidecar is absent.
+    if TEST_IMAGE_IDS_PATH.exists():
+        with open(TEST_IMAGE_IDS_PATH) as f:
+            test_image_ids = json.load(f)
+    else:
+        test_image_ids = None
+        logger.warning(
+            "Test image-id sidecar not found (%s); falling back to "
+            "positional sample ids. Re-run extraction + split to populate it.",
+            TEST_IMAGE_IDS_PATH,
+        )
+
     if config.explanation.explanation_max_samples:
         embeddings = embeddings[: config.explanation.explanation_max_samples]
+        if test_image_ids is not None:
+            test_image_ids = test_image_ids[
+                : config.explanation.explanation_max_samples
+            ]
 
     logger.info(f"Generating explanations for {embeddings.shape[0]} test samples...")
 
@@ -123,7 +140,9 @@ def run() -> Path:
     explanations = []
     for idx, top_concepts in enumerate(all_top_concepts):
         explanation = generate_explanation(top_concepts, concept_names)
-        explanation["sample_idx"] = idx
+        explanation["image_id"] = (
+            test_image_ids[idx] if test_image_ids else f"sample_{idx}"
+        )
         explanations.append(explanation)
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)

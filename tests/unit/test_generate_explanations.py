@@ -2,6 +2,9 @@
 test_generate_explanations.py — Tests for explanation generation.
 
 Verifies that pseudo-reports are correctly structured from SAE activations.
+The output schema matches what ``evaluate_llm_judge.py`` consumes:
+each record has ``top_k_concepts`` (list of {feature_id, name, activation})
+and ``pseudo_report``; ``image_id`` is added by ``run()``.
 """
 
 from importlib import import_module
@@ -33,32 +36,32 @@ class TestGenerateExplanation:
         top_concepts = [(10, 0.95), (20, 0.80), (30, 0.65), (40, 0.50), (50, 0.30)]
         result = generate_explanation(top_concepts, sample_concept_names)
 
-        assert "findings" in result
+        assert "top_k_concepts" in result
         assert "pseudo_report" in result
-        assert "n_active_concepts" in result
 
-    def test_findings_count(self, generate_explanation, sample_concept_names):
+    def test_top_k_concepts_count(self, generate_explanation, sample_concept_names):
         top_concepts = [(10, 0.95), (20, 0.80), (30, 0.65)]
         result = generate_explanation(top_concepts, sample_concept_names)
 
-        assert result["n_active_concepts"] == 3
-        assert len(result["findings"]) == 3
+        assert len(result["top_k_concepts"]) == 3
 
-    def test_finding_structure(self, generate_explanation, sample_concept_names):
+    def test_concept_structure(self, generate_explanation, sample_concept_names):
         top_concepts = [(10, 0.95)]
         result = generate_explanation(top_concepts, sample_concept_names)
 
-        finding = result["findings"][0]
-        assert finding["concept"] == "cardiomegaly"
-        assert finding["feature_id"] == 10
-        assert finding["activation"] == 0.95
-        assert finding["naming_confidence"] == 0.85
+        concept = result["top_k_concepts"][0]
+        assert concept["name"] == "cardiomegaly"
+        assert concept["feature_id"] == 10
+        assert concept["activation"] == 0.95
+        # Judge schema: no naming_confidence / concept key
+        assert "naming_confidence" not in concept
+        assert "concept" not in concept
 
     def test_unknown_feature_handled(self, generate_explanation, sample_concept_names):
         top_concepts = [(9999, 0.5)]  # not in concept_names
         result = generate_explanation(top_concepts, sample_concept_names)
 
-        assert "unknown_feature_9999" in result["findings"][0]["concept"]
+        assert "unknown_feature_9999" in result["top_k_concepts"][0]["name"]
 
     def test_pseudo_report_is_string(self, generate_explanation, sample_concept_names):
         top_concepts = [(10, 0.95), (20, 0.80)]
@@ -76,10 +79,9 @@ class TestGenerateExplanation:
         assert "pleural_effusion" in result["pseudo_report"]
         assert "dominant" in result["pseudo_report"]
 
-    def test_empty_findings_guard(self, generate_explanation, sample_concept_names):
+    def test_empty_concepts_guard(self, generate_explanation, sample_concept_names):
         """Empty top_concepts should return a valid response, not crash."""
         result = generate_explanation([], sample_concept_names)
 
-        assert result["n_active_concepts"] == 0
-        assert result["findings"] == []
+        assert result["top_k_concepts"] == []
         assert "No active concepts" in result["pseudo_report"]

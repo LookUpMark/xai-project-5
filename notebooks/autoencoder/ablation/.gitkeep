@@ -1,0 +1,3 @@
+# Placeholder so the ablation directory is tracked while empty.
+# Upcoming: dict_size × lr ablation notebooks to improve cross-seed stability
+# (baseline mean Jaccard 0.0038 — see ../baseline/REPORT.md).

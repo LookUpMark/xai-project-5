@@ -422,7 +422,7 @@ class TestIntegrationSingleSample:
         model, processor = model_and_processor
 
         # --- Locate a real image ----------------------------------------
-        project_root = Path(__file__).parent.parent
+        project_root = Path(__file__).parent.parent.parent
         image_dir = project_root / "data" / "iu_xray" / "images" / "images_normalized"
         real_images = sorted(image_dir.glob("*.png"))
         assert len(real_images) > 0, (
@@ -457,7 +457,6 @@ class TestIntegrationSingleSample:
         )
         embedding_config = EmbeddingConfig(
             output_dir=str(tmp_path / "integration_embeddings"),
-            device="cuda",
         )
 
         # -- Extract visual embedding -------------------------------------

@@ -35,19 +35,16 @@ from utils import setup_logging
 
 logger = setup_logging(__name__)
 
-# ---------------------------------------------------------------------------
-# Project paths (derived from centralised config.PathsConfig)
-# ---------------------------------------------------------------------------
+# Paths
 EXPLANATIONS_PATH = paths.results_dir / "sample_explanations.json"
 REPORTS_CSV_PATH = paths.data_dir / "iu_xray" / "reports.csv"
 OUTPUT_CSV_PATH = paths.results_dir / "aligned_scores.csv"
 CHECKPOINT_PATH = paths.results_dir / ".judge_checkpoint.json"
 
-# ---------------------------------------------------------------------------
 # Model config
-# ---------------------------------------------------------------------------
 MODEL_NAME = "unsloth/medgemma-4b-it"
 
+# Prompt template
 JUDGE_PROMPT_TEMPLATE = """You are a clinical AI evaluator specializing in radiology.
 
 Given a radiology report and a concept discovered by an interpretability method,
@@ -76,7 +73,6 @@ VALID_VERDICTS = ("Aligned", "Unaligned", "Uncertain")
 # ============================================================================
 
 _pipe = None
-
 
 def get_pipeline():
     """Load the MedGemma pipeline once and cache it globally."""
@@ -281,33 +277,51 @@ def save_checkpoint(records: list[dict]):
 def evaluate(
     resume: bool = False,
     batch_save_every: int = 25,
-):
+    explanations_path: Path | None = None,
+    reports_path: Path | None = None,
+    output_path: Path | None = None,
+) -> Path:
     """
     Run the LLM judge on all (concept, report) pairs from sample_explanations.json.
 
     Args:
-        resume: if True, skip already-evaluated pairs from checkpoint
-        batch_save_every: save checkpoint every N evaluations
+        resume: if True, skip already-evaluated pairs from checkpoint.
+        batch_save_every: save checkpoint every N evaluations.
+        explanations_path: Override for the explanations JSON path.
+            Defaults to ``results/sample_explanations.json``.
+        reports_path: Override for the reports CSV path.
+            Defaults to ``data/iu_xray/reports.csv``.
+        output_path: Override for the output CSV path.
+            Defaults to ``results/aligned_scores.csv``.
+
+    Returns:
+        Path to the saved output CSV.
     """
+    eff_explanations = explanations_path or EXPLANATIONS_PATH
+    eff_reports = reports_path or REPORTS_CSV_PATH
+    eff_output = output_path or OUTPUT_CSV_PATH
+
     # --- Load inputs ---
-    if not EXPLANATIONS_PATH.exists():
-        logger.error("Explanations file not found: %s", EXPLANATIONS_PATH)
-        logger.error("Run 04_generate_explanations.py first.")
+    if not eff_explanations.exists():
+        logger.error("Explanations file not found: %s", eff_explanations)
+        logger.error("Generate explanations first.")
         sys.exit(1)
 
-    if not REPORTS_CSV_PATH.exists():
-        logger.error("Reports CSV not found: %s", REPORTS_CSV_PATH)
+    if not eff_reports.exists():
+        logger.error("Reports CSV not found: %s", eff_reports)
         logger.error("Ensure data/iu_xray/reports.csv exists.")
         sys.exit(1)
 
-    with open(EXPLANATIONS_PATH, "r") as f:
+    with open(eff_explanations, "r") as f:
         explanations = json.load(f)
 
-    reports_df = pd.read_csv(REPORTS_CSV_PATH)
+    reports_df = pd.read_csv(eff_reports)
     logger.info("Loaded %d sample explanations", len(explanations))
     logger.info("Loaded %d reports", len(reports_df))
 
-    # Build a fast lookup: image_id → combined_text
+    # Build a fast lookup: image_id (as str) → combined_text.
+    # The CSV uses integer image_id values that match sample_idx in the
+    # explanations JSON, so we normalise both sides to str for robustness.
     report_lookup = dict(
         zip(reports_df["image_id"].astype(str), reports_df["combined_text"])
     )
@@ -325,20 +339,29 @@ def evaluate(
     eval_pairs = []
     skipped_no_report = 0
     for item in explanations:
-        image_id = str(item["image_id"])
+        # Normalise to str so the lookup always matches the CSV integer IDs.
+        image_id = str(item.get("image_id", item.get("sample_idx")))
         report = report_lookup.get(image_id)
         if report is None or (isinstance(report, float) and pd.isna(report)):
             skipped_no_report += 1
             continue
-        for concept_info in item["top_k_concepts"]:
-            key = (image_id, concept_info["name"])
+
+        # Support both field names used historically
+        concepts_list = item.get("findings", item.get("top_k_concepts", []))
+        for concept_info in concepts_list:
+            concept_name = concept_info.get("concept", concept_info.get("name"))
+            key = (image_id, concept_name)
             if key in done_keys:
                 continue
             eval_pairs.append({
                 "image_id": image_id,
-                "concept_name": concept_info["name"],
+                "concept_name": concept_name,
                 "feature_id": concept_info["feature_id"],
                 "activation": concept_info["activation"],
+                # Preserve naming confidence for downstream analysis
+                "naming_confidence": concept_info.get(
+                    "naming_confidence", concept_info.get("score", None)
+                ),
                 "report": report,
             })
 
@@ -350,8 +373,7 @@ def evaluate(
 
     if total == 0:
         logger.info("Nothing to evaluate. Saving final results.")
-        _save_final(records)
-        return
+        return _save_final(records, eff_output)
 
     # --- Load model and compile judge graph ---
     logger.info("Building LangGraph judge (model=%s)...", MODEL_NAME)
@@ -382,6 +404,7 @@ def evaluate(
                 "feature_id": pair["feature_id"],
                 "concept": pair["concept_name"],
                 "activation": pair["activation"],
+                "naming_confidence": pair.get("naming_confidence"),
                 "verdict": verdict,
                 "raw_response": result_state.get("raw_response", ""),
             })
@@ -394,6 +417,7 @@ def evaluate(
                 "feature_id": pair["feature_id"],
                 "concept": pair["concept_name"],
                 "activation": pair["activation"],
+                "naming_confidence": pair.get("naming_confidence"),
                 "verdict": "Uncertain",
                 "raw_response": f"ERROR: {e}",
             })
@@ -406,21 +430,37 @@ def evaluate(
 
     # --- Save final results ---
     save_checkpoint(records)
-    _save_final(records)
+    output_csv = _save_final(records, eff_output)
 
     # --- Print summary statistics ---
     _print_summary(records, elapsed, errors)
 
+    return output_csv
 
-def _save_final(records: list[dict]):
-    """Save the final aligned_scores.csv (without raw_response column)."""
-    OUTPUT_CSV_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+def _save_final(records: list[dict], output_path: Path | None = None) -> Path:
+    """Save the final aligned_scores.csv (without raw_response column).
+
+    Args:
+        records: List of evaluation record dicts.
+        output_path: Destination path. Defaults to the module-level
+            ``OUTPUT_CSV_PATH``.
+
+    Returns:
+        The path to the written CSV file.
+    """
+    dest = output_path or OUTPUT_CSV_PATH
+    dest.parent.mkdir(parents=True, exist_ok=True)
     df = pd.DataFrame(records)
-    # Drop raw_response for the clean output file
-    output_cols = ["image_id", "feature_id", "concept", "activation", "verdict"]
+    # Drop raw_response for the clean output file; keep naming_confidence
+    output_cols = [
+        "image_id", "feature_id", "concept",
+        "activation", "naming_confidence", "verdict",
+    ]
     existing_cols = [c for c in output_cols if c in df.columns]
-    df[existing_cols].to_csv(OUTPUT_CSV_PATH, index=False)
-    logger.info("Results saved to: %s", OUTPUT_CSV_PATH)
+    df[existing_cols].to_csv(dest, index=False)
+    logger.info("Results saved to: %s", dest)
+    return dest
 
 
 def _print_summary(records: list[dict], elapsed: float, errors: int):
@@ -490,10 +530,11 @@ def main():
     logger.info("  Reports      : %s", REPORTS_CSV_PATH)
     logger.info("  Output       : %s", OUTPUT_CSV_PATH)
 
-    evaluate(
+    output_csv = evaluate(
         resume=args.resume,
         batch_save_every=args.checkpoint_every,
     )
+    logger.info("Done. Results at: %s", output_csv)
 
 
 if __name__ == "__main__":

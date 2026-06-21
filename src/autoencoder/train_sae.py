@@ -88,6 +88,26 @@ def prepare_split() -> None:
     logger.info(f"Test:  {test_emb.shape[0]} samples → {test_path}")
 
 
+def compute_and_save_modality_gap() -> None:
+    """Compute and save the modality gap between visual and text centroids."""
+    gap_path = config.paths.models_dir / "modality_gap.pt"
+    if gap_path.exists():
+        logger.info("Modality gap already computed — skipping.")
+        return
+
+    logger.info("Computing modality gap...")
+    train_emb = utils.load_tensor(config.paths.train_embeddings_path)
+    vocab_emb = utils.load_tensor(config.paths.vocab_embeddings_path)
+    
+    visual_centroid = train_emb.mean(dim=0)
+    text_centroid = vocab_emb.mean(dim=0)
+    gap = visual_centroid - text_centroid
+    
+    config.paths.models_dir.mkdir(parents=True, exist_ok=True)
+    torch.save(gap, gap_path)
+    logger.info(f"Modality gap saved to {gap_path}")
+
+
 def train_single(seed: int) -> Path:
     """Train a single SAE with the given seed."""
     logger.info(f"Training SAE with seed={seed}")
@@ -153,6 +173,9 @@ def main() -> None:
             f"Train embeddings not found: {config.paths.train_embeddings_path}"
         )
         sys.exit(1)
+        
+    # Step 1.5: Compute and save modality gap
+    compute_and_save_modality_gap()
 
     # Log environment info
     logger.info(f"PyTorch: {torch.__version__}, CUDA: {torch.version.cuda or 'N/A'}")

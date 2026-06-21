@@ -375,6 +375,7 @@ class SAEManager:
         vocab_embeddings: torch.Tensor,
         vocab_labels: list[str],
         top_n: int = 3,
+        modality_gap: Optional[torch.Tensor] = None,
     ) -> dict[int, dict]:
         """
         Assign names to SAE concepts via cosine similarity with vocabulary.
@@ -383,6 +384,8 @@ class SAEManager:
             vocab_embeddings: Tensor (V, 512), vocabulary embeddings.
             vocab_labels: List of V strings (term names).
             top_n: Number of candidate names per feature.
+            modality_gap: Optional Tensor (512,) representing the shift from visual to text centroid.
+                If provided, W_dec will be shifted by -modality_gap to bridge the gap.
 
         Returns:
             Dict {feature_id: {"name": str, "score": float, "candidates": [...]}}.
@@ -406,6 +409,9 @@ class SAEManager:
             )
 
         W_dec = self.get_decoder_weights()  # (dict_size, 512)
+        
+        if modality_gap is not None:
+            W_dec = W_dec - modality_gap.unsqueeze(0).to(W_dec.device)
 
         # Identify dead features (zero or near-zero decoder vectors)
         norms = W_dec.norm(dim=1)

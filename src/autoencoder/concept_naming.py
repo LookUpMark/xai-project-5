@@ -17,6 +17,8 @@ import json
 import sys
 from pathlib import Path
 
+import torch
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 import config
 import utils
@@ -39,6 +41,7 @@ def run() -> Path:
         (model_dir, "SAE model"),
         (config.paths.vocab_embeddings_path, "Vocab embeddings"),
         (config.paths.vocab_labels_path, "Vocabulary labels"),
+        (config.paths.models_dir / "modality_gap.pt", "Modality gap"),
     ]:
         if not path.exists():
             raise FileNotFoundError(f"{desc} not found: {path}")
@@ -58,12 +61,20 @@ def run() -> Path:
 
     mgr = SAEManager({"device": config.hardware.device})
     mgr.load(model_dir)
+    
+    # Load modality gap
+    gap_path = config.paths.models_dir / "modality_gap.pt"
+    modality_gap = torch.load(gap_path)
+    logger.info(f"Loaded modality gap from {gap_path}")
 
     logger.info(
         f"Computing concept names (top_n={config.explanation.concept_top_n})..."
     )
     concept_names = mgr.name_concepts(
-        vocab_embeddings, vocab_labels, top_n=config.explanation.concept_top_n
+        vocab_embeddings,
+        vocab_labels,
+        top_n=config.explanation.concept_top_n,
+        modality_gap=modality_gap,
     )
 
     # Persist results

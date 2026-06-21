@@ -301,8 +301,8 @@ dead_threshold abbassato + auxk forte: **dead% 33.6 → 30.9** (cala ✓), ma **
 | Signal-to-null ratio | raw Jaccard / null, CI 95% bootstrap 1000× |
 | Consensus reappearance | direction-space, τ=0.9 (stesso algo a0/a1) |
 | Baseline anchor | dict4096/k32 come punto standalone null-calibrato (NON confrontato via Jaccard) |
-| Figures | `a4_k_vs_stability.png`, `a4_pareto_front.png` |
-| Persist | `results/ablation/a4_k_sweep.json` |
+| Figures | `a2_k_vs_stability.png`, `a2_pareto_front.png` |
+| Persist | `results/ablation/a2_k_sweep.json` |
 
 ---
 
@@ -365,11 +365,11 @@ k↑ → migliore ricostruzione (cosine 0.984→0.997, VE 0.968→0.994) e meno 
 ---
 
 ## 5. Note di riproducibilità & stato
-- **Run IDE (2026-06-21 19:23):** 12/12 celle, 16 SAE (4 k × 4 seed). Artefatti: `a4_k_sweep.json` + 2 figure (`a4_k_vs_stability`, `a4_pareto_front`).
+- **Run IDE (2026-06-21 19:23):** 12/12 celle, 16 SAE (4 k × 4 seed). Artefatti: `a2_k_sweep.json` + 2 figure (`a2_k_vs_stability`, `a2_pareto_front`).
 - **dict_size=2048 fisso** → lr auto-scale identico tra k-gruppi (elimina confound dict→LR di ab01).
 - **4 seed (non 3/5):** `(0,42,123,456)` per più potenza statistica sul bootstrap CI.
 - **Null = ipergeometrico esatto** `Σ_j j/(2k−j)·P(j)`, P(j) via `scipy.stats.hypergeom(M=D,n=k,N=k)`. CI via bootstrap 1000× sui 1494 sample test (mean-of-ratios).
-- **⚠️ Naming bug (flag, non fixato):** il notebook usa tag interno `a4` → salva `results/ablation/a4_k_sweep.json` + `a4_*.png`, NON `a2_*`. Stesso scramble in ab04 (usa `a2_*`). I tag numerici (a0/a1/**a4**/.../**a2**) non matchano i numeri notebook (00/01/**02**/.../**04**) — probabile renumbering non propagato ai tag interni. Il campo `"ablation"` dentro il json è corretto ("02_k_sweep"). Rinominare ora rompebbe i path salvati; lasciato come warning.
+- **Naming tag allineato (fixato in questa commit):** i tag interni dei notebook ora matchano i numeri `00→a0, 01→a1, 02→a2, 03→a3, 04→a4`. Prima erano scrambled (`02→a4`, `03→a6`, `04→a2`) per un renumbering non propagato ai tag interni. Artefatti su disco rinominati di conseguenza (`a2_k_sweep.json`, `a3_baselines.json`, figure `a2_*`/`a3_*`, `models/ablation_a2`).
 - **Baseline anchor** è standalone (dict_size diverso → Jaccard cross-config vietato dal protocollo).
 
 ## Riferimenti
@@ -377,6 +377,6 @@ k↑ → migliore ricostruzione (cosine 0.984→0.997, VE 0.968→0.994) e meno 
 - [01_dict_size.ipynb](01_dict_size.ipynb) — ab01 (dict_size non spiega instabilità)
 - [00_consensus.ipynb](00_consensus.ipynb) — ab00 (consensus direction-space ~0)
 - [../baseline/REPORT.md](../baseline/REPORT.md) — baseline (k=32, Jaccard 0.0039 ≈ null)
-- [../../results/ablation/a4_k_sweep.json](../../results/ablation/a4_k_sweep.json) — metriche complete (nota: tag a4)
-- [../../results/figures/ablation/a4_k_vs_stability.png](../../results/figures/ablation/a4_k_vs_stability.png) — k vs Jaccard/null/ratio
-- [../../results/figures/ablation/a4_pareto_front.png](../../results/figures/ablation/a4_pareto_front.png) — VE vs signal-to-null
+- [../../results/ablation/a2_k_sweep.json](../../results/ablation/a2_k_sweep.json) — metriche complete (nota: tag a4)
+- [../../results/figures/ablation/a2_k_vs_stability.png](../../results/figures/ablation/a2_k_vs_stability.png) — k vs Jaccard/null/ratio
+- [../../results/figures/ablation/a2_pareto_front.png](../../results/figures/ablation/a2_pareto_front.png) — VE vs signal-to-null

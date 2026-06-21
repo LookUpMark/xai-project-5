@@ -1,4 +1,14 @@
-# REPORT — Ablation 00: Cross-Seed Consensus (direction-space)
+# REPORT — Ablazioni SAE (`notebooks/autoencoder/ablation/`)
+
+Report cumulativo delle ablation. Una sezione per notebook, aggiornata ad ogni run.
+
+**Indice**
+- [Ablation 00 — Cross-Seed Consensus (direction-space)](#ablation-00--cross-seed-consensus-direction-space)
+- [Ablation 01 — Dictionary-Size Ladder (lr pinned)](#ablation-01--dictionary-size-ladder-lr-pinned)
+
+---
+
+# Ablation 00 — Cross-Seed Consensus (direction-space)
 
 **Data run:** 2026-06-21
 **Macchina:** Linux / NVIDIA RTX 5070 Laptop, **device CUDA** (auto-rilevato)
@@ -152,3 +162,111 @@ Per l'unico concetto di consenso (cluster size 3, 3 seed):
 - [../baseline/REPORT.md](../baseline/REPORT.md) — baseline §2.4 stabilità (index-Jaccard 0.0039)
 - [../../results/ablation/a0_consensus.json](../../results/ablation/a0_consensus.json) — metriche complete
 - [../../results/figures/ablation/a0_consensus_headline.png](../../results/figures/ablation/a0_consensus_headline.png) — figura headline
+
+---
+
+# Ablation 01 — Dictionary-Size Ladder (lr pinned)
+
+**Data run:** 2026-06-21
+**Macchina:** Linux / NVIDIA RTX 5070 Laptop, **device CUDA**
+**Notebook:** `notebooks/autoencoder/ablation/01_dict_size.ipynb` (run IDE, 21/21 celle)
+**Input:** `train_embeddings.pt` (5976) / `test_embeddings.pt` (1494), vocabolario RadLex **508 termini**
+**Config:** `dict_size ∈ {1024, 2048, 4096}`, `k=32`, **lr pinned 4e-4** (capacity = unica variabile), `steps=12000`, `batch_size=256`, seeds `(0, 42, 123)`, `primary_seed=42`, naming **gap-corrected** (Soluzione 1). Plus: revival probe (dict2048), sensitivity `lr=auto`.
+
+> **Domanda.** La baseline (dict_size=4096, 8× over il 512-d BiomedCLIP) mostra due patologie accoppiate: **~44% dead** e **Jaccard ≈ 0.0038** (appena sopra il null 0.0039). L'over-expansion è la **causa condivisa** di entrambe?
+>
+> **Ipotesi pre-registrata:** dict_size più piccolo → **dead% cala** AND **signal-to-null ratio sale** (ratio = Jaccard / null ipergeometrico a quel (k, D); controlla il fatto che il null cresce trivialmente quando D cala).
+>
+> **Esito: MISTO.** dead% ✓ cala. Ratio ✗ NON sale — falsificato (4096 ha il ratio più alto). **Over-expansion spiega i dead, NON l'instabilità.** Vedi §3/§4.
+
+---
+
+## 1. Cosa testa ogni fase
+
+| Fase | Output |
+|---|---|
+| Training ladder | 3 dict_size × 3 seed = 9 SAE (12k step, lr pinned) |
+| Per-size metrics | cosine, dead%, L0, entropy (test) |
+| Within-group Jaccard | matrice 3×3 per size (Protocollo: costante dict_size+k) |
+| Signal-to-null ratio | Jaccard / null ipergeometrico (cross-size causal) |
+| Consensus reappearance | cluster direction-space (τ=0.9, index-agnostic) — stesso algo di ab00 |
+| Feature splitting | mean/p90 pairwise cos tra alive rows (subsample 2000) |
+| Revival probe | dict2048, dead_threshold abbassato + auxk forte (negative probe) |
+| Sensitivity | ripete ladder con `lr=auto` |
+| Naming | primary seed 42, gap-corrected, per size |
+| Persist | `results/ablation/a1_dict_size.json` + 3 figure |
+
+---
+
+## 2. Risultati per-size (lr pinned 4e-4, 12k step, 3 seed)
+
+| dict_size | cosine | dead% | raw Jaccard | null | **ratio** | consensus reappearance | splitting (mean / p90) | naming (mean / max) |
+|---|---|---|---|---|---|---|---|---|
+| 1024 | 0.9937 | **30.7** | 0.0166 | 0.0159 | 1.04 | 0.0003 (1 cluster) | 0.0073 / 0.110 | 0.395 / 0.516 |
+| 2048 | 0.9921 | 33.6 | 0.0070 | 0.0079 | 0.89 | 0.0 | 0.0062 / 0.107 | 0.394 / 0.537 |
+| 4096 | 0.9903 | 40.9 | 0.0056 | 0.0039 | **1.43** | 0.0 | 0.0043 / 0.098 | 0.393 / 0.534 |
+
+---
+
+## 3. Analisi
+
+### 3.1 dead% ✓ — scala con dict_size (over-expansion = causa dei dead)
+40.9 → 33.6 → 30.7% calando dict_size. **Monotono e chiaro.** Più atomi competono per la stessa activation mass → più atomi restano inutilizzati. Over-expansion confermata come causa dei dead. (Sensitivity `lr=auto`: stesso trend 47 → 42 → 41%.)
+
+### 3.2 signal-to-null ratio ✗ — NON monotonico (ipotesi falsificata)
+Ratio: **4096 (1.43) > 1024 (1.04) > 2048 (0.89)**. L'ipotesi "ratio↑ quando dict↓" è **falsificata**. Il dict più **grande** ha il signal-to-null più alto (più accordo oltre il caso); il 2048 è persino **sotto null** (0.89 < 1).
+→ Ridurre dict_size NON aumenta la robustezza cross-seed. L'over-expansion NON spiega l'instabilità.
+
+### 3.3 Consensus reappearance — ~0 ovunque (invariante al dict_size)
+Direction-space: 1024 → 0.03%, 2048 → 0%, 4096 → 0% cluster multi-seed. **Identico al null di ab00** a tutte le capacità.
+→ L'instabilità in spazio direzioni è **invariante** al dict_size. Ridurre il dizionario non fa ricomparire direzioni condivise.
+
+### 3.4 Feature splitting — direzione OPPOSTA all'ipotesi
+Mean pairwise cos tra alive rows: **1024 (0.0073) > 2048 (0.0062) > 4096 (0.0043)**. p90 idem (0.110 → 0.107 → 0.098).
+→ Dict più **piccolo** → alive rows più **affollate/redundanti** (cos più alto). L'ipotesi "over-expansion causa splitting" è **falsificata**: più atomi = più spazio per dispiegarsi, meno collisioni.
+
+### 3.5 Naming — STABILE cross-size (~0.394)
+mean 0.395 / 0.394 / 0.393, max 0.52–0.54 per tutti e tre. **Identico alla baseline (0.3949).**
+→ La qualità del grounding RadLex per-feature è **robusta al dict_size**. Non è la qualità del singolo concetto a essere instabile — è la **composizione del set**.
+
+### 3.6 Revival probe (dict2048) — negative probe confermato
+dead_threshold abbassato + auxk forte: **dead% 33.6 → 30.9** (cala ✓), ma **Jaccard 0.0070 → 0.0059** (flat/↓), ratio 0.89 → 0.75.
+→ Revivere feature morte riduce lo spreco MA NON migliora la robustezza. **"Alive" ≠ "robust".** Feature vive ma arbitrarie sono disaccoppiate dalla stabilità.
+
+---
+
+## 4. Giudizio d'insieme: over-expansion = dead, NON instability
+
+**Risposta diretta alla domanda "dizionario troppo grande o troppi pochi campioni?" (turno precedente):**
+
+| Patologia | Causa? | Evidenza |
+|---|---|---|
+| ~44% dead features | ✅ **Over-expansion** | dead% scala con dict_size (40.9 → 30.7%) |
+| Cross-seed instability (Jaccard 0.004) | ❌ **NON over-expansion** | ratio non sale riducendo dict; consensus ~0 ovunque |
+
+→ **L'over-expansion spiega lo spreco (dead), NON l'instabilità.** L'ipotesi del turno scorso ("overcompleteness causa primaria dell'instabilità") è **rifinita da ab01**: ridurre il dizionario riduce i dead ma NON rende i concetti riproducibili. L'instabilità è più **fondamentale** — probabili cause: pochi campioni (5976) + non-unicità intrinseca del TopK SAE su questo cloud. Non risolvibile abbassando dict_size.
+
+**Punti chiave:**
+1. **Dict più piccolo è comunque "meglio"** (meno dead, stessa ricostruzione 0.99+, stesso naming 0.39, meno compute) — ma **NON per la robustezza**.
+2. **Naming robusto cross-size** → il grounding individuale funziona; il problema è *quale set* di feature si apprende.
+3. **Revival probe**: vivificare i dead non aiuta → l'instabilità non è un problema di "feature addormentate".
+4. **Prossimi test naturali:** `02_k_sweep` (k più vincolato?), `03_baselines`. Se anche k non aiuta, l'instabilità è **strutturale** → accettare la seed-dipendenza come limite dichiarato, o aggregazione cross-seed (model soup / consensus a τ molto basso con validazione).
+
+---
+
+## 5. Note di riproducibilità & stato
+- **Run IDE (2026-06-21 19:03):** 21/21 celle, 9 SAE addestrati (3 size × 3 seed, 12k step) + revival probe + sensitivity. Artefatti: `a1_dict_size.json`, `a1_naming_dict{1024,2048,4096}.json`, 3 figure (`a1_stability_frontier`, `a1_splitting_dendrogram`, `a1_dead_jaccard_vs_dict`).
+- **3 seed (non 5):** ladder controllato a `(0,42,123)` per compute; sufficiente per il trend di capacity. 12k step (non 50k baseline) — il punto 4096 qui è **fresh re-run**, confronto apples-to-apples dentro il ladder.
+- **lr pinned 4e-4:** rende capacity l'unica variabile. Sensitivity `lr=auto` (appendice) coincide con 4e-4 a queste size (tutte < 16384 ref) → l'effetto è genuinamente di capacity.
+- **Signal-to-null = Jaccard / E[J] ipergeometrico**, `E[J] ≈ k/(2D−k)` per `k≪D`. Forma esatta e approssimata concordano a 4 decimali.
+- **Consensus reappearance usa lo stesso algo di ab00** (`connected_components` su grafo `coseno>τ`, τ=0.9) → rate direttamente comparabili cross-ablation.
+- **Baseline reference** (nel json): cosine 0.988, dead 44%, Jaccard 0.0038, naming mean 0.395 / max 0.546.
+
+## Riferimenti
+- [01_dict_size.ipynb](01_dict_size.ipynb) — notebook sorgente
+- [00_consensus.ipynb](00_consensus.ipynb) — ab00 (consensus ~0 confermato a tutte le size)
+- [../baseline/REPORT.md](../baseline/REPORT.md) — baseline (dead ~44%, Jaccard 0.0039)
+- [../../results/ablation/a1_dict_size.json](../../results/ablation/a1_dict_size.json) — metriche complete
+- [../../results/figures/ablation/a1_stability_frontier.png](../../results/figures/ablation/a1_stability_frontier.png) — frontier cosine vs ratio
+- [../../results/figures/ablation/a1_dead_jaccard_vs_dict.png](../../results/figures/ablation/a1_dead_jaccard_vs_dict.png) — dead% + Jaccard vs dict_size
+- [../../results/figures/ablation/a1_splitting_dendrogram.png](../../results/figures/ablation/a1_splitting_dendrogram.png) — feature splitting per size

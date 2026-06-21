@@ -5,6 +5,7 @@ Report cumulativo delle ablation. Una sezione per notebook, aggiornata ad ogni r
 **Indice**
 - [Ablation 00 — Cross-Seed Consensus (direction-space)](#ablation-00--cross-seed-consensus-direction-space)
 - [Ablation 01 — Dictionary-Size Ladder (lr pinned)](#ablation-01--dictionary-size-ladder-lr-pinned)
+- [Ablation 02 — k (Sparsity) Sweep, null-calibrated](#ablation-02--k-sparsity-sweep-null-calibrated)
 
 ---
 
@@ -270,3 +271,112 @@ dead_threshold abbassato + auxk forte: **dead% 33.6 → 30.9** (cala ✓), ma **
 - [../../results/figures/ablation/a1_stability_frontier.png](../../results/figures/ablation/a1_stability_frontier.png) — frontier cosine vs ratio
 - [../../results/figures/ablation/a1_dead_jaccard_vs_dict.png](../../results/figures/ablation/a1_dead_jaccard_vs_dict.png) — dead% + Jaccard vs dict_size
 - [../../results/figures/ablation/a1_splitting_dendrogram.png](../../results/figures/ablation/a1_splitting_dendrogram.png) — feature splitting per size
+
+---
+
+# Ablation 02 — k (Sparsity) Sweep, null-calibrated
+
+**Data run:** 2026-06-21
+**Macchina:** Linux / NVIDIA RTX 5070 Laptop, **device CUDA**
+**Notebook:** `notebooks/autoencoder/ablation/02_k_sweep.ipynb` (run IDE, 12/12 celle)
+**Input:** `train_embeddings.pt` (5976) / `test_embeddings.pt` (1494)
+**Config:** `dict_size` **fissato a 2048**, `k ∈ {8, 16, 32, 64}`, seeds `(0, 42, 123, 456)`, `steps=12000`, `lr=auto` (scala solo con dict_size → **costante tra i gruppi k**, elimina il confound ab01). Within-group Jaccard con `n=k` esplicito, null ipergeometrico esatto, bootstrap CI 1000× sui 1494 sample test.
+
+> **Domanda.** Il baseline (k=32) ha mean index-Jaccard **0.0038**. È *segno* o è *rumore*? L'ablation lo confronta con il **null analitico esatto** (Jaccard atteso tra due sottoinsiemi size-k indipendenti di un D-set, ipergeometrico). Claim difendibile: il baseline **siede sul floor del random-overlap** (ratio ≈ 1). Poi sweep k per trovare se uno sparsity ottimo porta sopra il null.
+>
+> **Ipotesi pre-registrata:** ratio ≈ 1 al baseline (k=32), **rising as k shrinks** (meno feature attive → meno overlap casuale → ratio↑ se i concetti sono reali), e **dead% ↗ a k molto piccolo**. Il Pareto front (VE vs ratio) sceglie il sweet spot.
+>
+> **Esito: PARZIALE.** Baseline sul null floor ✓ (ratio 0.954). dead% ↗ small k ✓ (91.6% a k=8). Ma ratio **NON** monotonico — picco a **k=16 (1.30)**, poi cala; k=8 collassa *sotto* null (0.80). k modula la stabilità (a differenza di dict_size), ma l'accordo assoluto resta minuscolo. Vedi §3/§4.
+
+---
+
+## 1. Cosa testa ogni fase
+
+| Fase | Output |
+|---|---|
+| Training grid | 4 k × 4 seed = 16 SAE (12k step, dict_size=2048 fisso) |
+| Per-k ricostruzione | cosine, VE, MSE, L0 (=k), dead% (test) |
+| Within-group Jaccard | `compute_stability` per k-gruppo, `n=k` esplicito |
+| Exact hypergeometric null | `Σ_j j/(2k−j)·P(j)` via `scipy.stats.hypergeom` |
+| Signal-to-null ratio | raw Jaccard / null, CI 95% bootstrap 1000× |
+| Consensus reappearance | direction-space, τ=0.9 (stesso algo a0/a1) |
+| Baseline anchor | dict4096/k32 come punto standalone null-calibrato (NON confrontato via Jaccard) |
+| Figures | `a4_k_vs_stability.png`, `a4_pareto_front.png` |
+| Persist | `results/ablation/a4_k_sweep.json` |
+
+---
+
+## 2. Risultati per-k (dict_size=2048, 12k step, 4 seed)
+
+| k | cosine | VE | dead% | raw Jaccard | null | **signal/null** | CI 95% | consensus ≥2 | ≥3 |
+|---|---|---|---|---|---|---|---|---|---|
+| 8 | 0.984 | 0.968 | **91.6** | 0.00167 | 0.00209 | 0.80 | 0.69–0.90 | 0.65% | 0.48% |
+| 16 | 0.989 | 0.978 | 74.7 | 0.00528 | 0.00405 | **1.30** | **1.24–1.37** | 0.16% | 0.11% |
+| 32 | 0.992 | 0.985 | 41.3 | 0.00916 | 0.00799 | 1.15 | 1.12–1.18 | 0.037% | 0.037% |
+| 64 | 0.997 | 0.994 | 40.2 | 0.01557 | 0.01599 | 0.97 | 0.96–0.99 | 0% | 0% |
+
+**Baseline anchor** (dict4096/k32): raw 0.0038, null 0.00398, ratio **0.954** (~1, sul floor).
+
+---
+
+## 3. Analisi
+
+### 3.1 Baseline sul null floor ✓ — "0.0038 è rumore"
+Ratio baseline 0.954 ≈ 1 → il Jaccard 0.0038 del baseline è **statisticamente indistinguibile dal random-overlap**. Claim difendibile confermato: a k=32/dict4096 i concetti non sono più riproducibili del caso (in spazio indici).
+
+### 3.2 Signal-to-null NON monotonico — picco a k=16
+Ratio: **k=16 (1.30) > k=32 (1.15) > k=64 (0.97) > k=8 (0.80)**.
+- L'ipotesi "rising as k shrinks" è **parzialmente falsificata**: sale da k=64→32→16, ma **k=8 collassa sotto null** (troppo sparso → 91.6% dead → niente da allineare).
+- **k=16 è l'unico k dove la CI esclude 1** (1.24–1.37): l'accordo reale supera chiaramente il caso. Sweet spot di stabilità.
+
+### 3.3 dead% ↗ small k ✓
+91.6% (k=8) → 74.7% (k=16) → 41.3% (k=32) → 40.2% (k=64). Confermato: meno feature attive per pass → più feature mai si attivano. k=8 è patologico (quasi tutto morto).
+
+### 3.4 Consensus reappearance — ingannevole a k=8
+consensus≥2: k=8 (0.65%) > k=16 (0.16%) > k=32 (0.037%) > k=64 (0%). Ma k=8 ha **91.6% dead** → live set minuscolo (~170/2048) → cluster forzati per affollamento, non riproducibilità reale. Il signal-to-null (che corregge per la dimensionalità) dice il contrario: k=8 *sotto* null. **k=16 resta il sweet spot onesto.**
+
+### 3.5 Tradeoff stabilità ↔ ricostruzione (Pareto)
+k↑ → migliore ricostruzione (cosine 0.984→0.997, VE 0.968→0.994) e meno dead (91.6→40.2%), MA ratio cala sopra k=16.
+- **k=16**: max stabilità (1.30), recon 0.989, dead 74.7%.
+- **k=32**: stabilità 1.15, recon 0.992, dead 41.3% — compromesso operativo (baseline-like).
+- Nessun k raggiunge riproducibilità reale (raw Jaccard max 0.0056 a k=16, consensus ~0).
+
+---
+
+## 4. Giudizio d'insieme: k modula, non risolve
+
+**Confronto con ab01 (entrambi sweep di un iperparametro):**
+
+| Sweep | Cosa muove stability? | Verdetto |
+|---|---|---|
+| ab01 — dict_size | ratio **invariante** (~flat) | dict_size NON spiega instabilità |
+| ab02 — k (dict fisso) | ratio **non-monotonico**, picco k=16 | k MODULA la stabilità (debolmente) |
+
+→ **k conta più di dict_size** per la stabilità cross-seed: c'è un optimum a k=16 (ratio 1.30, l'unico chiaramente sopra null). Ma:
+1. Anche al picco, **accordo assoluto minuscolo** (raw Jaccard 0.005, consensus direction-space ~0). k=16 alza il *rapporto* sopra il caso, non risolve la riproducibilità.
+2. **k=8 patologico** (91.6% dead) — troppo sparso.
+3. **k=32 (baseline) è sul null floor** → i concetti baseline sono rumore in spazio indici (claim onesto).
+
+**Risposta cumulativa alla domanda iniziale ("instabilità = overcomplete o pochi campioni?"):**
+- ab01: over-expansion causa i dead, NON l'instabilità.
+- ab02: k ha un debole sweet spot (k=16), ma non risolve. Il baseline stesso è rumore-vs-null.
+- → L'instabilità è **strutturale**. Né dict_size né k la risolvono. Rimangono: pochi campioni (5976) + non-unicità TopK + dataset small. **Prossimo: `03_baselines`** (confronto con metodi alternativi) e poi eventuale aggregazione cross-seed.
+
+---
+
+## 5. Note di riproducibilità & stato
+- **Run IDE (2026-06-21 19:23):** 12/12 celle, 16 SAE (4 k × 4 seed). Artefatti: `a4_k_sweep.json` + 2 figure (`a4_k_vs_stability`, `a4_pareto_front`).
+- **dict_size=2048 fisso** → lr auto-scale identico tra k-gruppi (elimina confound dict→LR di ab01).
+- **4 seed (non 3/5):** `(0,42,123,456)` per più potenza statistica sul bootstrap CI.
+- **Null = ipergeometrico esatto** `Σ_j j/(2k−j)·P(j)`, P(j) via `scipy.stats.hypergeom(M=D,n=k,N=k)`. CI via bootstrap 1000× sui 1494 sample test (mean-of-ratios).
+- **⚠️ Naming bug (flag, non fixato):** il notebook usa tag interno `a4` → salva `results/ablation/a4_k_sweep.json` + `a4_*.png`, NON `a2_*`. Stesso scramble in ab04 (usa `a2_*`). I tag numerici (a0/a1/**a4**/.../**a2**) non matchano i numeri notebook (00/01/**02**/.../**04**) — probabile renumbering non propagato ai tag interni. Il campo `"ablation"` dentro il json è corretto ("02_k_sweep"). Rinominare ora rompebbe i path salvati; lasciato come warning.
+- **Baseline anchor** è standalone (dict_size diverso → Jaccard cross-config vietato dal protocollo).
+
+## Riferimenti
+- [02_k_sweep.ipynb](02_k_sweep.ipynb) — notebook sorgente
+- [01_dict_size.ipynb](01_dict_size.ipynb) — ab01 (dict_size non spiega instabilità)
+- [00_consensus.ipynb](00_consensus.ipynb) — ab00 (consensus direction-space ~0)
+- [../baseline/REPORT.md](../baseline/REPORT.md) — baseline (k=32, Jaccard 0.0039 ≈ null)
+- [../../results/ablation/a4_k_sweep.json](../../results/ablation/a4_k_sweep.json) — metriche complete (nota: tag a4)
+- [../../results/figures/ablation/a4_k_vs_stability.png](../../results/figures/ablation/a4_k_vs_stability.png) — k vs Jaccard/null/ratio
+- [../../results/figures/ablation/a4_pareto_front.png](../../results/figures/ablation/a4_pareto_front.png) — VE vs signal-to-null

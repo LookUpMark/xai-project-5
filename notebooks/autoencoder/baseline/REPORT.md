@@ -104,14 +104,13 @@ Il SAE ricostruisce quasi perfettamente gli embedding con soli `k=32` feature at
 - **Come è implementato:** `train_sae.compute_and_save_modality_gap()` precomputa `gap = train_emb.mean(0) − vocab_emb.mean(0)` → `models/modality_gap.pt`; `sae_module.name_concepts(..., modality_gap=gap)` fa `W_dec = W_dec − gap` poi `F.normalize` + coseno. Corrisponde a *Soluzione 1* di `docs/suggestions/concept_naming_analysis.md`.
 - **Fix collaterale di questa run:** `name_concepts` ora coerce i label dict → stringa (`_vocab_term`), così i consumer che caricano `vocabulary.json` come lista di dict (notebook baseline) ottengono comunque `name` stringa invece di far crashare `generate_explanation`.
 
-### 2.6 Explanations — ✅ STRUTTURALMENTE CORRETTE, ⚠️ image_id DA RIPRISTINARE
+### 2.6 Explanations — ✅ STRUTTURALMENTE CORRETTE, ✅ image_id RIPRISTINATI
 
 - **1494 record** (uno per immagine di test). Schema del contract judge verificato: `{image_id, top_k_concepts[].{feature_id,name,activation}, pseudo_report}`.
-- Attivazioni: mean 0.1423, max 0.3865 (coerenti col naming ora gap-corrected).
-- ⚠️ **`image_id`: TUTTI e 1494 sono fallback `sample_{0..1493}`** — i sidecar `embeddings/{visual,train,test}_image_ids.json` **mancano** sul disco. La vecchia run (06-15) li aveva e produceva basename PNG reali; ora l'estrazione degli embedding del 06-05 non li ha scritti (o sono stati persi).
-  - **Impatto:** il judge LLM joina su `reports.csv` via `image_id`. Con `sample_N` il join **fallisce** → output del judge non allineabile ai report reali.
-  - **Fix richiesto:** ri-estrarre gli embedding con propagazione degli image-id (richiede dataset IU X-Ray locale, attente assenti: `data/iu_xray/images/images_normalized` vuoto), oppure ricostruire i sidecar dall'ordine di `reports.csv` se l'estrazione rispetta quell'ordine.
-- Esempio (`sample_0`): `intervertebral foramen`, `progressive massive fibrosis`, `left coronary artery`, `ligamentum flavum`… — pseudo-report template-based.
+- Attivazioni: mean 0.1423, max 0.3865 (coerenti col naming gap-corrected).
+- **`image_id`: 1494/1494 basename reali** (e.s. `3222_IM-1522-2001.dcm.png`) — sidecar `embeddings/{visual,train,test}_image_ids.json` **ricostruiti** (vedi §5). Prima erano tutti fallback `sample_N` (sidecar mancanti dalla run 06-05); ora joinabili via `indiana_projections.csv` (filename→uid) → `indiana_reports.csv` (uid→findings).
+  - ⚠️ **Gap downstream (judge, non pipeline SAE):** `evaluate_llm_judge.py` legge `data/iu_xray/reports.csv`, che sul disco non esiste (esiste solo `chest-xrays-indiana-university/indiana_reports.csv`). Va generato/collegato prima del judge.
+- Esempio (`3222_IM-1522-2001.dcm.png`): `intervertebral foramen`, `progressive massive fibrosis`, `left coronary artery`, `ligamentum flavum`… — pseudo-report template-based.
 
 ---
 
@@ -125,7 +124,7 @@ Il SAE ricostruisce quasi perfettamente gli embedding con soli `k=32` feature at
 | I concetti sono *sparsi e monosemantici*? | ✅ Sparsi (L0=32); la monosemantia è ora più plausibile (naming mean 0.395). |
 | I concetti sono *robusti*? | ❌ **No** — Jaccard 0.004, dipendono dal seed. (Non risolto dal gap fix.) |
 | I concetti sono *clinicamente ancorati*? | ✅ **Sì, migliorato** — allineamento RadLex da max 0.29 a **max 0.55** (mean 0.117→0.395). |
-| La pipeline produce output judge-ready? | ⚠️ Parzialmente — schema corretto, ma `image_id` tutti fallback → **judge non allineabile finché non si ripristinano i sidecar**. |
+| La pipeline produce output judge-ready? | ✅ Schema corretto + `image_id` reali (basename). ⚠️ Manca ancora `data/iu_xray/reports.csv` per il judge (gap downstream). |
 
 **Punti chiave per la discussione:**
 1. Il **modality gap era il colpevole** del naming debole: corretto, +3.4× medio.
@@ -138,7 +137,7 @@ Il SAE ricostruisce quasi perfettamente gli embedding con soli `k=32` feature at
 
 ### 🔴 Priorità alta
 
-1. **Ripristinare i sidecar image-id** (blocca il judge). Ri-estrarre gli embedding con dataset IU X-Ray locale, o ricostruire `*_image_ids.json` dall'ordine di `reports.csv`.
+1. **Generare `data/iu_xray/reports.csv` per il judge** (gap downstream residuo). I sidecar image-id sono ripristinati (basename reali, §5), ma `evaluate_llm_judge.py` legge `reports.csv` che non esiste sul disco (esistono solo `indiana_reports.csv` + `indiana_projections.csv`). Costruire `reports.csv` dal join projections(filename→uid) + reports(uid→findings) in modo che il judge possa allineare gli `image_id` reali.
 2. **Stabilità cross-seed (Jaccard 0.004)** — il problema aperto principale, non toccato dal gap fix:
    - **Ridurre `dict_size`** (4096 → 2048/1024): meno gradi di libertà per divergere tra seed (preset "Conservative" suggerisce 2048). Atteso: Jaccard più alto, dead più bassi.
    - **LR più basso** (`5e-5`): convergenza più stabile, meno optima locali.
@@ -167,5 +166,6 @@ Matrice 2×2: `dict_size ∈ {1024, 2048}` × `lr ∈ {auto, 5e-5}`, seed 42 sin
 - **CUDA (RTX 5070)**: metriche di questa run (cosine 0.988, dead ~44%) coerenti con la run MPS di riferimento (06-15) → il cambio device non ha alterato i risultati (cross-device riproducibile).
 - **Modality gap è cached** (`models/modality_gap.pt`): `compute_and_save_modality_gap()` ha guardia skip-if-exists senza check di contenuto. Se gli embedding vengono rigenerati con split diverso, il gap va **cancellato a mano** (`rm models/modality_gap.pt`) prima di rilanciare, altrimenti resta stale.
 - **`vocabulary.json` = 508 dict** `{"term","similarity_score","source"}` (output del builder multi-centroid). I consumer (CLI `concept_naming.py` e notebook) normalizzano a `term`-stringa; `name_concepts` inoltre coerce via `_vocab_term` come safety net. Il vecchio "schema #7 aperto" è **risolto**.
-- **Schema judge rispettato** tranne `image_id`: `sample_explanations.json` ha struttura corretta ma `image_id` tutti `sample_N` (sidecar mancanti) → judge non allineabile finché non ripristinati (§2.6, §4.1).
+- **Sidecar image-id ricostruiti** (18:12): `visual/train/test_image_ids.json` rigenerati da `sorted(glob("*.png"))` dei 7470 PNG reali (`chest-xrays-indiana-university/images/images_normalized/`) + split `sklearn(random_state=42, ratio=0.8)`; **allineamento righe verificato via `torch.equal`** contro i tensor esistenti (match esatto su train + test). `sample_explanations.json` ora ha 1494/1494 basename reali. Niente re-extraction né riaddestramento.
+- ⚠️ **`data/iu_xray/reports.csv` assente** (esiste `indiana_reports.csv`): `evaluate_llm_judge.py` lo richiede per il join — gap downstream da colmare prima del judge (§4.1).
 - **5 SAE non riaddestrati**: la correzione del modality gap è uno shift locale su `W_dec` in `name_concepts`, non persistito nei pesi. I modelli 06-05 restano validi.

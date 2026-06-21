@@ -1,312 +1,2542 @@
 [
-  "pulmonary hemorrhage",
-  "pulmonary infarction",
-  "rounded atelectasis",
-  "pleural thickening",
-  "interstitial lung disease",
-  "pulmonary nodule",
-  "sail sign of chest",
-  "atelectasis",
-  "lung mass",
-  "incomplete border sign of lung",
-  "lambda sign of chest",
-  "pulmonary alveolar proteinosis",
-  "solid pulmonary nodule",
-  "hyperlucent hemithorax sign",
-  "herniated mediastinal pleural sac sign",
-  "V sign of chest",
-  "chest radiology",
-  "pulmonary embolism",
-  "ground-glass opacity",
-  "lungs",
-  "pulmonary hilum",
-  "right lung",
-  "chest mass",
-  "stripe sign of chest",
-  "signet ring sign of chest",
-  "white lung",
-  "double bronchial wall sign",
-  "respiratory broncholitis associated interstitial lung disease",
-  "parenchymal opacification",
-  "left pleural fissure",
-  "Anteriores Mediastinum",
-  "apical sign",
-  "non-solid pulmonary nodule",
-  "deviated descending thoracic aorta sign",
-  "cardiomegaly",
-  "shadow sign",
-  "floating aorta sign",
-  "linear atelectasis",
-  "internal air bronchogram sign",
-  "rami pulmonales thoracici ganglionum thoracicorum",
-  "Neuhaser sign",
-  "interstitial line sign",
-  "big rib sign",
-  "stretched bronchus sign",
-  "extrapleural air sign",
-  "split pleura sign",
-  "right minor fissure",
-  "B6 bronchus sign",
-  "horizontal fissure of right lung",
-  "lung parenchyma",
-  "lucent liver sign",
-  "air bronchogram sign",
-  "Inferiores Lungenligament",
-  "pneumomediastinum",
-  "wall sign of lung (EN)",
-  "acute interstitial pneumonia",
-  "esophageal dilatation",
-  "superior mediastinum",
-  "right pleural sac",
-  "bronchiectasis",
-  "continuous diaphragm sign",
-  "Rigler sign",
-  "Catlin sign",
-  "bulging fissure sign",
-  "upper lobe of lung",
-  "empty mediastinum sign (EN)",
-  "boot-shaped heart sign",
-  "absent liver sign",
-  "nucleus interstitialis",
-  "effusion",
-  "interstitial pneumonia",
-  "enlarged liver",
-  "pulmonary lobule",
-  "arrowhead sign",
-  "PET-CT",
-  "diffuse skin thickening",
-  "bronchial wall thickening",
-  "intercostal bulging lung sign (EN)",
-  "right lower lobe superior segment artery",
-  "Pleuraplaque",
-  "adult respiratory distress syndrome",
-  "part-solid pulmonary nodule",
-  "left lower lobe superior segment artery",
-  "cardiac radiology",
-  "left upper lobe apical segment artery",
-  "pneumonitis",
-  "vascular plethora sign",
-  "lung assessment",
-  "Pleuritis",
-  "left pulmonic vein recess",
-  "paradoxical movement of the mediastinum",
-  "pericardial line sign",
-  "left pulmonic pericardial recess",
-  "peripheral bubble sign (EN)",
-  "interlobar bronchus",
-  "hypoplasia of right ventricle",
-  "mediastinum",
-  "rosary sign (EN)",
-  "air embolism",
-  "symmetric liver sign",
-  "halo sign of heart",
-  "single bubble sign",
-  "thymic wave sign (EN)",
-  "catheter angiography",
-  "right upper lobe posterior segment artery",
-  "left major fissure",
-  "lung imaging observation",
-  "hiatal hernia",
-  "costal cartilage sign",
-  "subpleural",
-  "esophageal tube displacement sign",
-  "absent gastric air bubble sign",
-  "lymphoid interstitial pneumonia",
-  "focal skin thickening",
-  "Chronisch infiltrative Lungenerkrankung",
-  "tissue embolism",
-  "desquamative interstitial pneumonia",
-  "pneumatocele",
-  "black pleura sign",
-  "Bronchus",
-  "anterior segment of upper lobe of right lung",
-  "cor pulmonale",
-  "right upper lobe bronchus",
-  "diaphragmatic rupture",
-  "bird's beak sign of esophagus",
-  "lollipop sign",
-  "pseudo-fracture",
-  "vertebral fade-off sign",
-  "pneumothorax",
-  "anatomical anomaly",
-  "right upper lobe artery",
-  "Pseudoplaque",
-  "cardiac notch of left lung",
-  "incidental imaging finding",
-  "dependent viscera sign",
-  "arterial anomaly",
-  "halo sign of lung",
-  "fat sign",
-  "dense vessel sign",
-  "irregular mass",
-  "left pulmonary ligament",
-  "pulmonary lymph node",
-  "lower lobe of left lung",
-  "left lower lobe lateral segment artery",
-  "mucosal stripe sign",
-  "thromboembolism",
-  "jet sign",
-  "transthoracic view",
-  "shaggy heart sign (EN)",
-  "incomplete fissure sign",
-  "death complication",
-  "inflammation",
-  "Superiorer Anteil des Oberlappens der linken Lunge",
-  "squeezed ventricle sign",
-  "posterior basal segment of lower lobe of left lung",
-  "bone marrow",
-  "pleural recess",
-  "lobe of lung",
-  "posterior basal segment of lower lobe of right lung",
-  "emphysematös",
-  "second diagonal artery",
-  "computed tomography",
-  "right lower lobe lateral segment artery",
-  "symptom",
-  "ischemic cardiomyopathy",
-  "right pulmonary ligament",
-  "cluster-of-grapes sign of lung",
-  "airway ectasia",
-  "small lung component",
-  "eosinophilic pneumonia",
-  "drooping shoulder sign",
-  "diagnosis",
-  "heart failure",
-  "anterior segmental bronchus",
-  "liver disorder",
-  "azygos fissure",
-  "stripe sign of brain",
-  "hypervolemic pulmonary edema",
-  "esophagography",
-  "anterior segment of upper lobe of left lung",
-  "hibernating heart",
-  "Umverteilung des pulmonalen Blutflusses",
-  "pulmonaler Lobulus",
-  "apicoposterior segment of upper lobe of left lung",
-  "bronchoscopy",
-  "vena cava sign",
-  "anterior chest",
-  "t-tube contrast",
-  "nucleus emboliformis",
-  "persistent left superior vena cava",
-  "CT arrowhead sign",
-  "pericardial disease",
-  "false lumen",
-  "interstitial fibrosis",
-  "sepsis",
-  "anatomical cavity",
-  "hypertrophy",
-  "pericardial fat tag sign",
-  "crazy-paving sign",
-  "fine linear calcification",
-  "pseudo-arthritis",
-  "positron emission tomography",
-  "Apikoposteriorer Segmentbronchus des Oberlappens der linken Lunge",
-  "left upper lobe bronchus",
-  "congenital anomaly of spine",
-  "subpleurale Region",
-  "lambda sign of aorta",
-  "solid component of part-solid pulmonary nodule",
-  "proximal left anterior descending artery",
-  "first diagonal artery",
-  "headcheese sign",
-  "Halbmond-Zeichen der Lunge",
-  "migrating staple sign",
-  "posterior segment of upper lobe of right lung",
-  "right posterior hepatic notch sign",
-  "Medusa head sign",
-  "Komplikation Pneumothorax",
-  "Arteria bronchialis",
-  "inferior mediastinal space",
-  "multiple lesions",
-  "central stripe in fast imaging",
-  "floating viscera sign (EN)",
-  "spontaneous hemorrhage",
-  "right pericardial artery",
-  "onion skin sign",
-  "mucosal fold of esophagus",
-  "vorderes Mediastinum",
-  "left ventricle",
-  "kinky chest tube sign (EN)",
-  "mediastinal pleura",
-  "right lower lobe bronchus",
-  "Bronchus lobaris superior",
-  "diffusion weighted imaging",
-  "tomography",
-  "ring-around-the-artery sign",
-  "bronchography",
-  "toothpaste sign",
-  "Terson syndrome",
-  "organ cavity",
-  "extrapleural sign",
-  "right anterior segmental bronchus",
-  "Lungenhauptarterie",
-  "mega-aeroesophagus sign",
-  "Lung-RADS 0",
-  "contrast bubble sign (EN)",
-  "descending aorta",
-  "squeeze sign",
-  "lateral basal segment of lower lobe of left lung",
-  "mild central spinal stenosis",
-  "left mid lung zone",
-  "thoracic cavity",
-  "hematoma",
-  "conjunctival",
-  "chronic fibrosing interstitial pneumonia",
-  "Hemithorax",
-  "posterior descending artery",
-  "upper respiratory tract",
-  "medial basal segment of lower lobe of right lung",
-  "left pericardial artery",
-  "collateral vein sign",
-  "intrabronchial",
-  "right middle lobe subsegment artery",
-  "mass",
-  "thymic cyst",
-  "rocker-bottom thymus sign (EN)",
-  "chronic obstructive pulmonary disease",
-  "Erdheim-Chester disease",
-  "osteophytosis",
-  "peritoneal fluid",
-  "image review",
-  "left lower lobe bronchus",
-  "right superior segmental bronchus",
-  "cardiogenic pulmonary edema",
-  "corner sign",
-  "third diagonal artery",
-  "interstitial space",
-  "segmental bronchus",
-  "medullary reticular formation",
-  "varus deformity",
-  "ghost vertebrae sign",
-  "right lobe of liver",
-  "honeycomb lung",
-  "superior recess of anterior mediastinum",
-  "Lung-RADS 2",
-  "vertebral fusion",
-  "floating tooth sign (EN)",
-  "compression fracture",
-  "Rigler notch sign",
-  "nervous system of chest",
-  "left superior segmental bronchus",
-  "diagnostic imaging",
-  "Lunge",
-  "pulmonary arterial trunk",
-  "shotgun sign",
-  "omega sign",
-  "complex cystic and solid echogenicity",
-  "right bending position",
-  "respiratory tract",
-  "bone spine",
-  "anatomical line of lung",
-  "left anterior basal segmental bronchus",
-  "superior surface of liver",
-  "hernia",
-  "emphysema",
-  "fibrosis",
-  "nodule",
-  "pneumonia",
-  "edema",
-  "consolidation",
-  "infiltration"
+  {
+    "term": "cardiomegaly",
+    "similarity_score": 0.958345,
+    "source": "nih_chestxray14_seed"
+  },
+  {
+    "term": "endotracheal tube",
+    "similarity_score": 0.928412,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Hemidiaphragma",
+    "similarity_score": 0.926212,
+    "source": "input_filtered"
+  },
+  {
+    "term": "herniated mediastinal pleural sac sign",
+    "similarity_score": 0.919982,
+    "source": "input_filtered"
+  },
+  {
+    "term": "non-tunneled central venous catheter",
+    "similarity_score": 0.918838,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pulmonary hemorrhage",
+    "similarity_score": 0.916583,
+    "source": "input_filtered"
+  },
+  {
+    "term": "interstitial lung disease",
+    "similarity_score": 0.915481,
+    "source": "input_filtered"
+  },
+  {
+    "term": "central venous catheter",
+    "similarity_score": 0.913964,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pulmonary infarction",
+    "similarity_score": 0.912509,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pleural thickening",
+    "similarity_score": 0.90928,
+    "source": "nih_chestxray14_seed"
+  },
+  {
+    "term": "pulmonary alveolar proteinosis",
+    "similarity_score": 0.900333,
+    "source": "input_filtered"
+  },
+  {
+    "term": "scoliosis",
+    "similarity_score": 0.89922,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right hemidiaphragm",
+    "similarity_score": 0.898625,
+    "source": "input_filtered"
+  },
+  {
+    "term": "diaphragmatic rupture",
+    "similarity_score": 0.897382,
+    "source": "input_filtered"
+  },
+  {
+    "term": "lambda sign of chest",
+    "similarity_score": 0.895267,
+    "source": "input_filtered"
+  },
+  {
+    "term": "central venous catheter without port or pump",
+    "similarity_score": 0.891021,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pulmonary nodule",
+    "similarity_score": 0.889723,
+    "source": "input_filtered"
+  },
+  {
+    "term": "incomplete border sign of lung",
+    "similarity_score": 0.889277,
+    "source": "input_filtered"
+  },
+  {
+    "term": "atelectasis",
+    "similarity_score": 0.886179,
+    "source": "input_filtered"
+  },
+  {
+    "term": "split pleura sign",
+    "similarity_score": 0.885708,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pneumothorax",
+    "similarity_score": 0.885693,
+    "source": "input_filtered"
+  },
+  {
+    "term": "non-tunneled central venous catheter without port",
+    "similarity_score": 0.884514,
+    "source": "input_filtered"
+  },
+  {
+    "term": "spine degeneration",
+    "similarity_score": 0.881062,
+    "source": "input_filtered"
+  },
+  {
+    "term": "lung mass",
+    "similarity_score": 0.879272,
+    "source": "input_filtered"
+  },
+  {
+    "term": "mild central spinal stenosis",
+    "similarity_score": 0.878846,
+    "source": "input_filtered"
+  },
+  {
+    "term": "tunneled central venous catheter",
+    "similarity_score": 0.877715,
+    "source": "input_filtered"
+  },
+  {
+    "term": "hyperlucent hemithorax sign",
+    "similarity_score": 0.877328,
+    "source": "input_filtered"
+  },
+  {
+    "term": "respiratory broncholitis associated interstitial lung disease",
+    "similarity_score": 0.877095,
+    "source": "input_filtered"
+  },
+  {
+    "term": "ground-glass opacity",
+    "similarity_score": 0.875717,
+    "source": "input_filtered"
+  },
+  {
+    "term": "bone spine",
+    "similarity_score": 0.875691,
+    "source": "input_filtered"
+  },
+  {
+    "term": "rounded atelectasis",
+    "similarity_score": 0.874796,
+    "source": "input_filtered"
+  },
+  {
+    "term": "central spinal stenosis",
+    "similarity_score": 0.873924,
+    "source": "input_filtered"
+  },
+  {
+    "term": "interstitial pneumonia",
+    "similarity_score": 0.871949,
+    "source": "input_filtered"
+  },
+  {
+    "term": "spinal stenosis",
+    "similarity_score": 0.871797,
+    "source": "input_filtered"
+  },
+  {
+    "term": "sail sign of chest",
+    "similarity_score": 0.870398,
+    "source": "input_filtered"
+  },
+  {
+    "term": "acute interstitial pneumonia",
+    "similarity_score": 0.870284,
+    "source": "input_filtered"
+  },
+  {
+    "term": "solid pulmonary nodule",
+    "similarity_score": 0.86949,
+    "source": "input_filtered"
+  },
+  {
+    "term": "interlobar bronchus",
+    "similarity_score": 0.869372,
+    "source": "input_filtered"
+  },
+  {
+    "term": "lungs",
+    "similarity_score": 0.867016,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pleural recess",
+    "similarity_score": 0.867014,
+    "source": "input_filtered"
+  },
+  {
+    "term": "continuous diaphragm sign",
+    "similarity_score": 0.866996,
+    "source": "input_filtered"
+  },
+  {
+    "term": "nasogastric tube",
+    "similarity_score": 0.86585,
+    "source": "input_filtered"
+  },
+  {
+    "term": "nasoenteric feeding tube",
+    "similarity_score": 0.86505,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pneumonitis",
+    "similarity_score": 0.864878,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pulmonary embolism",
+    "similarity_score": 0.864258,
+    "source": "input_filtered"
+  },
+  {
+    "term": "left pleural fissure",
+    "similarity_score": 0.862773,
+    "source": "input_filtered"
+  },
+  {
+    "term": "white lung",
+    "similarity_score": 0.862731,
+    "source": "input_filtered"
+  },
+  {
+    "term": "moderate central spinal stenosis",
+    "similarity_score": 0.862693,
+    "source": "input_filtered"
+  },
+  {
+    "term": "hypoplasia of right ventricle",
+    "similarity_score": 0.8616,
+    "source": "input_filtered"
+  },
+  {
+    "term": "long feeding tube",
+    "similarity_score": 0.861433,
+    "source": "input_filtered"
+  },
+  {
+    "term": "balloon catheter",
+    "similarity_score": 0.860092,
+    "source": "input_filtered"
+  },
+  {
+    "term": "lymphoid interstitial pneumonia",
+    "similarity_score": 0.85949,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right lung",
+    "similarity_score": 0.858899,
+    "source": "input_filtered"
+  },
+  {
+    "term": "stretched bronchus sign",
+    "similarity_score": 0.858843,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pulmonary hilum",
+    "similarity_score": 0.858501,
+    "source": "input_filtered"
+  },
+  {
+    "term": "dialysis catheter",
+    "similarity_score": 0.857769,
+    "source": "input_filtered"
+  },
+  {
+    "term": "ischemic cardiomyopathy",
+    "similarity_score": 0.857395,
+    "source": "input_filtered"
+  },
+  {
+    "term": "spine",
+    "similarity_score": 0.856971,
+    "source": "input_filtered"
+  },
+  {
+    "term": "thoracostomy tube",
+    "similarity_score": 0.856629,
+    "source": "input_filtered"
+  },
+  {
+    "term": "shunt tubing",
+    "similarity_score": 0.856546,
+    "source": "input_filtered"
+  },
+  {
+    "term": "signet ring sign of chest",
+    "similarity_score": 0.856237,
+    "source": "input_filtered"
+  },
+  {
+    "term": "double bronchial wall sign",
+    "similarity_score": 0.855543,
+    "source": "input_filtered"
+  },
+  {
+    "term": "interstitial line sign",
+    "similarity_score": 0.855381,
+    "source": "input_filtered"
+  },
+  {
+    "term": "shadow sign",
+    "similarity_score": 0.855237,
+    "source": "input_filtered"
+  },
+  {
+    "term": "thromboembolism",
+    "similarity_score": 0.85505,
+    "source": "input_filtered"
+  },
+  {
+    "term": "lung parenchyma",
+    "similarity_score": 0.854087,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Anteriores Mediastinum",
+    "similarity_score": 0.853926,
+    "source": "input_filtered"
+  },
+  {
+    "term": "inflammation",
+    "similarity_score": 0.853393,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pneumonia",
+    "similarity_score": 0.853308,
+    "source": "input_filtered"
+  },
+  {
+    "term": "arterial anomaly",
+    "similarity_score": 0.853195,
+    "source": "input_filtered"
+  },
+  {
+    "term": "bronchial wall thickening",
+    "similarity_score": 0.853142,
+    "source": "input_filtered"
+  },
+  {
+    "term": "catheter",
+    "similarity_score": 0.852861,
+    "source": "input_filtered"
+  },
+  {
+    "term": "coronary artery calcification",
+    "similarity_score": 0.852683,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pericardial line sign",
+    "similarity_score": 0.852533,
+    "source": "input_filtered"
+  },
+  {
+    "term": "V sign of chest",
+    "similarity_score": 0.852407,
+    "source": "input_filtered"
+  },
+  {
+    "term": "hematoma",
+    "similarity_score": 0.852327,
+    "source": "input_filtered"
+  },
+  {
+    "term": "parenchymal opacification",
+    "similarity_score": 0.852195,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Swan-Ganz catheter",
+    "similarity_score": 0.851395,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right pleural sac",
+    "similarity_score": 0.851394,
+    "source": "input_filtered"
+  },
+  {
+    "term": "tunneled central venous catheter without port",
+    "similarity_score": 0.851187,
+    "source": "input_filtered"
+  },
+  {
+    "term": "spinotectal tract of spinal cord",
+    "similarity_score": 0.850164,
+    "source": "input_filtered"
+  },
+  {
+    "term": "vascular disorder",
+    "similarity_score": 0.85016,
+    "source": "input_filtered"
+  },
+  {
+    "term": "feeding tube",
+    "similarity_score": 0.850068,
+    "source": "input_filtered"
+  },
+  {
+    "term": "catheter portion only of central venous catheter with port",
+    "similarity_score": 0.849979,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Pleuritis",
+    "similarity_score": 0.848407,
+    "source": "input_filtered"
+  },
+  {
+    "term": "hemorrhage",
+    "similarity_score": 0.84757,
+    "source": "input_filtered"
+  },
+  {
+    "term": "central venous catheter with port or pump",
+    "similarity_score": 0.845861,
+    "source": "input_filtered"
+  },
+  {
+    "term": "tube",
+    "similarity_score": 0.845643,
+    "source": "input_filtered"
+  },
+  {
+    "term": "cardiac radiology",
+    "similarity_score": 0.845542,
+    "source": "input_filtered"
+  },
+  {
+    "term": "cricothyroid tube",
+    "similarity_score": 0.845055,
+    "source": "input_filtered"
+  },
+  {
+    "term": "eosinophilic pneumonia",
+    "similarity_score": 0.84501,
+    "source": "input_filtered"
+  },
+  {
+    "term": "congenital anomaly of spine",
+    "similarity_score": 0.844645,
+    "source": "input_filtered"
+  },
+  {
+    "term": "desquamative interstitial pneumonia",
+    "similarity_score": 0.844559,
+    "source": "input_filtered"
+  },
+  {
+    "term": "wall sign of lung (EN)",
+    "similarity_score": 0.844439,
+    "source": "input_filtered"
+  },
+  {
+    "term": "extrapleural air sign",
+    "similarity_score": 0.844206,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Pleuraplaque",
+    "similarity_score": 0.843987,
+    "source": "input_filtered"
+  },
+  {
+    "term": "ghost vertebrae sign",
+    "similarity_score": 0.843343,
+    "source": "input_filtered"
+  },
+  {
+    "term": "tube or catheter",
+    "similarity_score": 0.84311,
+    "source": "input_filtered"
+  },
+  {
+    "term": "needle sheath",
+    "similarity_score": 0.842911,
+    "source": "input_filtered"
+  },
+  {
+    "term": "bronchiectasis",
+    "similarity_score": 0.842778,
+    "source": "input_filtered"
+  },
+  {
+    "term": "squeezed ventricle sign",
+    "similarity_score": 0.842037,
+    "source": "input_filtered"
+  },
+  {
+    "term": "peripheral bubble sign (EN)",
+    "similarity_score": 0.841759,
+    "source": "input_filtered"
+  },
+  {
+    "term": "floating aorta sign",
+    "similarity_score": 0.841521,
+    "source": "input_filtered"
+  },
+  {
+    "term": "curved sheath",
+    "similarity_score": 0.840737,
+    "source": "input_filtered"
+  },
+  {
+    "term": "stripe sign of chest",
+    "similarity_score": 0.840679,
+    "source": "input_filtered"
+  },
+  {
+    "term": "black pleura sign",
+    "similarity_score": 0.840533,
+    "source": "input_filtered"
+  },
+  {
+    "term": "interstitial fibrosis",
+    "similarity_score": 0.840292,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pericardial fat tag sign",
+    "similarity_score": 0.839946,
+    "source": "input_filtered"
+  },
+  {
+    "term": "shunt catheter",
+    "similarity_score": 0.839928,
+    "source": "input_filtered"
+  },
+  {
+    "term": "big rib sign",
+    "similarity_score": 0.839742,
+    "source": "input_filtered"
+  },
+  {
+    "term": "vertebral fusion",
+    "similarity_score": 0.839704,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pericardial disease",
+    "similarity_score": 0.839648,
+    "source": "input_filtered"
+  },
+  {
+    "term": "consolidation",
+    "similarity_score": 0.839206,
+    "source": "input_filtered"
+  },
+  {
+    "term": "esophageal constriction by left principal bronchus",
+    "similarity_score": 0.839035,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right diaphragmatic peritoneum",
+    "similarity_score": 0.838936,
+    "source": "input_filtered"
+  },
+  {
+    "term": "esophageal dilatation",
+    "similarity_score": 0.838699,
+    "source": "input_filtered"
+  },
+  {
+    "term": "costal cartilage sign",
+    "similarity_score": 0.838468,
+    "source": "input_filtered"
+  },
+  {
+    "term": "effusion",
+    "similarity_score": 0.837951,
+    "source": "input_filtered"
+  },
+  {
+    "term": "B6 bronchus sign",
+    "similarity_score": 0.837939,
+    "source": "input_filtered"
+  },
+  {
+    "term": "ring-around-the-artery sign",
+    "similarity_score": 0.837836,
+    "source": "input_filtered"
+  },
+  {
+    "term": "chest mass",
+    "similarity_score": 0.837756,
+    "source": "input_filtered"
+  },
+  {
+    "term": "cluster-of-grapes sign of lung",
+    "similarity_score": 0.836858,
+    "source": "input_filtered"
+  },
+  {
+    "term": "mediastinum",
+    "similarity_score": 0.836686,
+    "source": "input_filtered"
+  },
+  {
+    "term": "linear atelectasis",
+    "similarity_score": 0.836629,
+    "source": "input_filtered"
+  },
+  {
+    "term": "apical sign",
+    "similarity_score": 0.836242,
+    "source": "input_filtered"
+  },
+  {
+    "term": "spinalis thoracis",
+    "similarity_score": 0.836223,
+    "source": "input_filtered"
+  },
+  {
+    "term": "musculus spinalis",
+    "similarity_score": 0.835687,
+    "source": "input_filtered"
+  },
+  {
+    "term": "middle mediastinal space",
+    "similarity_score": 0.835116,
+    "source": "input_filtered"
+  },
+  {
+    "term": "chronic fibrosing interstitial pneumonia",
+    "similarity_score": 0.835069,
+    "source": "input_filtered"
+  },
+  {
+    "term": "drug delivery catheter",
+    "similarity_score": 0.83463,
+    "source": "input_filtered"
+  },
+  {
+    "term": "spontaneous hemorrhage",
+    "similarity_score": 0.834349,
+    "source": "input_filtered"
+  },
+  {
+    "term": "segmental bronchus",
+    "similarity_score": 0.834245,
+    "source": "input_filtered"
+  },
+  {
+    "term": "anatomical line of pleural cavity",
+    "similarity_score": 0.834002,
+    "source": "input_filtered"
+  },
+  {
+    "term": "thoracolumbar vertebral column",
+    "similarity_score": 0.833564,
+    "source": "input_filtered"
+  },
+  {
+    "term": "non-solid pulmonary nodule",
+    "similarity_score": 0.833505,
+    "source": "input_filtered"
+  },
+  {
+    "term": "internal air bronchogram sign",
+    "similarity_score": 0.833248,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Anhaftung am Bronchus",
+    "similarity_score": 0.832906,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right spinalis thoracis",
+    "similarity_score": 0.832722,
+    "source": "input_filtered"
+  },
+  {
+    "term": "dense vessel sign",
+    "similarity_score": 0.832435,
+    "source": "input_filtered"
+  },
+  {
+    "term": "chronic obstructive pulmonary disease",
+    "similarity_score": 0.832172,
+    "source": "input_filtered"
+  },
+  {
+    "term": "superior mediastinum",
+    "similarity_score": 0.831996,
+    "source": "input_filtered"
+  },
+  {
+    "term": "emphysematös",
+    "similarity_score": 0.831732,
+    "source": "input_filtered"
+  },
+  {
+    "term": "false lumen",
+    "similarity_score": 0.831544,
+    "source": "input_filtered"
+  },
+  {
+    "term": "vascular malformation",
+    "similarity_score": 0.831491,
+    "source": "input_filtered"
+  },
+  {
+    "term": "fine linear calcification",
+    "similarity_score": 0.831096,
+    "source": "input_filtered"
+  },
+  {
+    "term": "diaphragmatic constriction of esophagus",
+    "similarity_score": 0.830954,
+    "source": "input_filtered"
+  },
+  {
+    "term": "deep postvertebral muscle",
+    "similarity_score": 0.830815,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Komplikation Pneumothorax",
+    "similarity_score": 0.830387,
+    "source": "input_filtered"
+  },
+  {
+    "term": "granulation tissue",
+    "similarity_score": 0.830381,
+    "source": "input_filtered"
+  },
+  {
+    "term": "subpleural",
+    "similarity_score": 0.83035,
+    "source": "input_filtered"
+  },
+  {
+    "term": "tissue embolism",
+    "similarity_score": 0.830152,
+    "source": "input_filtered"
+  },
+  {
+    "term": "granuloma",
+    "similarity_score": 0.829798,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Catlin sign",
+    "similarity_score": 0.82949,
+    "source": "input_filtered"
+  },
+  {
+    "term": "spinal cord",
+    "similarity_score": 0.829469,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pulmonary lobule",
+    "similarity_score": 0.829435,
+    "source": "input_filtered"
+  },
+  {
+    "term": "anatomical anomaly",
+    "similarity_score": 0.829398,
+    "source": "input_filtered"
+  },
+  {
+    "term": "inferior mediastinal space",
+    "similarity_score": 0.829186,
+    "source": "input_filtered"
+  },
+  {
+    "term": "left pulmonic pericardial recess",
+    "similarity_score": 0.829093,
+    "source": "input_filtered"
+  },
+  {
+    "term": "suprapubic catheter",
+    "similarity_score": 0.82906,
+    "source": "input_filtered"
+  },
+  {
+    "term": "subpleurale Region",
+    "similarity_score": 0.828921,
+    "source": "input_filtered"
+  },
+  {
+    "term": "stent",
+    "similarity_score": 0.82856,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pars dextra faciei diaphragmaticae hepatis",
+    "similarity_score": 0.828525,
+    "source": "input_filtered"
+  },
+  {
+    "term": "air bronchogram sign",
+    "similarity_score": 0.828382,
+    "source": "input_filtered"
+  },
+  {
+    "term": "anterior segmental bronchus",
+    "similarity_score": 0.828157,
+    "source": "input_filtered"
+  },
+  {
+    "term": "vascular disease",
+    "similarity_score": 0.828116,
+    "source": "input_filtered"
+  },
+  {
+    "term": "idiopathic pulmonary fibrosis",
+    "similarity_score": 0.827619,
+    "source": "input_filtered"
+  },
+  {
+    "term": "large bore central venous catheter",
+    "similarity_score": 0.827372,
+    "source": "input_filtered"
+  },
+  {
+    "term": "superior division bronchus",
+    "similarity_score": 0.827283,
+    "source": "input_filtered"
+  },
+  {
+    "term": "cardiac tamponade",
+    "similarity_score": 0.827273,
+    "source": "input_filtered"
+  },
+  {
+    "term": "fascia diaphragmatica",
+    "similarity_score": 0.826622,
+    "source": "input_filtered"
+  },
+  {
+    "term": "check tube",
+    "similarity_score": 0.826516,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right upper lobe bronchus",
+    "similarity_score": 0.826369,
+    "source": "input_filtered"
+  },
+  {
+    "term": "intercostal bulging lung sign (EN)",
+    "similarity_score": 0.826093,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pigtail catheter",
+    "similarity_score": 0.825996,
+    "source": "input_filtered"
+  },
+  {
+    "term": "crazy-paving sign",
+    "similarity_score": 0.825745,
+    "source": "input_filtered"
+  },
+  {
+    "term": "subarticular spinal stenosis",
+    "similarity_score": 0.825436,
+    "source": "input_filtered"
+  },
+  {
+    "term": "disorder of spine",
+    "similarity_score": 0.82496,
+    "source": "input_filtered"
+  },
+  {
+    "term": "vascular stent",
+    "similarity_score": 0.824789,
+    "source": "input_filtered"
+  },
+  {
+    "term": "chest radiology",
+    "similarity_score": 0.824531,
+    "source": "input_filtered"
+  },
+  {
+    "term": "clot disruption",
+    "similarity_score": 0.824206,
+    "source": "input_filtered"
+  },
+  {
+    "term": "fibrosis",
+    "similarity_score": 0.824123,
+    "source": "nih_chestxray14_seed"
+  },
+  {
+    "term": "right superior segmental bronchus",
+    "similarity_score": 0.824034,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Neuhaser sign",
+    "similarity_score": 0.823966,
+    "source": "input_filtered"
+  },
+  {
+    "term": "vascular cut-off sign",
+    "similarity_score": 0.823459,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pericardial pleura",
+    "similarity_score": 0.823282,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Shmoo-shaped heart (EN)",
+    "similarity_score": 0.822667,
+    "source": "input_filtered"
+  },
+  {
+    "term": "absent gastric air bubble sign",
+    "similarity_score": 0.822493,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pseudo-fracture",
+    "similarity_score": 0.822473,
+    "source": "input_filtered"
+  },
+  {
+    "term": "anterior segment of upper lobe of right lung",
+    "similarity_score": 0.822349,
+    "source": "input_filtered"
+  },
+  {
+    "term": "persistent left superior vena cava",
+    "similarity_score": 0.822335,
+    "source": "input_filtered"
+  },
+  {
+    "term": "left ventricle",
+    "similarity_score": 0.822267,
+    "source": "input_filtered"
+  },
+  {
+    "term": "tract of spinal cord",
+    "similarity_score": 0.822157,
+    "source": "input_filtered"
+  },
+  {
+    "term": "shapeable wire tip",
+    "similarity_score": 0.822096,
+    "source": "input_filtered"
+  },
+  {
+    "term": "vertebral body",
+    "similarity_score": 0.822091,
+    "source": "input_filtered"
+  },
+  {
+    "term": "calcification",
+    "similarity_score": 0.821985,
+    "source": "input_filtered"
+  },
+  {
+    "term": "rupture",
+    "similarity_score": 0.821879,
+    "source": "input_filtered"
+  },
+  {
+    "term": "round calcification",
+    "similarity_score": 0.821715,
+    "source": "input_filtered"
+  },
+  {
+    "term": "dependent viscera sign",
+    "similarity_score": 0.821635,
+    "source": "input_filtered"
+  },
+  {
+    "term": "emphysema",
+    "similarity_score": 0.821229,
+    "source": "input_filtered"
+  },
+  {
+    "term": "diffuse skin thickening",
+    "similarity_score": 0.820459,
+    "source": "input_filtered"
+  },
+  {
+    "term": "mediastinal space",
+    "similarity_score": 0.820263,
+    "source": "input_filtered"
+  },
+  {
+    "term": "deviated descending thoracic aorta sign",
+    "similarity_score": 0.820027,
+    "source": "input_filtered"
+  },
+  {
+    "term": "bulging fissure sign",
+    "similarity_score": 0.819848,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Posteriore Pleuraduplikatur",
+    "similarity_score": 0.819823,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Rigler sign",
+    "similarity_score": 0.81977,
+    "source": "input_filtered"
+  },
+  {
+    "term": "hernia through esophageal hiatus",
+    "similarity_score": 0.819575,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pulmonary lymph node",
+    "similarity_score": 0.818998,
+    "source": "input_filtered"
+  },
+  {
+    "term": "empty mediastinum sign (EN)",
+    "similarity_score": 0.818882,
+    "source": "input_filtered"
+  },
+  {
+    "term": "enlarged liver",
+    "similarity_score": 0.818864,
+    "source": "input_filtered"
+  },
+  {
+    "term": "tunneled catheter",
+    "similarity_score": 0.818856,
+    "source": "input_filtered"
+  },
+  {
+    "term": "adult respiratory distress syndrome",
+    "similarity_score": 0.818067,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Bronchus",
+    "similarity_score": 0.817904,
+    "source": "input_filtered"
+  },
+  {
+    "term": "lucent liver sign",
+    "similarity_score": 0.817874,
+    "source": "input_filtered"
+  },
+  {
+    "term": "arrowhead sign",
+    "similarity_score": 0.8172,
+    "source": "input_filtered"
+  },
+  {
+    "term": "peritoneal fluid",
+    "similarity_score": 0.817171,
+    "source": "input_filtered"
+  },
+  {
+    "term": "costal pleura",
+    "similarity_score": 0.817085,
+    "source": "input_filtered"
+  },
+  {
+    "term": "left atrium",
+    "similarity_score": 0.817079,
+    "source": "input_filtered"
+  },
+  {
+    "term": "surface of spine of scapula",
+    "similarity_score": 0.816924,
+    "source": "input_filtered"
+  },
+  {
+    "term": "cryptogenic organizing pneumonia",
+    "similarity_score": 0.816791,
+    "source": "input_filtered"
+  },
+  {
+    "term": "middle spinal column",
+    "similarity_score": 0.816627,
+    "source": "input_filtered"
+  },
+  {
+    "term": "anterior segment of upper lobe of left lung",
+    "similarity_score": 0.816607,
+    "source": "input_filtered"
+  },
+  {
+    "term": "bamboo spine",
+    "similarity_score": 0.81635,
+    "source": "input_filtered"
+  },
+  {
+    "term": "thoracic vertebral body",
+    "similarity_score": 0.81618,
+    "source": "input_filtered"
+  },
+  {
+    "term": "ossification of posterior longitudinal ligament",
+    "similarity_score": 0.816173,
+    "source": "input_filtered"
+  },
+  {
+    "term": "myocardial infarction",
+    "similarity_score": 0.816145,
+    "source": "input_filtered"
+  },
+  {
+    "term": "anterior ramus of spinal nerve",
+    "similarity_score": 0.81596,
+    "source": "input_filtered"
+  },
+  {
+    "term": "constrictio bronchoaortica oesophageae",
+    "similarity_score": 0.815927,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right anterior segmental bronchus",
+    "similarity_score": 0.815869,
+    "source": "input_filtered"
+  },
+  {
+    "term": "part-solid pulmonary nodule",
+    "similarity_score": 0.815832,
+    "source": "input_filtered"
+  },
+  {
+    "term": "hiatal hernia",
+    "similarity_score": 0.815344,
+    "source": "input_filtered"
+  },
+  {
+    "term": "superior segmental artery",
+    "similarity_score": 0.815256,
+    "source": "input_filtered"
+  },
+  {
+    "term": "endotracheal",
+    "similarity_score": 0.815237,
+    "source": "input_filtered"
+  },
+  {
+    "term": "external device",
+    "similarity_score": 0.815233,
+    "source": "input_filtered"
+  },
+  {
+    "term": "lymphadenopathy",
+    "similarity_score": 0.815205,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right mediastinal artery",
+    "similarity_score": 0.814764,
+    "source": "input_filtered"
+  },
+  {
+    "term": "bronchoesophageal fistula",
+    "similarity_score": 0.814726,
+    "source": "input_filtered"
+  },
+  {
+    "term": "calcification disorder",
+    "similarity_score": 0.814726,
+    "source": "input_filtered"
+  },
+  {
+    "term": "extrapleural sign",
+    "similarity_score": 0.814509,
+    "source": "input_filtered"
+  },
+  {
+    "term": "upper lobe of lung",
+    "similarity_score": 0.814344,
+    "source": "input_filtered"
+  },
+  {
+    "term": "cor pulmonale",
+    "similarity_score": 0.814319,
+    "source": "input_filtered"
+  },
+  {
+    "term": "anterior ends of lower ribs",
+    "similarity_score": 0.814174,
+    "source": "input_filtered"
+  },
+  {
+    "term": "honeycomb lung",
+    "similarity_score": 0.814174,
+    "source": "input_filtered"
+  },
+  {
+    "term": "collateral vein sign",
+    "similarity_score": 0.814157,
+    "source": "input_filtered"
+  },
+  {
+    "term": "vena cava sign",
+    "similarity_score": 0.81404,
+    "source": "input_filtered"
+  },
+  {
+    "term": "anatomical line of lung",
+    "similarity_score": 0.81385,
+    "source": "input_filtered"
+  },
+  {
+    "term": "left lower lobe superior segment artery",
+    "similarity_score": 0.813838,
+    "source": "input_filtered"
+  },
+  {
+    "term": "paradoxical movement of the mediastinum",
+    "similarity_score": 0.813734,
+    "source": "input_filtered"
+  },
+  {
+    "term": "fat sign",
+    "similarity_score": 0.813702,
+    "source": "input_filtered"
+  },
+  {
+    "term": "T4 vertebral body",
+    "similarity_score": 0.813685,
+    "source": "input_filtered"
+  },
+  {
+    "term": "absent liver sign",
+    "similarity_score": 0.81361,
+    "source": "input_filtered"
+  },
+  {
+    "term": "arthroplasty device",
+    "similarity_score": 0.813355,
+    "source": "input_filtered"
+  },
+  {
+    "term": "boot-shaped heart sign",
+    "similarity_score": 0.81328,
+    "source": "input_filtered"
+  },
+  {
+    "term": "superior mediastinal space",
+    "similarity_score": 0.81319,
+    "source": "input_filtered"
+  },
+  {
+    "term": "varus deformity",
+    "similarity_score": 0.813081,
+    "source": "input_filtered"
+  },
+  {
+    "term": "shotgun sign",
+    "similarity_score": 0.813079,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Bronchus lobaris superior",
+    "similarity_score": 0.813011,
+    "source": "input_filtered"
+  },
+  {
+    "term": "anterior ends of ribs",
+    "similarity_score": 0.813001,
+    "source": "input_filtered"
+  },
+  {
+    "term": "small lung component",
+    "similarity_score": 0.812751,
+    "source": "input_filtered"
+  },
+  {
+    "term": "left subphrenic space",
+    "similarity_score": 0.812731,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right minor fissure",
+    "similarity_score": 0.812703,
+    "source": "input_filtered"
+  },
+  {
+    "term": "hypervolemic pulmonary edema",
+    "similarity_score": 0.812692,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right lower lobe superior segment artery",
+    "similarity_score": 0.812379,
+    "source": "input_filtered"
+  },
+  {
+    "term": "left upper lobe apical segment artery",
+    "similarity_score": 0.812356,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right atrium",
+    "similarity_score": 0.812307,
+    "source": "input_filtered"
+  },
+  {
+    "term": "postoperative change",
+    "similarity_score": 0.812258,
+    "source": "input_filtered"
+  },
+  {
+    "term": "thymic wave sign (EN)",
+    "similarity_score": 0.812154,
+    "source": "input_filtered"
+  },
+  {
+    "term": "postvertebral muscle",
+    "similarity_score": 0.812062,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pericardial recess",
+    "similarity_score": 0.811941,
+    "source": "input_filtered"
+  },
+  {
+    "term": "T3 vertebral body",
+    "similarity_score": 0.811727,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Pleurapunktion",
+    "similarity_score": 0.811459,
+    "source": "input_filtered"
+  },
+  {
+    "term": "ossification",
+    "similarity_score": 0.811406,
+    "source": "input_filtered"
+  },
+  {
+    "term": "symmetric liver sign",
+    "similarity_score": 0.811157,
+    "source": "input_filtered"
+  },
+  {
+    "term": "transhepatic tube revision",
+    "similarity_score": 0.811069,
+    "source": "input_filtered"
+  },
+  {
+    "term": "single bubble sign",
+    "similarity_score": 0.810898,
+    "source": "input_filtered"
+  },
+  {
+    "term": "lumbar hernia",
+    "similarity_score": 0.810893,
+    "source": "input_filtered"
+  },
+  {
+    "term": "sandwich vertebrae",
+    "similarity_score": 0.810865,
+    "source": "input_filtered"
+  },
+  {
+    "term": "bird's beak sign of esophagus",
+    "similarity_score": 0.810713,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pleural retraction",
+    "similarity_score": 0.810675,
+    "source": "input_filtered"
+  },
+  {
+    "term": "viral pneumonia",
+    "similarity_score": 0.810669,
+    "source": "input_filtered"
+  },
+  {
+    "term": "spinal epidural space",
+    "similarity_score": 0.810355,
+    "source": "input_filtered"
+  },
+  {
+    "term": "thrombus",
+    "similarity_score": 0.810079,
+    "source": "input_filtered"
+  },
+  {
+    "term": "nucleus interstitialis",
+    "similarity_score": 0.809801,
+    "source": "input_filtered"
+  },
+  {
+    "term": "lambda sign of aorta",
+    "similarity_score": 0.809737,
+    "source": "input_filtered"
+  },
+  {
+    "term": "air embolism",
+    "similarity_score": 0.809706,
+    "source": "input_filtered"
+  },
+  {
+    "term": "thrombosis",
+    "similarity_score": 0.809514,
+    "source": "input_filtered"
+  },
+  {
+    "term": "halo sign of lung",
+    "similarity_score": 0.809466,
+    "source": "input_filtered"
+  },
+  {
+    "term": "renal failure",
+    "similarity_score": 0.809379,
+    "source": "input_filtered"
+  },
+  {
+    "term": "left superior segmental bronchus",
+    "similarity_score": 0.809209,
+    "source": "input_filtered"
+  },
+  {
+    "term": "thoracic vertebral column",
+    "similarity_score": 0.809044,
+    "source": "input_filtered"
+  },
+  {
+    "term": "focal nodular hyperplasia",
+    "similarity_score": 0.808653,
+    "source": "input_filtered"
+  },
+  {
+    "term": "epicardial pacemaker wire",
+    "similarity_score": 0.808541,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pneumatocele",
+    "similarity_score": 0.808447,
+    "source": "input_filtered"
+  },
+  {
+    "term": "tracheoesophageal fistula",
+    "similarity_score": 0.808168,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Terson syndrome",
+    "similarity_score": 0.808085,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Lungenhauptarterie",
+    "similarity_score": 0.808069,
+    "source": "input_filtered"
+  },
+  {
+    "term": "mucosal surface",
+    "similarity_score": 0.80792,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pleural tail",
+    "similarity_score": 0.807717,
+    "source": "input_filtered"
+  },
+  {
+    "term": "posterior ends of ribs",
+    "similarity_score": 0.807699,
+    "source": "input_filtered"
+  },
+  {
+    "term": "first mediastinal artery",
+    "similarity_score": 0.807504,
+    "source": "input_filtered"
+  },
+  {
+    "term": "posterior segmental bronchus",
+    "similarity_score": 0.807389,
+    "source": "input_filtered"
+  },
+  {
+    "term": "heart failure",
+    "similarity_score": 0.807321,
+    "source": "input_filtered"
+  },
+  {
+    "term": "posterior longitudinal ligament",
+    "similarity_score": 0.807292,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Inferiores Lungenligament",
+    "similarity_score": 0.807253,
+    "source": "input_filtered"
+  },
+  {
+    "term": "hypertrophy",
+    "similarity_score": 0.807246,
+    "source": "input_filtered"
+  },
+  {
+    "term": "disorder of spinal cord",
+    "similarity_score": 0.807218,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right upper lobe artery",
+    "similarity_score": 0.807186,
+    "source": "input_filtered"
+  },
+  {
+    "term": "catheter angiography",
+    "similarity_score": 0.806736,
+    "source": "input_filtered"
+  },
+  {
+    "term": "rocker-bottom thymus sign (EN)",
+    "similarity_score": 0.806687,
+    "source": "input_filtered"
+  },
+  {
+    "term": "smooth muscle tissue",
+    "similarity_score": 0.806662,
+    "source": "input_filtered"
+  },
+  {
+    "term": "core needle",
+    "similarity_score": 0.806605,
+    "source": "input_filtered"
+  },
+  {
+    "term": "liver disorder",
+    "similarity_score": 0.80645,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Pseudoplaque",
+    "similarity_score": 0.806373,
+    "source": "input_filtered"
+  },
+  {
+    "term": "diaphragmatic pleura",
+    "similarity_score": 0.806301,
+    "source": "input_filtered"
+  },
+  {
+    "term": "posterior segment of upper lobe of right lung",
+    "similarity_score": 0.806243,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right spinotectal tract of spinal cord",
+    "similarity_score": 0.806103,
+    "source": "input_filtered"
+  },
+  {
+    "term": "superior mediastinal lymph node",
+    "similarity_score": 0.806069,
+    "source": "input_filtered"
+  },
+  {
+    "term": "mediastinal pleura",
+    "similarity_score": 0.80599,
+    "source": "input_filtered"
+  },
+  {
+    "term": "dome of diaphragm",
+    "similarity_score": 0.805896,
+    "source": "input_filtered"
+  },
+  {
+    "term": "injector",
+    "similarity_score": 0.805561,
+    "source": "input_filtered"
+  },
+  {
+    "term": "left coronary artery",
+    "similarity_score": 0.805404,
+    "source": "input_filtered"
+  },
+  {
+    "term": "t5 segment of lateral gray column of spinal cord",
+    "similarity_score": 0.805342,
+    "source": "input_filtered"
+  },
+  {
+    "term": "3 or more spinal levels",
+    "similarity_score": 0.805264,
+    "source": "input_filtered"
+  },
+  {
+    "term": "ulcer",
+    "similarity_score": 0.80511,
+    "source": "input_filtered"
+  },
+  {
+    "term": "organ point sign",
+    "similarity_score": 0.805091,
+    "source": "input_filtered"
+  },
+  {
+    "term": "giant cell tumor",
+    "similarity_score": 0.805017,
+    "source": "input_filtered"
+  },
+  {
+    "term": "PET-CT",
+    "similarity_score": 0.804958,
+    "source": "input_filtered"
+  },
+  {
+    "term": "posterior root of spinal nerve",
+    "similarity_score": 0.804926,
+    "source": "input_filtered"
+  },
+  {
+    "term": "posterior basal segment of lower lobe of left lung",
+    "similarity_score": 0.804814,
+    "source": "input_filtered"
+  },
+  {
+    "term": "left spinotectal tract of spinal cord",
+    "similarity_score": 0.804608,
+    "source": "input_filtered"
+  },
+  {
+    "term": "posterior mediastinal space",
+    "similarity_score": 0.8046,
+    "source": "input_filtered"
+  },
+  {
+    "term": "incomplete fissure sign",
+    "similarity_score": 0.804523,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right bronchial tree",
+    "similarity_score": 0.804403,
+    "source": "input_filtered"
+  },
+  {
+    "term": "vertebral fade-off sign",
+    "similarity_score": 0.804272,
+    "source": "input_filtered"
+  },
+  {
+    "term": "diaphyseal fracture",
+    "similarity_score": 0.804259,
+    "source": "input_filtered"
+  },
+  {
+    "term": "peripheral vascular disease",
+    "similarity_score": 0.804234,
+    "source": "input_filtered"
+  },
+  {
+    "term": "rami pulmonales thoracici ganglionum thoracicorum",
+    "similarity_score": 0.804108,
+    "source": "input_filtered"
+  },
+  {
+    "term": "posterior ends of lower ribs",
+    "similarity_score": 0.804082,
+    "source": "input_filtered"
+  },
+  {
+    "term": "infarction",
+    "similarity_score": 0.804069,
+    "source": "input_filtered"
+  },
+  {
+    "term": "dental device",
+    "similarity_score": 0.804029,
+    "source": "input_filtered"
+  },
+  {
+    "term": "horizontal fissure of right lung",
+    "similarity_score": 0.803951,
+    "source": "input_filtered"
+  },
+  {
+    "term": "abscess",
+    "similarity_score": 0.803949,
+    "source": "input_filtered"
+  },
+  {
+    "term": "anatomical cavity",
+    "similarity_score": 0.803937,
+    "source": "input_filtered"
+  },
+  {
+    "term": "posterior ramus of spinal nerve",
+    "similarity_score": 0.803662,
+    "source": "input_filtered"
+  },
+  {
+    "term": "endovascular device",
+    "similarity_score": 0.80363,
+    "source": "input_filtered"
+  },
+  {
+    "term": "cardiac blur sign (EN)",
+    "similarity_score": 0.803548,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pneumomediastinum",
+    "similarity_score": 0.803537,
+    "source": "input_filtered"
+  },
+  {
+    "term": "anterior sulcus sign",
+    "similarity_score": 0.803376,
+    "source": "input_filtered"
+  },
+  {
+    "term": "subphrenic space",
+    "similarity_score": 0.803342,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right middle lobe bronchus",
+    "similarity_score": 0.802836,
+    "source": "input_filtered"
+  },
+  {
+    "term": "iliac spine",
+    "similarity_score": 0.802832,
+    "source": "input_filtered"
+  },
+  {
+    "term": "nucleus anterolateralis medullae spinalis",
+    "similarity_score": 0.802779,
+    "source": "input_filtered"
+  },
+  {
+    "term": "esophageal constriction by arch of aorta",
+    "similarity_score": 0.802738,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pars posterior faciei diaphragmaticae hepatis",
+    "similarity_score": 0.80268,
+    "source": "input_filtered"
+  },
+  {
+    "term": "left lower lobe lateral segment artery",
+    "similarity_score": 0.802656,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Vena trachealis",
+    "similarity_score": 0.802524,
+    "source": "input_filtered"
+  },
+  {
+    "term": "mucosal stripe sign",
+    "similarity_score": 0.802498,
+    "source": "input_filtered"
+  },
+  {
+    "term": "nucleus emboliformis",
+    "similarity_score": 0.802486,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pulmonaler Lobulus",
+    "similarity_score": 0.802325,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Foramina vertebralia",
+    "similarity_score": 0.802303,
+    "source": "input_filtered"
+  },
+  {
+    "term": "descending aorta",
+    "similarity_score": 0.802116,
+    "source": "input_filtered"
+  },
+  {
+    "term": "eosinophilic granuloma",
+    "similarity_score": 0.802084,
+    "source": "input_filtered"
+  },
+  {
+    "term": "kinky chest tube sign (EN)",
+    "similarity_score": 0.80206,
+    "source": "input_filtered"
+  },
+  {
+    "term": "nodular hyperplasia",
+    "similarity_score": 0.801974,
+    "source": "input_filtered"
+  },
+  {
+    "term": "irregular mass",
+    "similarity_score": 0.801875,
+    "source": "input_filtered"
+  },
+  {
+    "term": "progressive massive fibrosis",
+    "similarity_score": 0.801856,
+    "source": "input_filtered"
+  },
+  {
+    "term": "compression fracture",
+    "similarity_score": 0.801797,
+    "source": "input_filtered"
+  },
+  {
+    "term": "aortic dissection",
+    "similarity_score": 0.801658,
+    "source": "input_filtered"
+  },
+  {
+    "term": "left mediastinal artery",
+    "similarity_score": 0.801632,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Middle-Aortic-Syndrome",
+    "similarity_score": 0.80162,
+    "source": "input_filtered"
+  },
+  {
+    "term": "facet joint of spine",
+    "similarity_score": 0.801561,
+    "source": "input_filtered"
+  },
+  {
+    "term": "luminal narrowing",
+    "similarity_score": 0.801385,
+    "source": "input_filtered"
+  },
+  {
+    "term": "infectious complication",
+    "similarity_score": 0.801291,
+    "source": "input_filtered"
+  },
+  {
+    "term": "esophageal tube displacement sign",
+    "similarity_score": 0.801218,
+    "source": "input_filtered"
+  },
+  {
+    "term": "hangman fracture",
+    "similarity_score": 0.801175,
+    "source": "input_filtered"
+  },
+  {
+    "term": "tissue space",
+    "similarity_score": 0.800979,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right pericardial artery",
+    "similarity_score": 0.800752,
+    "source": "input_filtered"
+  },
+  {
+    "term": "transient osteoporosis",
+    "similarity_score": 0.800738,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right middle pulmonary vein",
+    "similarity_score": 0.800707,
+    "source": "input_filtered"
+  },
+  {
+    "term": "brachytherapy catheter",
+    "similarity_score": 0.800689,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pancreatitis",
+    "similarity_score": 0.800676,
+    "source": "input_filtered"
+  },
+  {
+    "term": "vascular plethora sign",
+    "similarity_score": 0.800384,
+    "source": "input_filtered"
+  },
+  {
+    "term": "T6 vertebral body",
+    "similarity_score": 0.800362,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right upper lobe posterior segment artery",
+    "similarity_score": 0.8003,
+    "source": "input_filtered"
+  },
+  {
+    "term": "sacral segment of spinal cord",
+    "similarity_score": 0.80025,
+    "source": "input_filtered"
+  },
+  {
+    "term": "ascending aorta",
+    "similarity_score": 0.799985,
+    "source": "input_filtered"
+  },
+  {
+    "term": "spine proper of scapula",
+    "similarity_score": 0.799767,
+    "source": "input_filtered"
+  },
+  {
+    "term": "popcorn calcification sign",
+    "similarity_score": 0.799724,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Nucleus reticularis spinalis",
+    "similarity_score": 0.799691,
+    "source": "input_filtered"
+  },
+  {
+    "term": "cavity of brain",
+    "similarity_score": 0.799494,
+    "source": "input_filtered"
+  },
+  {
+    "term": "jet sign",
+    "similarity_score": 0.799478,
+    "source": "input_filtered"
+  },
+  {
+    "term": "posterior ends of upper ribs",
+    "similarity_score": 0.799446,
+    "source": "input_filtered"
+  },
+  {
+    "term": "T12 vertebral body",
+    "similarity_score": 0.799438,
+    "source": "input_filtered"
+  },
+  {
+    "term": "interstitial space",
+    "similarity_score": 0.799432,
+    "source": "input_filtered"
+  },
+  {
+    "term": "endocavitary linear transducer",
+    "similarity_score": 0.799415,
+    "source": "input_filtered"
+  },
+  {
+    "term": "scallop sign of pleura (EN)",
+    "similarity_score": 0.799377,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pseudo-osteoarthritis",
+    "similarity_score": 0.799365,
+    "source": "input_filtered"
+  },
+  {
+    "term": "non-sclerotic",
+    "similarity_score": 0.79928,
+    "source": "input_filtered"
+  },
+  {
+    "term": "body of scapula",
+    "similarity_score": 0.799204,
+    "source": "input_filtered"
+  },
+  {
+    "term": "splint",
+    "similarity_score": 0.799096,
+    "source": "input_filtered"
+  },
+  {
+    "term": "thoracic aorta",
+    "similarity_score": 0.798937,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pediatric filter",
+    "similarity_score": 0.798934,
+    "source": "input_filtered"
+  },
+  {
+    "term": "vascular loop compression",
+    "similarity_score": 0.798799,
+    "source": "input_filtered"
+  },
+  {
+    "term": "posterior basal segment of lower lobe of right lung",
+    "similarity_score": 0.798745,
+    "source": "input_filtered"
+  },
+  {
+    "term": "restrictive cardiomyopathy",
+    "similarity_score": 0.798723,
+    "source": "input_filtered"
+  },
+  {
+    "term": "lumbar vertebral body",
+    "similarity_score": 0.798711,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right thymic artery",
+    "similarity_score": 0.798699,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right coronary artery",
+    "similarity_score": 0.798551,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Arteria bronchialis",
+    "similarity_score": 0.798509,
+    "source": "input_filtered"
+  },
+  {
+    "term": "sepsis",
+    "similarity_score": 0.798461,
+    "source": "input_filtered"
+  },
+  {
+    "term": "lumbar segment of spinal cord",
+    "similarity_score": 0.79839,
+    "source": "input_filtered"
+  },
+  {
+    "term": "cardiogenic pulmonary edema",
+    "similarity_score": 0.798375,
+    "source": "input_filtered"
+  },
+  {
+    "term": "lumbosacral enlargement of spinal cord",
+    "similarity_score": 0.798325,
+    "source": "input_filtered"
+  },
+  {
+    "term": "sonographic bull's-eye sign",
+    "similarity_score": 0.798241,
+    "source": "input_filtered"
+  },
+  {
+    "term": "contrast bubble sign (EN)",
+    "similarity_score": 0.798135,
+    "source": "input_filtered"
+  },
+  {
+    "term": "floating viscera sign (EN)",
+    "similarity_score": 0.797953,
+    "source": "input_filtered"
+  },
+  {
+    "term": "intervertebral foramen",
+    "similarity_score": 0.797876,
+    "source": "input_filtered"
+  },
+  {
+    "term": "multiple lesions",
+    "similarity_score": 0.797848,
+    "source": "input_filtered"
+  },
+  {
+    "term": "intrabronchial",
+    "similarity_score": 0.797835,
+    "source": "input_filtered"
+  },
+  {
+    "term": "diagnosis",
+    "similarity_score": 0.797796,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right-to-left shunt",
+    "similarity_score": 0.79772,
+    "source": "input_filtered"
+  },
+  {
+    "term": "deformity",
+    "similarity_score": 0.797612,
+    "source": "input_filtered"
+  },
+  {
+    "term": "conoid ligament",
+    "similarity_score": 0.797557,
+    "source": "input_filtered"
+  },
+  {
+    "term": "contrast agent",
+    "similarity_score": 0.797487,
+    "source": "input_filtered"
+  },
+  {
+    "term": "airway ectasia",
+    "similarity_score": 0.797486,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Obere linke Pulmonalvene",
+    "similarity_score": 0.797419,
+    "source": "input_filtered"
+  },
+  {
+    "term": "left pulmonic vein recess",
+    "similarity_score": 0.797395,
+    "source": "input_filtered"
+  },
+  {
+    "term": "fat necrosis",
+    "similarity_score": 0.797163,
+    "source": "input_filtered"
+  },
+  {
+    "term": "focal skin thickening",
+    "similarity_score": 0.797129,
+    "source": "input_filtered"
+  },
+  {
+    "term": "t9 segment of lateral gray column of spinal cord",
+    "similarity_score": 0.79711,
+    "source": "input_filtered"
+  },
+  {
+    "term": "bone marrow",
+    "similarity_score": 0.797061,
+    "source": "input_filtered"
+  },
+  {
+    "term": "rootlet of spinal nerve",
+    "similarity_score": 0.796977,
+    "source": "input_filtered"
+  },
+  {
+    "term": "t4 segment of lateral gray column of spinal cord",
+    "similarity_score": 0.796887,
+    "source": "input_filtered"
+  },
+  {
+    "term": "antero-septal wall of left ventricle",
+    "similarity_score": 0.796824,
+    "source": "input_filtered"
+  },
+  {
+    "term": "sacral segment of spinal epidural space",
+    "similarity_score": 0.796806,
+    "source": "input_filtered"
+  },
+  {
+    "term": "lumbosacral spine",
+    "similarity_score": 0.796765,
+    "source": "input_filtered"
+  },
+  {
+    "term": "cardiac double density sign (EN)",
+    "similarity_score": 0.796736,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Lung-RADS 2",
+    "similarity_score": 0.796664,
+    "source": "input_filtered"
+  },
+  {
+    "term": "medullary ray",
+    "similarity_score": 0.796622,
+    "source": "input_filtered"
+  },
+  {
+    "term": "spine proper of left scapula",
+    "similarity_score": 0.796439,
+    "source": "input_filtered"
+  },
+  {
+    "term": "left pericardial artery",
+    "similarity_score": 0.796311,
+    "source": "input_filtered"
+  },
+  {
+    "term": "lateral basal segment of lower lobe of left lung",
+    "similarity_score": 0.79631,
+    "source": "input_filtered"
+  },
+  {
+    "term": "saber sheath trachea sign",
+    "similarity_score": 0.796303,
+    "source": "input_filtered"
+  },
+  {
+    "term": "lung clearance",
+    "similarity_score": 0.796203,
+    "source": "input_filtered"
+  },
+  {
+    "term": "lobe of lung",
+    "similarity_score": 0.796193,
+    "source": "input_filtered"
+  },
+  {
+    "term": "left upper lobe bronchus",
+    "similarity_score": 0.796132,
+    "source": "input_filtered"
+  },
+  {
+    "term": "edema",
+    "similarity_score": 0.796089,
+    "source": "nih_chestxray14_seed"
+  },
+  {
+    "term": "post-myocardial infarction septal defect",
+    "similarity_score": 0.796087,
+    "source": "input_filtered"
+  },
+  {
+    "term": "solid component of part-solid pulmonary nodule",
+    "similarity_score": 0.79608,
+    "source": "input_filtered"
+  },
+  {
+    "term": "fluid",
+    "similarity_score": 0.796051,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right lower lobe lateral segment artery",
+    "similarity_score": 0.796018,
+    "source": "input_filtered"
+  },
+  {
+    "term": "comet sign",
+    "similarity_score": 0.795945,
+    "source": "input_filtered"
+  },
+  {
+    "term": "fat embolism",
+    "similarity_score": 0.795938,
+    "source": "input_filtered"
+  },
+  {
+    "term": "diffuse intimal thickening",
+    "similarity_score": 0.795752,
+    "source": "input_filtered"
+  },
+  {
+    "term": "subpleural curvilinear line",
+    "similarity_score": 0.795688,
+    "source": "input_filtered"
+  },
+  {
+    "term": "t2 segment of esophagus",
+    "similarity_score": 0.795659,
+    "source": "input_filtered"
+  },
+  {
+    "term": "arthroplasty implant device",
+    "similarity_score": 0.795631,
+    "source": "input_filtered"
+  },
+  {
+    "term": "injury",
+    "similarity_score": 0.795628,
+    "source": "input_filtered"
+  },
+  {
+    "term": "organ cavity",
+    "similarity_score": 0.795626,
+    "source": "input_filtered"
+  },
+  {
+    "term": "fat ring sign",
+    "similarity_score": 0.795615,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right apical segmental bronchus",
+    "similarity_score": 0.795605,
+    "source": "input_filtered"
+  },
+  {
+    "term": "pars anterior faciei diaphragmaticae hepatis",
+    "similarity_score": 0.795592,
+    "source": "input_filtered"
+  },
+  {
+    "term": "left bronchial tree",
+    "similarity_score": 0.795521,
+    "source": "input_filtered"
+  },
+  {
+    "term": "intraaortic balloon pump",
+    "similarity_score": 0.795515,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Truncus arteriosus",
+    "similarity_score": 0.795289,
+    "source": "input_filtered"
+  },
+  {
+    "term": "posterior pericardial recess",
+    "similarity_score": 0.795249,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right pulmonary ligament",
+    "similarity_score": 0.795226,
+    "source": "input_filtered"
+  },
+  {
+    "term": "drooping shoulder sign",
+    "similarity_score": 0.795132,
+    "source": "input_filtered"
+  },
+  {
+    "term": "amorphous calcification",
+    "similarity_score": 0.794767,
+    "source": "input_filtered"
+  },
+  {
+    "term": "fasciculus cuneatus of spinal cord",
+    "similarity_score": 0.794741,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Drainagegerät",
+    "similarity_score": 0.794729,
+    "source": "input_filtered"
+  },
+  {
+    "term": "lateral segmental bronchus",
+    "similarity_score": 0.794518,
+    "source": "input_filtered"
+  },
+  {
+    "term": "medial segmental bronchus",
+    "similarity_score": 0.794513,
+    "source": "input_filtered"
+  },
+  {
+    "term": "medial longitudinal fasciculus of spinal cord",
+    "similarity_score": 0.794373,
+    "source": "input_filtered"
+  },
+  {
+    "term": "tuberculosis",
+    "similarity_score": 0.794352,
+    "source": "input_filtered"
+  },
+  {
+    "term": "degenerative Spondylolisthese",
+    "similarity_score": 0.794257,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Respiratorische Bronchiole",
+    "similarity_score": 0.794217,
+    "source": "input_filtered"
+  },
+  {
+    "term": "linker Eileiter",
+    "similarity_score": 0.794167,
+    "source": "input_filtered"
+  },
+  {
+    "term": "left tectospinal tract of spinal cord",
+    "similarity_score": 0.794024,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Erdheim-Chester disease",
+    "similarity_score": 0.794023,
+    "source": "input_filtered"
+  },
+  {
+    "term": "tomography",
+    "similarity_score": 0.794009,
+    "source": "input_filtered"
+  },
+  {
+    "term": "B line",
+    "similarity_score": 0.79397,
+    "source": "input_filtered"
+  },
+  {
+    "term": "catheter removal",
+    "similarity_score": 0.793918,
+    "source": "input_filtered"
+  },
+  {
+    "term": "t3 segment of left lateral gray column of spinal cord",
+    "similarity_score": 0.79388,
+    "source": "input_filtered"
+  },
+  {
+    "term": "diaphragm navigator echo",
+    "similarity_score": 0.793849,
+    "source": "input_filtered"
+  },
+  {
+    "term": "atypical small acinar proliferation",
+    "similarity_score": 0.793795,
+    "source": "input_filtered"
+  },
+  {
+    "term": "T11 vertebral body",
+    "similarity_score": 0.793752,
+    "source": "input_filtered"
+  },
+  {
+    "term": "sacral segment of right dorsal gray column of spinal cord",
+    "similarity_score": 0.793663,
+    "source": "input_filtered"
+  },
+  {
+    "term": "computed tomography",
+    "similarity_score": 0.793659,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Lung-RADS 1",
+    "similarity_score": 0.793624,
+    "source": "input_filtered"
+  },
+  {
+    "term": "ligamentum flavum",
+    "similarity_score": 0.793471,
+    "source": "input_filtered"
+  },
+  {
+    "term": "atherosclerosis",
+    "similarity_score": 0.793443,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Dura mater spinalis",
+    "similarity_score": 0.7934,
+    "source": "input_filtered"
+  },
+  {
+    "term": "t8 segment of lateral gray column of spinal cord",
+    "similarity_score": 0.793294,
+    "source": "input_filtered"
+  },
+  {
+    "term": "tracheal overlap sign (EN)",
+    "similarity_score": 0.793293,
+    "source": "input_filtered"
+  },
+  {
+    "term": "superior part proper of body of scapula",
+    "similarity_score": 0.793202,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Chronisch infiltrative Lungenerkrankung",
+    "similarity_score": 0.793111,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Lunge",
+    "similarity_score": 0.793031,
+    "source": "input_filtered"
+  },
+  {
+    "term": "repositioning pacemaker lead",
+    "similarity_score": 0.792997,
+    "source": "input_filtered"
+  },
+  {
+    "term": "surgical wire",
+    "similarity_score": 0.792796,
+    "source": "input_filtered"
+  },
+  {
+    "term": "right tectospinal tract of spinal cord",
+    "similarity_score": 0.792759,
+    "source": "input_filtered"
+  },
+  {
+    "term": "Sternum",
+    "similarity_score": 0.792732,
+    "source": "input_filtered"
+  },
+  {
+    "term": "proximal right coronary artery",
+    "similarity_score": 0.792671,
+    "source": "input_filtered"
+  },
+  {
+    "term": "trunk of spinal nerve",
+    "similarity_score": 0.792619,
+    "source": "input_filtered"
+  },
+  {
+    "term": "cutting balloon",
+    "similarity_score": 0.792431,
+    "source": "input_filtered"
+  },
+  {
+    "term": "mass",
+    "similarity_score": 0.781438,
+    "source": "nih_chestxray14_seed"
+  },
+  {
+    "term": "hernia",
+    "similarity_score": 0.778944,
+    "source": "nih_chestxray14_seed"
+  },
+  {
+    "term": "nodule",
+    "similarity_score": 0.753873,
+    "source": "nih_chestxray14_seed"
+  },
+  {
+    "term": "infiltration",
+    "similarity_score": 0.730293,
+    "source": "nih_chestxray14_seed"
+  }
 ]

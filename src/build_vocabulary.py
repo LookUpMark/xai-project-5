@@ -48,65 +48,91 @@ def encode_texts(
     return torch.cat(all_embeddings)  # (len(texts), 512)
 
 
-# Compute anchor centroid
-def compute_anchor_centroid(
+# Compute one centroid per clinically defined anchor group (hard-clustering)
+def compute_anchor_centroids(
     model,
     processor,
     vlm_config: VLMConfig,
     vocab_config: VocabularyConfig,
 ) -> torch.Tensor:
     """
-    Encode the CXR-specific anchor queries and return their L2-normalized 
-    mean embedding (the "relevance centroid").
+    Encode anchor queries grouped by clinical sub-domain and return
+    one L2-normalized centroid per group.
+
+    Groups are defined in VocabularyConfig.anchor_groups (hard-clustered
+    by clinical domain knowledge).  Within each group, the centroid is
+    the mean of semantically coherent anchors (e.g. all cardiac terms).
 
     Args:
         model: loaded BiomedCLIP model.
         processor: loaded BiomedCLIP processor.
         vlm_config (VLMConfig): model runtime parameters.
-        vocab_config (VocabularyConfig): vocabulary parameters (anchor queries).
+        vocab_config (VocabularyConfig): vocabulary parameters.
 
     Returns:
-        torch.Tensor: (1, 512) centroid vector.
+        torch.Tensor: (K, 512) cluster centroids, K = number of groups.
     """
-    anchor_embeddings = encode_texts(
-        texts=vocab_config.anchor_queries,
-        model=model,
-        processor=processor,
-        vlm_config=vlm_config
-    )  # (len(anchor_queries), 512)
+    centroids = []
+    total_anchors = 0
 
-    centroid = anchor_embeddings.mean(dim=0, keepdim=True)  # (1, 512)
-    centroid = centroid / centroid.norm(dim=-1, keepdim=True) # L2 norm
+    print(f"\nComputing {len(vocab_config.anchor_groups)} clinically defined "
+          f"centroids:\n")
 
-    print(f"Computed anchor centroid from {len(vocab_config.anchor_queries)} queries.")
-    return centroid
+    for group_name, queries in vocab_config.anchor_groups.items():
+        group_embeddings = encode_texts(
+            texts=queries,
+            model=model,
+            processor=processor,
+            vlm_config=vlm_config,
+        )  # (len(queries), 512)
+
+        centroid = group_embeddings.mean(dim=0)
+        centroid = centroid / centroid.norm()  # L2 normalize
+        centroids.append(centroid)
+        total_anchors += len(queries)
+
+        print(f"  {group_name} ({len(queries)} anchors):")
+        for q in queries:
+            print(f"    • {q}")
+
+    print(f"\n  Total: {total_anchors} anchors → "
+          f"{len(centroids)} centroids\n")
+
+    return torch.stack(centroids)  # (K, 512)
 
 
-# Ranking terms by cosine similarity to centroid
+# Ranking terms by max cosine similarity across macro-centroids
 def rank_terms_by_relevance(
     terms: List[str],
     term_embeddings: torch.Tensor,
-    centroid: torch.Tensor,
+    anchor_centroids: torch.Tensor,
 ) -> List[Tuple[str, float]]:
     """
-    Compute cosine similarity between each term embedding and the anchor 
-    centroid, return terms sorted by descending similarity.
+    Rank terms by their maximum cosine similarity to any of the clinically 
+    defined macro-centroids.
+
+    Each term is compared to the K pre-defined centroids. The score is the maximum
+    similarity across these macro-centroids: a term is deemed relevant if it
+    belongs to at least one of the clinical sub-domains.
 
     Args:
         terms: list of term strings (same order as embeddings rows).
         term_embeddings: (N, 512) tensor of term embeddings.
-        centroid: (1, 512) anchor centroid.
+        anchor_centroids: (K, 512) tensor of clustered macro-centroids.
 
     Returns:
-        List[Tuple[str, float]]: (term, similarity_score) sorted desc.
+        List[Tuple[str, float]]: (term, max_similarity_score) sorted desc.
     """
-    # cosine similarity
-    similarities = (term_embeddings @ centroid.T).squeeze(1)  # (N,)
+    # (N, 512) @ (512, K) → (N, K)
+    similarity_matrix = term_embeddings @ anchor_centroids.T
+
+    # Max similarity across the K macro-centroids for each term → (N,)
+    max_similarities = similarity_matrix.max(dim=1).values
 
     # Sort descending
-    sorted_indices = similarities.argsort(descending=True)
+    sorted_indices = max_similarities.argsort(descending=True)
     ranked = [
-        (terms[idx.item()], similarities[idx].item())
+        (terms[idx.item()], max_similarities[idx].item())
         for idx in sorted_indices
     ]
     return ranked
@@ -242,8 +268,8 @@ def build_vocabulary_pipeline(
     Full vocabulary building pipeline:
         1. Inject missing NIH seed terms into the input term list
         2. Encode all terms with BiomedCLIP text encoder
-        3. Compute anchor centroid from CXR-specific queries
-        4. Rank terms by cosine similarity to centroid
+        3. Compute clinically defined macro-centroids (hard-clustering)
+        4. Rank terms by max cosine similarity to any macro-centroid
         5. Select top-k input terms + NIH seed terms
         6. Save vocabulary JSON and embeddings
 
@@ -270,11 +296,13 @@ def build_vocabulary_pipeline(
         vlm_config=vlm_config,
     )
 
-    # Compute anchor centroid (only using CSV terms)
-    centroid = compute_anchor_centroid(model, processor, vlm_config, vocab_config)
+    # Compute clinically defined macro-centroids
+    anchor_centroids = compute_anchor_centroids(
+        model, processor, vlm_config, vocab_config,
+    )
 
-    # Rank by relevance
-    ranked_terms = rank_terms_by_relevance(all_terms, all_embeddings, centroid)
+    # Rank by max-similarity to any centroid (multi-centroid filtering)
+    ranked_terms = rank_terms_by_relevance(all_terms, all_embeddings, anchor_centroids)
 
     # Preview top-10
     print("\nTop-10 most CXR-relevant terms:")

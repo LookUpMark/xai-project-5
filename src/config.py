@@ -10,9 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List
-
-from typing import Optional
+from typing import Dict, List, Optional
 
 import torch
 
@@ -111,7 +109,7 @@ class VocabularyConfig:
     embeddings_output_path: str = "embeddings/text_vocab_embeddings.pt"
 
     # Filtering parameters
-    top_k: int = 300
+    top_k: int = 500
 
     # NIH ChestX-ray14 seed terms (always included in the final vocabulary)
     nih_seed_terms: List[str] = field(default_factory=lambda: [
@@ -131,29 +129,82 @@ class VocabularyConfig:
         "hernia",
     ])
 
-    # CXR-specific anchor queries used to compute the relevance centroid
-    anchor_queries: List[str] = field(default_factory=lambda: [
-        "chest radiograph finding",
-        "lung pathology",
-        "cardiac abnormality",
-        "pleural abnormality",
-        "pulmonary opacity",
-        "mediastinal finding",
-        "thoracic abnormality",
-        "airspace disease",
-        "interstitial lung disease",
-        "chest x-ray diagnosis",
-        "cardiopulmonary finding",
-        "vascular abnormality of the chest",
-        "bone abnormality on chest radiograph",
-        "lung mass or nodule",
-        "pleural effusion finding",
-        "pneumothorax finding",
-        "pulmonary edema",
-        "chest wall abnormality",
-        "diaphragmatic abnormality",
-        "hilar abnormality",
-    ])
+    # Hard-clustered anchor groups for multi-centroid vocabulary filtering.
+    # Each key is a clinical sub-domain; its values are the anchor queries
+    # whose mean embedding will form that domain's centroid.
+    # 39 anchors across 13 clinically distinct groups.
+    anchor_groups: Dict[str, List[str]] = field(default_factory=lambda: {
+        "pulmonary_parenchymal": [
+            "pulmonary opacity",
+            "airspace disease",
+            "interstitial lung disease",
+            "lung mass",
+            "pulmonary edema",
+            "atelectasis",
+            "emphysema",
+            "pulmonary fibrosis",
+        ],
+        "pulmonary_infection": [
+            "pneumonia",
+            "lung consolidation",
+            "calcified granuloma",
+        ],
+        "cardiac": [
+            "cardiac abnormality",
+            "cardiomegaly",
+            "pericardial effusion",
+        ],
+        "pleural": [
+            "pleural abnormality",
+            "pleural effusion",
+            "pneumothorax",
+        ],
+        "mediastinal": [
+            "mediastinal abnormality",
+            "hilar abnormality",
+            "mediastinal lymphadenopathy",
+        ],
+        "vascular": [
+            "pulmonary vascular congestion",
+            "aortic abnormality",
+            "vascular calcification",
+        ],
+        "airway": [
+            "tracheal deviation",
+            "bronchial abnormality",
+        ],
+        "skeletal": [
+            "rib fracture",
+            "spinal degenerative change",
+            "scoliosis",
+        ],
+        "diaphragm": [
+            "diaphragmatic abnormality",
+            "elevated hemidiaphragm",
+        ],
+        "soft_tissue": [
+            "chest wall abnormality",
+            "soft tissue abnormality",
+        ],
+        "medical_devices": [
+            "support device",
+            "endotracheal tube",
+            "central venous catheter",
+        ],
+        "post_surgical": [
+            "post-surgical change",
+            "median sternotomy",
+        ],
+        "normal_findings": [
+            "normal chest radiograph",
+            "no acute cardiopulmonary abnormality",
+        ],
+    })
+
+    @property
+    def anchor_queries(self) -> List[str]:
+        """Flat list of all anchor queries (for backward compatibility)."""
+        return [q for group in self.anchor_groups.values() for q in group]
 
     @property
     def input_csv(self) -> Path:

@@ -8,6 +8,7 @@ Report cumulativo delle ablation. Una sezione per notebook, aggiornata ad ogni r
 - [Ablation 01 — Dictionary-Size Ladder (lr pinned)](#ablation-01--dictionary-size-ladder-lr-pinned)
 - [Ablation 02 — k (Sparsity) Sweep, null-calibrated](#ablation-02--k-sparsity-sweep-null-calibrated)
 - [Ablation 03 — Concept Baselines + Empirical Jaccard Floor](#ablation-03--concept-baselines--empirical-jaccard-floor)
+- [Ablation 04 — Activation-Family Bake-off (TopK vs BatchTopK vs JumpReLU)](#ablation-04--activation-family-bake-off-topk-vs-batchtopk-vs-jumprelu)
 
 ---
 
@@ -27,11 +28,12 @@ Report cumulativo delle ablation. Una sezione per notebook, aggiornata ad ogni r
 | **01** | "Il dizionario è troppo grande (4096 = 8× sovradimensionato)" | ❌ Per i dead sì, per la stabilità **no** |
 | **02** | "La sparsità k è sbagliata" | ⚠️ **Parziale** — c'è un debole sweet spot a k=16, non risolve |
 | **03** | "È il SAE a essere scarso, o è il pavimento del caso?" | ✅ **Pavimento del caso** — random fa uguale (0.0037 ≈ 0.0038) |
+| **04** | "È colpa di TopK? Proviamo famiglie diverse (BatchTopK, JumpReLU)" | ❌ dead% sì (BatchTopK meglio), stabilità **no** (consensus 0 per tutti) |
 
 **La conclusione d'insieme (onesta, negativa ma chiara):**
 1. Il 0.004 "preoccupante" del baseline **non è un fallimento** — è il **pavimento matematico del caso**. Due dizionari grandi e indipendenti si sovrappongono sempre per ~0.004 per pura probabilità, anche con numeri random (ab03 lo dimostra: random@4096 = 0.0037).
-2. L'instabilità **non si fixa** con iperparametri: né `dict_size` (ab01), né `k` (ab02) la risolvono.
-3. Cause profonde rimaste: **pochi campioni (5976) + non-unicità intrinseca del TopK SAE** su questo dataset. Roba strutturale, non un bug da parameter-tuning.
+2. L'instabilità **non si fixa** con iperparametri: né `dict_size` (ab01), né `k` (ab02), né la **famiglia di attivazione** (ab04: TopK/BatchTopK/JumpReLU tutte con consensus 0) la risolvono.
+3. Cause profonde rimaste: **pochi campioni (5976) + non-unicità intrinseca della decomposizione sparsa** su questo dataset (vale per TopK, BatchTopK e JumpReLU — non è specifica di TopK). Roba strutturale, non un bug da parameter-tuning. **ab04 chiude l'indagine**: cambiare il meccanismo centrale (la funzione di attivazione) non aiuta più di quanto aiuti cambiare dict_size o k.
 
 **Cosa quindi?** Accettare la seed-dipendenza come limite dichiarato del metodo, oppure aggregare i seed (model soup / consensus clustering con validazione). Il valore del SAE qui resta **strutturale**: sparsità garantita (solo 32 feature) + ricostruzione buona (0.988) + naming top-end sopra il caso.
 
@@ -602,3 +604,180 @@ Più atomi casuali = più probabilità che qualcuno allinei con `x` → ricostru
 - [../../results/ablation/a3_baselines.json](../../results/ablation/a3_baselines.json) — metriche complete
 - [../../results/figures/ablation/a3_comparison_table.png](../../results/figures/ablation/a3_comparison_table.png) — tabella SAE vs baseline
 - [../../results/figures/ablation/a3_jaccard_floor.png](../../results/figures/ablation/a3_jaccard_floor.png) — Random-Jaccard floor vs SAE 0.0038
+
+---
+
+# Ablation 04 — Activation-Family Bake-off (TopK vs BatchTopK vs JumpReLU)
+
+**Data run:** 2026-06-21
+**Macchina:** Linux / NVIDIA RTX 5070 Laptop, **device CUDA**
+**Notebook:** `notebooks/autoencoder/ablation/04_activation_bakeoff.ipynb` (run IDE, 29 celle)
+**Input:** `train_embeddings.pt` (5976) / `test_embeddings.pt` (1494), vocabolario RadLex **508 termini**
+**Config:** **3 famiglie di attivazione** addestrate a config **identico**: TopK (baseline), BatchTopK, JumpReLU. `dict_size=2048` (spazio indice condiviso), **lr=5e-5 pinned & matched** (elimina il confound lr ~8×), `steps=12000`, seeds `(0,42,123)`, `primary_seed=42`, naming **gap-corrected**.
+
+### In parole semplici
+
+> **La domanda.** Tutte le ablation finora usano TopK (il SAE del baseline). Forse il problema è proprio **TopK** — la sua regola "esattamente 32 feature per immagine" è rigida. Esistono famiglie alternative: **BatchTopK** (sceglie i top-k su tutto il batch, non per-sample → ogni immagine può usare più o meno feature) e **JumpReLU** (soglia imparata per-feature). Forse una di queste trova concetti più riproducibili? **BatchTopK e JumpReLU non sono mai state provate su VLM medici** — questa è la novità dell'ablation.
+>
+> **Cosa fa ab04.** Addestra le 3 famiglie a configurazione identica (stesso lr, stesso dizionario, stessi seed) e le confronta su ricostruzione, dead%, stabilità within-family, e soprattutto **consenso cross-famiglia**: quanti concetti vengono riscoperti da famiglie diverse?
+>
+> **Risultato.** L'ipotesi "BatchTopK/JumpReLU → più consenso e meno dead" è **MISTA/FALSIFICATA**:
+> - **dead%**: BatchTopK vince netto (4.8% vs 16% TopK vs 49% JumpReLU). ✓ per BatchTopK.
+> - **consenso**: **ZERO per tutti e tre** (0 cluster condivisi a τ=0.90). ✗
+> - Cross-famiglia: solo **2.8%** dei concetti è condiviso tra 2 famiglie, **0%** tra tutte e 3.
+> - Ricostruzione, naming, stabilità: **identiche** tra le famiglie (~0.99, ~0.40, ~0.005).
+>
+> **Conclusione: cambiare la funzione di attivazione non salva la riproducibilità.** dead% risponde alla famiglia (BatchTopK spreca meno), ma i concetti restano non riproducibili per tutti. È il test più profondo della serie: neanche toccare il meccanismo centrale aiuta.
+
+> **Ipotesi pre-registrata:** a lr matched, BatchTopK/JumpReLU danno **consensus-rate più alto** e **dead% più basso** di TopK, perché permettono alle feature di specializzarsi sui sample che le servono invece di forzare k=32 per sample.
+>
+> **Esito: MISTO/FALSIFICATO.** dead% ✓ BatchTopK (4.8%) molto meglio di TopK (16%); JumpReLU peggio (49%). MA consensus-rate **0 per tutti e tre** (τ=0.90). Ricostruzione/naming/stabilità ~identiche. Cross-famiglia: 2.8% condiviso tra 2 famiglie, 0% tra tutte e 3. La famiglia di attivazione modula dead%, NON la riproducibilità.
+
+---
+
+## 1. Cosa produce ogni fase
+
+| Fase | Output |
+|---|---|
+| Training | 3 famiglie × 3 seed = 9 SAE (12k step, lr=5e-5 matched) |
+| Per-famiglia metriche | recon cosine, MSE, L0 effettivo, dead%, entropia (test) |
+| Distribuzione L0 | istogramma per-sample (TopK=puntiforme a 32, altre=variabile) |
+| Within-family stability | Jaccard renormalizzato n=20 (3 seed per famiglia) |
+| Consensus reappearance | cluster direction-space τ=0.90, within-family (stesso algo a0/a1) |
+| **Cross-activation consensus** | pool 9 modelli, cluster τ=0.90, conta cluster che spannano ≥2 famiglie |
+| Naming | seed 42, gap-corrected, per famiglia |
+| Figures | 4 (`a4_effective_l0_distribution`, `a4_jumprelu_threshold_hist`, `a4_activation_comparison`, `a4_cross_activation_consensus`) |
+| Persist | `results/ablation/a4_activation.json` |
+
+---
+
+## 2. Risultati (3 seed, lr=5e-5 matched, dict=2048)
+
+### 2.1 Per-famiglia: ricostruzione, L0, dead%
+
+> **Cosa significa.** Le tre famiglie ricostruiscono **praticamente uguale** (~0.99). La grande differenza è i **dead%**: BatchTopK spreca pochissimo (4.8%), JumpReLU ne spreca metà (49% — la soglia imparata non converge bene a questo lr), TopK sta in mezzo (16%). L'L0 effettivo: TopK sempre 32 (rigido), BatchTopK ~38 (un po' di più), JumpReLU ~33.
+
+| Famiglia | recon cosine | L0 effettivo | dead% | util% |
+|---|---|---|---|---|
+| **TopK** | 0.9913 | 32.0 (rigido) | 16.0 | 84.4 |
+| **BatchTopK** | 0.9917 | ~38.3 | **4.8** | 95.2 |
+| **JumpReLU** | 0.9905 | ~33.4 | 48.8 | 51.2 |
+
+*(Baseline riferimento dict4096: recon 0.988, dead 44% — il TopK qui ha dead più basso perché dict=2048 + lr=5e-5.)*
+
+### 2.2 Within-family stability (Jaccard renormalizzato n=20, floor=0.00977)
+
+> **Cosa significa.** Per ciascuna famiglia, confrontiamo i 3 seed tra loro (quanto si somigliano?). Tutti e tre ~0.005, signal-to-null ~0.5×. **Le tre famiglie sono essenzialmente identiche sulla stabilità** — differenze 0.43–0.53× non significative. Nessuna famiglia è "più riproducibile".
+
+| Famiglia | mean Jaccard (n=20) | signal/null |
+|---|---|---|
+| TopK | 0.00477 | 0.49× |
+| BatchTopK | 0.00521 | 0.53× |
+| JumpReLU | 0.00419 | 0.43× |
+
+### 2.3 Consensus reappearance (direction-space, τ=0.90, within-family)
+
+> **Cosa significa.** Lo stesso test di ab00 (cluster di direzioni condivise tra seed), per ogni famiglia. **Zero per tutti.** Nessuna famiglia riscopre le stesse direzioni tra seed a τ=0.90.
+
+| Famiglia | pooled rows | cluster | consensus (≥2 seed) | rate |
+|---|---|---|---|---|
+| TopK | 6144 | 6144 | 0 | 0.000 |
+| BatchTopK | 6144 | 6144 | 0 | 0.000 |
+| JumpReLU | 6144 | 6144 | 0 | 0.000 |
+
+### 2.4 Cross-activation consensus (9 modelli, τ=0.90) — *il test chiave della novità*
+
+> **Cosa significa.** La domanda di novità: ci sono concetti che **famiglie diverse** riscoprono (non solo seed diversi della stessa famiglia)? Mettiamo insieme tutti i 9 modelli (3 famiglie × 3 seed) e cerchiamo cluster che toccano ≥2 famiglie. Risultato: **solo 2.8%** dei concetti è condiviso tra 2 famiglie, **0%** tra tutte e 3. Quasi tutte le direzioni sono specifiche della famiglia. Non esiste un "nucleo" di concetti universali che tutte le famiglie trovano.
+
+| Metrica | Valore |
+|---|---|
+| Pooled rows (9 modelli) | 18432 |
+| Cluster totali (τ=0.90) | 17936 |
+| Cluster che spannano ≥2 famiglie | 496 (**2.8%**) |
+| Cluster che spannano tutte e 3 | 0 (**0%**) |
+
+### 2.5 Naming (seed 42, gap-corrected)
+
+> **Cosa significa.** L'allineamento col vocabolario RadLex è **quasi identico** tra le famiglie (~0.40 medio, ~0.55–0.58 max). JumpReLU ha il naming max leggermente più alto (0.581). Top concept coerenti: anatomia vertebrale (ligamentum flavum, spinal stenosis), devices (core needle, shapeable wire tip). → Anche la qualità del naming per-feature è robusta alla famiglia di attivazione.
+
+| Famiglia | n_live | naming mean | naming max |
+|---|---|---|---|
+| TopK | 2048 | 0.4026 | 0.5489 |
+| BatchTopK | 2048 | 0.3969 | 0.5457 |
+| JumpReLU | 2048 | 0.3897 | **0.5812** |
+
+---
+
+## 3. Analisi
+
+### 3.1 dead% ✓ risponde alla famiglia — BatchTopK è il migliore
+> **Cosa significa.** L'unica parte dell'ipotesi che tiene: BatchTopK ha molti meno dead (4.8%) di TopK (16%). Ha senso: il top-(k·B) globale lascia specializzare le feature sui sample che le servono → meno spreco. JumpReLU invece peggiora (49% dead) — la sua soglia imparata non converge bene a lr=5e-5/12k step. **Ma attenzione**: questo riguarda l'efficienza del dizionario (spreco), NON la riproducibilità.
+
+BatchTopK 4.8% << TopK 16.0% << JumpReLU 48.8%. BatchTopK spreca meno (specializzazione globale); JumpReLU peggiora (threshold imparata non converge a lr=5e-5/12k). **Dead% risponde alla famiglia** — come in ab01 rispondeva a dict_size.
+
+### 3.2 Consensus ✗ ZERO per tutti — ipotesi falsificata
+> **Cosa significa.** L'ipotesi principale ("BatchTopK/JumpReLU più riproducibili") crolla: **tutte e tre le famiglie hanno 0 cluster condivisi** a τ=0.90. Cambiare la funzione di attivazione NON crea concetti più riproducibili. Il signal-to-null within-family è ~0.5× per tutti — identico. La stabilità è **invariante alla famiglia**.
+
+consensus-rate 0.000 per tutti (τ=0.90). signal-to-null within-family ~0.5× identico. **La famiglia di attivazione NON modula la riproducibilità** — a differenza di dead%, che modula.
+
+### 3.3 Cross-family: 2.8% condiviso, 0% universale
+> **Cosa significa.** Messo tutti i 9 modelli insieme: il 2.8% dei concetti è trovato da 2 famiglie (un segnale debole ma non zero), ma **nessun** concetto è trovato da tutte e 3. Le famiglie trovano per lo più direzioni diverse. Non esiste un "dizionario universale" latente che tutte scoprono.
+
+2.8% cluster span ≥2 famiglie, 0% span 3. Le famiglie sono quasi completamente disgiunte in spazio direzioni.
+
+### 3.4 Ricostruzione + naming identici tra famiglie
+> **Cosa significa.** Sugli assi "tecnici" (ricostruzione ~0.99, naming ~0.40) le tre famiglie sono **indistinguibili**. La scelta di famiglia non cambia la qualità tecnica né l'ancoraggio RadLex. Cambia solo dead% (efficienza) e il profilo L0 (TopK rigido, altre adattivo).
+
+recon 0.9905–0.9917, naming mean 0.39–0.40, max 0.55–0.58. **Identici entro rumore.**
+
+### 3.5 L0 adattivo = la novità reale (ma ininfluente sulla stabilità)
+> **Cosa significa.** La differenza visibile tra le famiglie è il **profilo L0**: TopK è un picco puntiforme a 32 (rigido), BatchTopK/JumpReLU hanno una distribuzione (ogni immagine usa un numero diverso di feature). È il comportamento "sparsità adattiva" non studiato su VLM medici. Però — non porta a concetti più riproducibili. La novità c'è, ma non risolve il problema centrale.
+
+TopK: L0=32 puntiforme. BatchTopK/JumpReLU: distribuzione di L0 per-sample (adattivo). **Comportamento nuovo su VLM medici**, ma ininfluente sulla riproducibilità.
+
+---
+
+## 4. Giudizio d'insieme: la famiglia non salva la riproducibilità
+
+| Domanda | Esito |
+|---|---|
+| Rubric (≥1 variante non-TopK)? | ✅ BatchTopK + JumpReLU |
+| BatchTopK/JumpReLU più riproducibili di TopK? | ❌ **No** — consensus 0 per tutti |
+| dead% più basso con famiglie alternative? | ⚠️ **Parziale** — BatchTopK sì (4.8%), JumpReLU no (49%) |
+| Esiste un nucleo di concetti universali tra famiglie? | ❌ **No** — 0% span 3 famiglie, 2.8% span 2 |
+| Ricostruzione/naming cambiano con la famiglia? | ❌ **No** — identici (~0.99, ~0.40) |
+
+**Verdetto cumulativo (ab00→ab04, chiusura dell'indagine):**
+1. ab04 è il **test più profondo**: cambia il meccanismo centrale (la funzione di attivazione), non un iperparametro. Neanche questo aiuta la riproducibilità.
+2. **dead% e stabilità sono disaccoppiate** (come in ab01): BatchTopK riduce i dead, ma i concetti restano non riproducibili. Essere "efficiente" ≠ essere "robusto".
+3. **Conferma strutturale definitiva:** l'instabilità non è dovuta a TopK, né a dict_size, né a k. È **strutturale** — pochi campioni (5976) + non-unicità della decomposizione sparsa (vale per tutte e 3 le famiglie).
+
+**Caveat onesti:**
+- **lr matched (5e-5):** elimina il confound lr ~8×, ma potrebbe sotto-addestrare TopK/BatchTopK (default ~2.8e-4). Confronto valido ma conservativo — da ri-verificare a lr family-tuned in un follow-up.
+- **JumpReLU 49% dead:** probabilmente lr/steps/warmup non ottimali per questa famiglia (nessun tuning per-famiglia). Non è un verdetto su JumpReLU in assoluto, solo a config matched.
+- **3 seed (non 5):** compute. Sufficienza per il trend, ma il consensus a 0 è già netto.
+
+**Conclusione dell'intero programma ablation (ab00→ab04):**
+- Il "0.004" del baseline è il **pavimento matematico del caso** (ab03), non un fallimento.
+- Non si fixa con dict_size (ab01), k (ab02), o famiglia di attivazione (ab04).
+- → **L'instabilità è un limite strutturale dichiarato** del metodo su questo dataset. Accettarlo come limite, o aggregare i seed (model soup / consensus a τ basso con validazione). Il valore del SAE resta **strutturale**: sparsità garantita + ricostruzione 0.99 + naming top-end sopra il caso.
+
+---
+
+## 5. Note di riproducibilità & stato
+- **Run IDE (2026-06-21 20:06):** 29 celle, 9 SAE addestrati (3 famiglie × 3 seed, 12k step). Artefatti: `a4_activation.json` (6.1 KB), 4 figure, modelli in `models/ablation_a4/{topk,batchtopk,jumprelu}_2048/sae_seed{N}/`.
+- **lr pinned 5e-5 matched:** elimina il confound lr (TopK/BatchTopK auto-scale ~2.8e-4 a dict2048; JumpReLU default 7e-5). Conservativo ma valido cross-famiglia.
+- **3 famiglie via `trainSAE` diretto** (non `SAEManager.train`, che hardcoda TopKTrainer). Loader bespoke per-famiglia (`AutoEncoderTopK`/`BatchTopKSAE`/`JumpReluAutoEncoder`); decoder-row extraction differisce (TopK/BatchTopK: `decoder.weight.T`; JumpReLU: `W_dec` già `(dict,act)`).
+- **`compute_stability` non usato:** hardcoda `AutoEncoderTopK` → crash su BatchTopK/JumpReLU. Jaccard riscritto standalone, renormalizzato a n=20 comune (hard rule #1: within-group, size costante).
+- **Dead% = activation-based** (feature mai non-zero sul test), standalone. Mai dal counter interno (soglia 10M step → bogus a 12k).
+- **Naming gap-corrected** per tutte e 3 (`W_dec -= gap`), apples-to-apples col baseline.
+
+## Riferimenti
+- [04_activation_bakeoff.ipynb](04_activation_bakeoff.ipynb) — notebook sorgente
+- [01_dict_size.ipynb](01_dict_size.ipynb) — ab01 (dead/stabilità disaccoppiate, stesso pattern)
+- [00_consensus.ipynb](00_consensus.ipynb) — ab00 (consensus direction-space ~0, stesso algo)
+- [../baseline/REPORT.md](../baseline/REPORT.md) — baseline (TopK reference)
+- [../../results/ablation/a4_activation.json](../../results/ablation/a4_activation.json) — metriche complete
+- [../../results/figures/ablation/a4_activation_comparison.png](../../results/figures/ablation/a4_activation_comparison.png) — bar comparison 4 metriche
+- [../../results/figures/ablation/a4_effective_l0_distribution.png](../../results/figures/ablation/a4_effective_l0_distribution.png) — distribuzione L0 per famiglia
+- [../../results/figures/ablation/a4_cross_activation_consensus.png](../../results/figures/ablation/a4_cross_activation_consensus.png) — cross-family consensus

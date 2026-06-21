@@ -6,6 +6,7 @@ Report cumulativo delle ablation. Una sezione per notebook, aggiornata ad ogni r
 - [Ablation 00 — Cross-Seed Consensus (direction-space)](#ablation-00--cross-seed-consensus-direction-space)
 - [Ablation 01 — Dictionary-Size Ladder (lr pinned)](#ablation-01--dictionary-size-ladder-lr-pinned)
 - [Ablation 02 — k (Sparsity) Sweep, null-calibrated](#ablation-02--k-sparsity-sweep-null-calibrated)
+- [Ablation 03 — Concept Baselines + Empirical Jaccard Floor](#ablation-03--concept-baselines--empirical-jaccard-floor)
 
 ---
 
@@ -377,6 +378,116 @@ k↑ → migliore ricostruzione (cosine 0.984→0.997, VE 0.968→0.994) e meno 
 - [01_dict_size.ipynb](01_dict_size.ipynb) — ab01 (dict_size non spiega instabilità)
 - [00_consensus.ipynb](00_consensus.ipynb) — ab00 (consensus direction-space ~0)
 - [../baseline/REPORT.md](../baseline/REPORT.md) — baseline (k=32, Jaccard 0.0039 ≈ null)
-- [../../results/ablation/a2_k_sweep.json](../../results/ablation/a2_k_sweep.json) — metriche complete (nota: tag a4)
+- [../../results/ablation/a2_k_sweep.json](../../results/ablation/a2_k_sweep.json) — metriche complete
 - [../../results/figures/ablation/a2_k_vs_stability.png](../../results/figures/ablation/a2_k_vs_stability.png) — k vs Jaccard/null/ratio
 - [../../results/figures/ablation/a2_pareto_front.png](../../results/figures/ablation/a2_pareto_front.png) — VE vs signal-to-null
+
+---
+
+# Ablation 03 — Concept Baselines + Empirical Jaccard Floor
+
+**Data run:** 2026-06-21
+**Macchina:** Linux / NVIDIA RTX 5070 Laptop, **device CUDA**
+**Notebook:** `notebooks/autoencoder/ablation/03_baselines.ipynb` (run IDE, 13/13 celle)
+**Input:** `train_embeddings.pt` (5976, fit PCA/KMeans qui) / `test_embeddings.pt` (1494, score metriche qui), vocabolario RadLex **508 termini**
+**Config:** **zero training** — 3 dizionari hand-built (Random, Dense-PCA, Freq-KMeans) da embedding esistenti; `D_b=256` (spazio indice condiviso within-group), `D_B_BIG=4096` (Random nel native index space del SAE), `K=32` (L0 budget fair), seeds `(0,42,123)`, naming **gap-corrected** (stesso shift `W_dec -= gap` del SAE), SAE reference hard-codato (gap-corrected, non ri-addestrato).
+
+> **Domanda.** Quanto del comportamento del SAE è spiegato da un dizionario *generico* vs uno *imparato*? E il cross-seed index-Jaccard di 0.0038 è segnale o artefatto di confrontare indici tra dizionari 4096-dim indipendenti?
+>
+> **Tesi pre-registrata:** Random@4096 within-group Jaccard ≈ 0.004 → calibra il 0.0038 del SAE come **near-null** (artefatto di spazio indici). PCA = ceiling denso di ricostruzione. SAE = unico metodo sparse + nominato.
+>
+> **Esito: TESI CONFERMATA sul Jaccard floor; SAE sopravvive solo su sparsity + naming top-end.** Random@4096 = 0.0037 ≈ SAE 0.0038 (ratio 0.95, sul floor del caso). MA il naming mean del SAE (0.395) è **appena sopra il Random** (0.372) — lo shift del gap domina il signal. KMeans (0.83) schiaccia tutti sul naming. Vedi §3/§4.
+
+---
+
+## 1. Cosa produce ogni fase
+
+| Fase | Output | Stato |
+|---|---|---|
+| 3 dizionari baseline | Random (256 + 4096), Dense-PCA (256), Freq-KMeans (256) — per seed | ✅ 4 baselines × 3 seed |
+| Ricostruzione fair-L0 | cosine a L0=32 (top-k coefficienti per magnitudo) per ogni baseline | ✅ |
+| Naming gap-corrected | decoder rows ↔ vocab, stesso shift del SAE | ✅ |
+| Within-group index-Jaccard | Random@256 e Random@4096 (3 seed → null empirico) | ✅ |
+| Null analitico cross-check | `E[J] ≈ k/(2D−k)` ipergeometrico | ✅ ratio 1.00 / 0.95 |
+| Tabelle + figure | comparison table + jaccard-floor bar | ✅ `a3_comparison_table`, `a3_jaccard_floor` |
+| Persist | `results/ablation/a3_baselines.json` + `a3_cache/` (fit PCA/KMeans) | ✅ |
+
+> **Rubric ≥3 baselines soddisfatta.** Random / Dense-PCA / Freq-KMeans, ciascuno costruito da train embedding e scored su test con le metriche standalone del SAE (funzioni libere verificate contro `sae_module.py`, righe citate nelle docstring).
+
+---
+
+## 2. Risultati (primary seed 42; SAE reference hard-codato, gap-corrected)
+
+| Metodo | recon cosine | L0 | dead% | naming mean | naming max |
+|---|---|---|---|---|---|
+| **SAE** (dict4096, k32, baseline) | 0.988 | 32 | 44.0 | 0.395 | 0.546 |
+| Random (D=256) | 0.454 | 32 | 0.0 | 0.372 | 0.442 |
+| Dense-PCA (D=256) | **0.996** | 32 | 0.0 | 0.383 | 0.594 |
+| Freq-KMeans (D=256) | 0.961 | 32 | 0.0 | **0.829** | **0.875** |
+
+**Random-Jaccard floor (within-group, 3 seed):**
+
+| Gruppo | D | empirical J | analytical null | ratio |
+|---|---|---|---|---|
+| Random (small) | 256 | 0.0666 | 0.0667 | 1.00 |
+| **Random (big)** | **4096** | **0.0037** | **0.0039** | **0.95** |
+| — SAE baseline (cross-seed, 5 seed) | 4096 | 0.0038 | — | — |
+
+---
+
+## 3. Analisi
+
+### 3.1 Random@4096 ≈ SAE → index-Jaccard del SAE sul floor del caso ✓
+Random@4096 = 0.0037, SAE = 0.0038. **Identici entro rumore.** ratio 0.95 = il SAE siede esattamente sul null empirico per dizionari 4096-dim. → Il 0.0038 cross-seed del SAE è **calibrato come near-null in spazio indici**: confrontare indici tra dizionari 4096-dim indipendenti produce ~0.004 di puro overlap casuale. Cross-check analitico `k/(2D−k)` = 0.0039 conferma (ratio 0.95; l'empirico è leggermente sotto perché i top-k-set sulla STESSA data condividono struttura, ma l'ordine di grandezza è quello).
+
+### 3.2 PCA = ceiling denso di ricostruzione ✓ (non è "SAE è scarso")
+PCA 0.996 > SAE 0.988 su raw cosine. **Atteso e pedagogico:** PCA è denso (256 atomi tutti attivi, zeroato a L0=32 solo *dopo* il fit per confronto fair) — sacrifica sparsity e monosemanticità per la ricostruzione. Il SAE perde ~0.008 di cosine in cambio di **L0=32 enforced + naming**. Questo è il Pareto tradeoff, non un difetto.
+
+### 3.3 Naming: SAE ≈ Random, KMeans schiaccia tutti ⚠️ (risultato severo)
+- naming mean: **KMeans 0.829 >> SAE 0.395 ≈ PCA 0.383 ≈ Random 0.372**.
+- Il SAE **batte il Random di soli +0.023** sul naming mean. Lo shift del modality gap (`W_dec -= gap`) muove *tutte* le righe decoder della stessa quantità prima del coseno → domina il signal, e l'apprendimento del SAE aggiunge margine minimo sul naming *medio*.
+- KMeans domina perché i centroidi **sono i modi della distribuzione dati** → allineati al cloud del vocabolario (anch'esso modi-dominato). naming mean alto ≠ grounding genuino: i centroidi KMeans sono blend densi (non monosemantici), l'alta similarità riflette allineamento cloud-vs-cloud, non concetti isolati.
+- **Caveat dict-size:** SAE 4096 feature vs baseline 256 → per-feature naming mean non perfettamente comparabile (più atomi = slice più stretta per feature). L'ORDINE (KMeans >> resto ≈) resta il signal robusto; il confronto più pulito è il **top-end** (max): SAE 0.546 > Random 0.442.
+
+### 3.4 Random recon scala con D: 0.45 (256) → 0.60 (4096)
+Più atomi casuali = più probabilità che qualcuno allinei con `x` → ricostruzione top-k migliore anche per puro caso. Conferma che raw recon cresce trivialmente con dict_size anche senza apprendimento — ragione in più per normalizzare via null (come fanno ab01/ab02 col signal-to-null).
+
+---
+
+## 4. Giudizio d'insieme: il SAE sopravvive solo su sparsity + naming top-end
+
+| Domanda | Esito |
+|---|---|
+| Rubric ≥3 baselines? | ✅ Random / PCA / KMeans |
+| Il 0.0038 del SAE è sopra il null (spazio indici)? | ❌ **No** — Random@4096 0.0037, ratio 0.95, sul floor |
+| PCA batte SAE su recon? | ✅ Sì (0.996 vs 0.988) — atteso, è il ceiling denso |
+| SAE batte i baseline sul naming? | ⚠️ **Appena** (mean 0.395 vs Random 0.372); max 0.546 > Random 0.442 (top-end sì) |
+| KMeans domina il naming? | ✅ Sì (0.829) — ma modi dati densi, non monosemantici |
+
+**Verdetto cumulativo (ab00→ab03):**
+1. **ab00** (direction-Jaccard ~0) + **ab03** (index-Jaccard sul null floor) → il 0.0038 del SAE è rumore **sia in spazio indici che direzioni**. Conferma indipendente via due null diversi.
+2. Il SAE **non vince su recon** (PCA ceiling) né sul **naming medio** (≈ Random, lo shift del gap domina). L'unica advantage difendibile: **L0=32 enforced per costruzione** (PCA/KMeans sono dense) + **top-end naming** (max 0.546 > 0.442).
+3. **Connessione al thread principale:** risultato più severo della serie. ab01/ab02 mostravano che l'instabilità non si risolve con iperparametri; ab03 mostra che il SAE **appena supera baselines casuali** sull'asse naming-mean. Il valore del SAE qui è **strutturale** (sparsity garantita, recon 0.988 a L0=32), non un guadagno misurabile sui concetti vs alternative generiche.
+
+**Caveat onesti:**
+- Naming mean SAE-vs-baseline confonduto da dict_size (4096 vs 256) + dal fatto che lo shift del gap domina. Il top-end (max) è il confronto più pulito.
+- KMeans naming 0.83 è cloud-alignment, non monosemanticità — non è una "vittoria" del KMeans come concept-discoverer.
+
+---
+
+## 5. Note di riproducibilità & stato
+- **Run IDE (2026-06-21 19:35):** 13/13 celle, zero training. Artefatti: `a3_baselines.json` (6.1 KB), `a3_cache/` (PCA + KMeans fit per seed, `.npz`), 2 figure (`a3_comparison_table`, `a3_jaccard_floor`).
+- **Zero training / no model writes:** `SAEManager.train` mai chiamato. PCA/KMeans fit su **train**, metriche scored su **test** (test-set discipline).
+- **Metriche standalone:** `SAEManager.compute_stability`/`name_concepts`/`compute_cosine_reconstruction` richiedono un `AutoEncoderTopK` su disco → riscritte come funzioni libere, verificate contro `sae_module.py` (righe citate nelle docstring).
+- **Naming gap-corrected per tutti:** `modality_gap = train_emb.mean(0) − vocab_emb.mean(0)` applicato a ogni `W_dec` in `name_cosine` → confronto naming apples-to-apples (non SAE-corrected vs baseline-raw).
+- **SAE reference hard-codato:** numeri dal baseline REPORT (gap-corrected), non ri-addestrato qui.
+- **Null analitico:** `E[J] ≈ k/(2D−k)` per `k≪D`; ratio empirical/analytical 1.00 (D=256) e 0.95 (D=4096).
+
+## Riferimenti
+- [03_baselines.ipynb](03_baselines.ipynb) — notebook sorgente
+- [00_consensus.ipynb](00_consensus.ipynb) — ab00 (direction-Jaccard ~0, falsifica "permutazione")
+- [02_k_sweep.ipynb](02_k_sweep.ipynb) — ab02 (baseline k=32 sul null floor, ratio 0.954)
+- [../baseline/REPORT.md](../baseline/REPORT.md) — baseline (SAE reference hard-codato qui)
+- [../../results/ablation/a3_baselines.json](../../results/ablation/a3_baselines.json) — metriche complete
+- [../../results/figures/ablation/a3_comparison_table.png](../../results/figures/ablation/a3_comparison_table.png) — tabella SAE vs baseline
+- [../../results/figures/ablation/a3_jaccard_floor.png](../../results/figures/ablation/a3_jaccard_floor.png) — Random-Jaccard floor vs SAE 0.0038

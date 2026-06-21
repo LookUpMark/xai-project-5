@@ -33,6 +33,21 @@ import utils
 
 logger = logging.getLogger(__name__)
 
+
+def _vocab_term(label) -> str:
+    """Coerce a vocabulary label to its display term string.
+
+    ``data/vocabulary.json`` stores entries as ``{"term", "similarity_score",
+    "source"}`` dicts; older builds stored bare strings. Normalize both so every
+    caller of ``name_concepts`` (CLI and notebooks alike) yields a string
+    ``name`` without having to pre-flatten the vocabulary. Falls back to
+    ``str(label)`` if a dict lacks a ``term`` key.
+    """
+    if isinstance(label, dict):
+        return label.get("term") or str(label)
+    return label
+
+
 # Default config values — kept in sync with config.py's SAEConfig.
 # Change config.py, not here. These are only used when SAEManager
 # is constructed without a config (e.g. in tests).
@@ -382,7 +397,9 @@ class SAEManager:
 
         Args:
             vocab_embeddings: Tensor (V, 512), vocabulary embeddings.
-            vocab_labels: List of V strings (term names).
+            vocab_labels: List of V term labels. Accepts plain strings or the
+                ``{"term", ...}`` dict entries written by build_vocabulary.py
+                (coerced to the ``term`` string via ``_vocab_term``).
             top_n: Number of candidate names per feature.
             modality_gap: Optional Tensor (512,) representing the shift from visual to text centroid.
                 If provided, W_dec will be shifted by -modality_gap to bridge the gap.
@@ -440,7 +457,7 @@ class SAEManager:
 
             topk = similarities[feat_id].topk(top_n)
             candidates = [
-                {"label": vocab_labels[idx.item()], "score": val.item()}
+                {"label": _vocab_term(vocab_labels[idx.item()]), "score": val.item()}
                 for val, idx in zip(topk.values, topk.indices)
             ]
             concept_names[feat_id] = {

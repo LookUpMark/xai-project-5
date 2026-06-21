@@ -17,8 +17,6 @@ import json
 import sys
 from pathlib import Path
 
-import torch
-
 sys.path.insert(0, str(Path(__file__).parent.parent))
 import config
 import utils
@@ -47,7 +45,14 @@ def run() -> Path:
             raise FileNotFoundError(f"{desc} not found: {path}")
 
     with open(config.paths.vocab_labels_path) as f:
-        vocab_labels = json.load(f)
+        raw_vocab = json.load(f)
+    # Vocabulary JSON is a list of {"term","similarity_score","source"} dicts
+    # (builder output) — normalize to term strings for label lookups.
+    # Also tolerates a legacy list of plain strings.
+    vocab_labels = [
+        entry["term"] if isinstance(entry, dict) else entry
+        for entry in raw_vocab
+    ]
     logger.info(f"Vocabulary: {len(vocab_labels)} terms")
 
     vocab_embeddings = utils.load_tensor(config.paths.vocab_embeddings_path)
@@ -64,7 +69,7 @@ def run() -> Path:
     
     # Load modality gap
     gap_path = config.paths.models_dir / "modality_gap.pt"
-    modality_gap = torch.load(gap_path)
+    modality_gap = utils.load_tensor(gap_path)
     logger.info(f"Loaded modality gap from {gap_path}")
 
     logger.info(

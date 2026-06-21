@@ -5,7 +5,8 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
-from config import VLMConfig, EmbeddingConfig
+from config import VLMConfig, EmbeddingConfig, augmentation
+from xai_datasets.augmentation import AugmentedImageDataset
 
 
 def _unzip_collate(batch: list) -> tuple:
@@ -31,7 +32,11 @@ def extract_visual_embeddings(
         embedding_config (EmbeddingConfig): I/O paths configuration.
     """
 
-    print(f"\nFound {len(dataset)} images. Starting extraction...")
+    if augmentation.enabled:
+        dataset = AugmentedImageDataset(dataset, augmentation)
+        print(f"\nAugmentation enabled: size expanded to {len(dataset)} samples. Starting extraction...")
+    else:
+        print(f"\nFound {len(dataset)} images. Starting extraction...")
 
     dataloader = DataLoader(
         dataset,

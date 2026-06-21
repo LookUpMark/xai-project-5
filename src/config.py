@@ -36,7 +36,8 @@ class PathsConfig:
 
     def __post_init__(self):
         self.data_dir = self.project_root / "data"
-        self.embeddings_dir = self.project_root / "embeddings"
+        subfolder = "augmented" if augmentation.enabled else "standard"
+        self.embeddings_dir = self.project_root / "embeddings" / subfolder
         self.models_dir = self.project_root / "models"
         self.results_dir = self.project_root / "results"
         self.figures_dir = self.results_dir / "figures"
@@ -84,7 +85,12 @@ class EmbeddingConfig:
     reports_dir: str = "data/iu_xray/reports"
 
     # Output
-    output_dir: str = "embeddings"
+    output_base: str = "embeddings"
+
+    @property
+    def output_dir(self) -> str:
+        subfolder = "augmented" if augmentation.enabled else "standard"
+        return f"{self.output_base}/{subfolder}"
     visual_output_filename: str = "visual_embeddings.pt"
     text_output_filename: str = "text_embeddings.pt"
 
@@ -106,7 +112,10 @@ class VocabularyConfig:
     # Aligned to PathsConfig.vocab_labels_path / vocab_embeddings_path (the
     # canonical consumer names) so the builder writes where concept_naming reads.
     output_path: str = "data/vocabulary.json"
-    embeddings_output_path: str = "embeddings/text_vocab_embeddings.pt"
+    @property
+    def embeddings_output_path(self) -> str:
+        subfolder = "augmented" if augmentation.enabled else "standard"
+        return f"embeddings/{subfolder}/text_vocab_embeddings.pt"
 
     # Filtering parameters
     top_k: int = 500
@@ -220,6 +229,15 @@ class VocabularyConfig:
 
 
 @dataclass(frozen=True)
+class AugmentationConfig:
+    """Settings for data augmentation on Chest X-Rays."""
+    enabled: bool = True
+    num_augmentations: int = 2
+    rotation_degrees: int = 5
+    crop_scale: tuple[float, float] = (0.95, 1.0)
+
+
+@dataclass(frozen=True)
 class SAEConfig:
     """Sparse Autoencoder (Top-K) hyperparameters.
 
@@ -234,7 +252,7 @@ class SAEConfig:
     """
 
     activation_dim: int = 512
-    dict_size: int = 4096
+    dict_size: int = 2048
     k: int = 32
     lr: Optional[float] = None  # None = auto-scale from library
     steps: int = 50_000
@@ -327,6 +345,7 @@ class HardwareConfig:
 
 # ── Instantiate configs ──────────────────────────────────────────────
 
+augmentation = AugmentationConfig()
 paths = PathsConfig()
 backbone = BackboneConfig()
 vlm = VLMConfig()

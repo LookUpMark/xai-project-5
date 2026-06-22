@@ -85,9 +85,9 @@ non-riproducibilita' perche' ignora le permutazioni (due SAE equivalenti possono
 avere indici riordinati). Poteva essere la via di scapo. Ma a0, clusterizzando
 le *direzioni* del decoder (index-agnostic), ha mostrato che **nemmeno le
 direzioni coincidono** -> l'instabilita' e' reale a entrambi i livelli, non un
-artefatto del protocollo. Corroborato dal null analitico (a2: baseline 0.0038 ~
-random floor `k/(2D)` = 0.00398, signal-to-null ratio ~0.95) ed empirico
-(a6: Random@4096 Jaccard 0.00372 ~ baseline).
+artefatto del protocollo. Corroborato dal null analitico ed empirico (Ablation 03: baseline 0.0038 ~
+random floor `k/(2D−k)` = 0.0039, signal-to-null ratio ~0.95; Random@4096
+Jaccard 0.0037 ~ baseline).
 
 ## Causa 2: dead features e naming debole (capacita' + vocab)
 
@@ -126,7 +126,7 @@ Non tutto e' da buttare. Alcune decisioni sono state corrette:
 - **5 seed**: averne 5 invece di 1 e' cio' che ha *permesso* di scoprire
   l'instabilita'. Con un seed solo si sarebbe stati falsamente rassicurati.
   Diagnostico, non un errore.
-- **Valutazione null-calibrata** (a0/a2/a6): il confronto contro pavimenti
+- **Valutazione null-calibrata** (a0/a2/a3): il confronto contro pavimenti
   analitici+empirici e' cio' che rende il finding *credibile* invece di
   aneddotico.
 - **MPS ~ CUDA**: riproducibilita' cross-device confermata, quindi l'instabilita'
@@ -144,8 +144,8 @@ Non tutto e' da buttare. Alcune decisioni sono state corrette:
 ## "Se dovessi rifarlo" -> ablation derivate
 
 Questi sono i lever che attaccano le cause alla radice e **non sono coperti** dai
-5 notebook gia' scritti (a0 consensus, a1 dict_size, a2 k_sweep, a3/a6 baselines,
-a4 activation bakeoff). Ordinati per rapporto impatto/costo.
+6 notebook gia' scritti (a0 consensus, a1 dict_size, a2 k_sweep, a3 baselines,
+a4 activation bakeoff, a5 faithfulness). Ordinati per rapporto impatto/costo.
 
 ### Priorita' alta (attaccano la causa 1, la radice)
 

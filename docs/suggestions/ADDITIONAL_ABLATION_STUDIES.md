@@ -1,7 +1,7 @@
 # Ablation aggiuntive derivate dalla diagnosi di instabilita'
 
 Estensioni del programma di ablation gia' in `notebooks/autoencoder/ablation/`
-(a0 consensus, a1 dict_size, a2 k_sweep, a3/a6 baselines, a4 activation bakeoff).
+(a0 consensus, a1 dict_size, a2 k_sweep, a3 baselines, a4 activation bakeoff, a5 faithfulness).
 Queste non attaccano i *sintomi* (k, dict_size, variante di attivazione - gia'
 coperti) ma le **cause alla radice** identificate in
 `CONCEPT_INSTABILITY_DIAGNOSIS.md`: lo spazio di attivazione sbagliato

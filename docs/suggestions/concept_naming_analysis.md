@@ -1,5 +1,7 @@
 # Analisi delle Performance di Concept Naming
 
+> **Stato (aggiornato 2026-06-22).** La tabella "Sintesi del Problema" qui sotto riporta i numeri **PRE-fix** del modality gap (max 0.322, mean 0.133). Con la correzione del gap (*Soluzione 1*, implementata e adottata nel run baseline) il naming sale a **mean 0.395 / max 0.547** (~3.4× medio) — vedi `notebooks/autoencoder/baseline/REPORT.md` §2.5. La letteratura considera 0.3–0.4 *normali e significativi* per SAE-su-CLIP (§"Cosa funziona davvero e perché" più sotto). Cross-check indipendente dall'**Ablation 05** (`notebooks/autoencoder/ablation/REPORT.md`): il naming RadLex (off-distribution) è talvolta rumoroso — una feature fedele a "implanted medical device" porta il nome RadLex "anterior segment of upper lobe". Il comportamento reale della feature è più informativo del suo nome.
+
 ## Sintesi del Problema
 
 Il concept naming assegna un nome dal vocabolario (508 termini medici) a ciascuno dei 4096 nodi del SAE calcolando la **cosine similarity** tra le colonne del decoder (direzioni del SAE) e gli embeddings dei termini del vocabolario. I risultati sono pessimi:

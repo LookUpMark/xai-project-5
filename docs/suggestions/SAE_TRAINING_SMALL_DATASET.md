@@ -1,5 +1,12 @@
 # Suggerimenti per il training SAE su IU X-Ray (7400 campioni)
 
+> **Stato (aggiornato 2026-06-22).** Le raccomandazioni qui sotto sono ora **verificate dal programma di ablation** (`notebooks/autoencoder/ablation/REPORT.md`). Sintesi dei verdetti:
+> - **Ridurre `dict_size`** (Suggerimento 1) → **Ablation 01**: riduce i dead (40.9 → 30.7%) ma **NON** aumenta la stabilità cross-seed (l'over-expansion causa i dead, non l'instabilità — che è strutturale).
+> - **Ridurre `k`** (Suggerimento 3) → **Ablation 02**: c'è un debole sweet spot a k=16 (signal-to-null 1.30), ma l'accordo assoluto resta minuscolo e k=32 è sul pavimento del caso.
+> - **Augmentation** (Suggerimento 2) e **step-sweep** (Suggerimento 4) restano **future work** (`ADDITIONAL_ABLATION_STUDIES.md`).
+>
+> In breve: le raccomandazioni valgono per ridurre i dead e migliorare l'efficienza del dizionario, ma **non risolvono la non-riproducibilità cross-seed** — diagnosticata in `CONCEPT_INSTABILITY_DIAGNOSIS.md` come limite strutturale (pochi campioni + non-unicità della decomposizione sparsa su embedding CLIP proiettati).
+
 ## Problema
 
 Il dataset IU X-Ray contiene ~7400 coppie immagine-testo. Con `dict_size=4096`,

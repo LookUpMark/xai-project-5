@@ -11,6 +11,15 @@ Principio guida: **consolidare prima i 5 notebook esistenti + REPORT**, poi
 valutare le estensioni in base al tempo/GPU residui. Aggiungere ablation a
 pioggia diluisce il finding; aggiungerne selettive lo rafforza.
 
+> **Stato (aggiornato 2026-06-22).** I 5 notebook originali (a0–a4) + `REPORT.md`
+> sono **consolidati e committati**. L'asse della *fedelta'* (validazione, non
+> causa) e' stato aggiunto come **a5** (`05_faithfulness.ipynb`): ~10% delle
+> feature live sono fedeli a etichette cliniche reali oltre un null per-feature.
+> Di queste estensioni **nessuna e' ancora consegnata** — sono *future work*:
+> #1 (pre-projection) e #2 (augmentation) sono i "big swing" ad alto costo
+> GPU/MPS (nuova estrazione embedding + retrain); #4 (step-sweep) e #3 (shared
+> init) sono i candidati low-cost se resta tempo.
+
 ## Candidati (rapporto impatto/costo)
 
 | # | Ablation | Attacca | Costo | Priorita' |

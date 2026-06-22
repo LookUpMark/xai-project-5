@@ -8,6 +8,18 @@ non come bug. Da leggersi insieme al
 `notebooks/autoencoder/baseline/REPORT.md` e al programma di ablation in
 `notebooks/autoencoder/ablation/`.
 
+> **Stato (aggiornato 2026-06-22).** La diagnosi regge: il programma di ablation
+> (a0–a4) la ha *confermata* — l'instabilita' e' strutturale e il 0.004 e' il
+> pavimento del caso (vedi `ablation/REPORT.md`). Due aggiornamenti fatti dal
+> programma: (1) il vocab e' ora **508 termini** (non 310); (2) la "causa 2"
+> (naming debole) e' **ridefinita** in `concept_naming_analysis.md` — con la
+> correzione del modality gap il naming sale a ~0.4 e la letteratura lo considera
+> *normale* per SAE-su-CLIP. Inoltre l'asse della *fedelta'* (i concetti
+> esistenti sono significativi?) e' ora coperto da **a5**
+> (`05_faithfulness.ipynb`): ~10% delle feature live sono fedeli a etichette
+> cliniche reali oltre un null per-feature. Le ablation derivate (pre-projection,
+> augmentation, shared init) restano **future work**.
+
 ## I numeri del run baseline (seed 0,42,123,456,789)
 
 - Config SAE: Top-K, `k=32`, `dict_size=4096`, `steps=50000`, `lr=auto` (~4e-4),
@@ -15,7 +27,7 @@ non come bug. Da leggersi insieme al
 - Ricostruzione: cosine **0.988**, varianza spiegata **99.3%**, L0 = 32.0 esatto.
 - Dead features (activation-based): **~44%**.
 - Stabilita' cross-seed: mean Jaccard **0.0038** (matrice 5x5 off-diagonal ~0.003-0.010).
-- Concept naming: score mean **0.117**, max **0.291** (vocab RadLex 310 termini).
+- Concept naming: score mean **0.117**, max **0.291** senza correzione del gap (vocab RadLex, ora 508 termini); con la gap-correction (vedi `concept_naming_analysis.md`) sale a mean ~0.395 / max ~0.547.
 - Ablation a0 (consensus sulle direzioni del decoder, index-agnostic):
   consensus@4 = **0.0**, Hungarian direction-Jaccard = **0.0**, shuffle-null p = **1.0**
   (solo 3 cluster multi-membro a tau=0.80 su 20480 righe).
@@ -86,8 +98,8 @@ expansion ratio 8x su uno spazio gia' piccolo -> enorme ridondanza ->
 ~1800 feature non hanno nulla da rappresentare -> muoiono (44%). Gia' discusso
 in `SAE_TRAINING_SMALL_DATASET.md`.
 
-**Vocab RadLex 310 + naming greedy per coseno.** Due debolezze combinate:
-310 termini clinici sono pochi per coprire la geometria di 4096 feature
+**Vocab RadLex (508) + naming greedy per coseno.** Due debolezze combinate:
+508 termini clinici sono pochi per coprire la geometria di 4096 feature
 (mismatch ~13x); RadLex e' un'ontologia formale clinica, non allineata per
 costruzione allo spazio CLIP; il naming *greedy* sceglie "il migliore tra match
 poveri" -> coseni bassi anche quando la feature cattura qualcosa di reale
@@ -176,7 +188,9 @@ a4 activation bakeoff). Ordinati per rapporto impatto/costo.
    12k x 256 = 3M token). Risorto come probe interno ad a1 con threshold
    abbassato via `RevivalTopKTrainer`.
 - **Faithfulness vs 14 patologie NIH**: IU X-Ray non ha le etichette NIH
-   ChestX-ray14 (solo projection Frontal/Lateral) -> irrealizzabile.
+   ChestX-ray14 (solo projection Frontal/Lateral) -> irrealizzabile. **Risolto via
+   MeSH/Problems** (gold standard in-distribution, 118 termini per-immagine) —
+   consegnato come **a5** (`05_faithfulness.ipynb`).
 
 ## Riferimenti
 

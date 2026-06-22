@@ -9,6 +9,7 @@ Report cumulativo delle ablation. Una sezione per notebook, aggiornata ad ogni r
 - [Ablation 02 — k (Sparsity) Sweep, null-calibrated](#ablation-02--k-sparsity-sweep-null-calibrated)
 - [Ablation 03 — Concept Baselines + Empirical Jaccard Floor](#ablation-03--concept-baselines--empirical-jaccard-floor)
 - [Ablation 04 — Activation-Family Bake-off (TopK vs BatchTopK vs JumpReLU)](#ablation-04--activation-family-bake-off-topk-vs-batchtopk-vs-jumprelu)
+- [Ablation 05 — Concept Faithfulness vs clinical labels (MeSH/Problems)](#ablation-05--concept-faithfulness-vs-clinical-labels-meshproblems)
 
 ---
 
@@ -20,7 +21,7 @@ Report cumulativo delle ablation. Una sezione per notebook, aggiornata ad ogni r
 
 > **Perché i concetti non sono riproducibili? È un fallimento vero, o è matematica inevitabile? Si può fixare cambiando qualche parametro?**
 
-**Le 4 ablation sono 4 tentativi di risposta, ognuno con una ipotesi diversa:**
+**Le ablation a0–a4 investigano la *causa* dell'instabilità (4 ipotesi); a05 aggiunge l'asse complementare della *fedeltà* — i concetti saranno instabili, ma sono almeno *significativi*?**
 
 | Ab | Ipotesi ("forse il colpevole è…") | Verdetto |
 |---|---|---|
@@ -29,13 +30,15 @@ Report cumulativo delle ablation. Una sezione per notebook, aggiornata ad ogni r
 | **02** | "La sparsità k è sbagliata" | ⚠️ **Parziale** — c'è un debole sweet spot a k=16, non risolve |
 | **03** | "È il SAE a essere scarso, o è il pavimento del caso?" | ✅ **Pavimento del caso** — random fa uguale (0.0037 ≈ 0.0038) |
 | **04** | "È colpa di TopK? Proviamo famiglie diverse (BatchTopK, JumpReLU)" | ❌ dead% sì (BatchTopK meglio), stabilità **no** (consensus 0 per tutti) |
+| **05** | *(asse complementare)* "I concetti sono instabili — ma quelli che esistono sono almeno *fedeli* a etichette cliniche reali?" | ✅ **Parzialmente sì** — ~10% delle feature live batte un null per-feature; le più forti tracciano concetti attesi (impianti, versamento, enfisema, ombra cardiaca) |
 
-**La conclusione d'insieme (onesta, negativa ma chiara):**
+**La conclusione d'insieme (onesta e bilanciata — negativa sull'instabilità, positiva sulla fedeltà):**
 1. Il 0.004 "preoccupante" del baseline **non è un fallimento** — è il **pavimento matematico del caso**. Due dizionari grandi e indipendenti si sovrappongono sempre per ~0.004 per pura probabilità, anche con numeri random (ab03 lo dimostra: random@4096 = 0.0037).
 2. L'instabilità **non si fixa** con iperparametri: né `dict_size` (ab01), né `k` (ab02), né la **famiglia di attivazione** (ab04: TopK/BatchTopK/JumpReLU tutte con consensus 0) la risolvono.
 3. Cause profonde rimaste: **pochi campioni (5976) + non-unicità intrinseca della decomposizione sparsa** su questo dataset (vale per TopK, BatchTopK e JumpReLU — non è specifica di TopK). Roba strutturale, non un bug da parameter-tuning. **ab04 chiude l'indagine**: cambiare il meccanismo centrale (la funzione di attivazione) non aiuta più di quanto aiuti cambiare dict_size o k.
+4. **Ma l'instabilità non equivale a inutilità (ab05).** I concetti che *esistono* in un seed sono moderatamente ma genuinamente **fedeli** a etichette cliniche reali: ~10% delle feature live (226/2251) batte un null per-feature (p95 shuffle, 200 perm), e le più forti tracciano concetti clinicamente attesi (impianti/defibrillatori |r|=0.46, versamento pleurico, enfisema, ombra cardiaca, edema). Il SAE scopre direzioni con grounding clinico reale — **non riproducibili seed-a-seed, ma non rumore**.
 
-**Cosa quindi?** Accettare la seed-dipendenza come limite dichiarato del metodo, oppure aggregare i seed (model soup / consensus clustering con validazione). Il valore del SAE qui resta **strutturale**: sparsità garantita (solo 32 feature) + ricostruzione buona (0.988) + naming top-end sopra il caso.
+**Cosa quindi?** Accettare la seed-dipendenza come limite dichiarato del metodo, oppure aggregare i seed (model soup / consensus clustering con validazione). Il valore del SAE qui è **strutturale** (sparsità garantita = solo 32 feature) **e parzialmente semantico** (ab05: i concetti esistenti sono ancorati a etichette cliniche reali), oltre alla ricostruzione buona (0.988) e al naming top-end sopra il caso.
 
 ---
 
@@ -781,3 +784,155 @@ TopK: L0=32 puntiforme. BatchTopK/JumpReLU: distribuzione di L0 per-sample (adat
 - [../../results/figures/ablation/a4_activation_comparison.png](../../results/figures/ablation/a4_activation_comparison.png) — bar comparison 4 metriche
 - [../../results/figures/ablation/a4_effective_l0_distribution.png](../../results/figures/ablation/a4_effective_l0_distribution.png) — distribuzione L0 per famiglia
 - [../../results/figures/ablation/a4_cross_activation_consensus.png](../../results/figures/ablation/a4_cross_activation_consensus.png) — cross-family consensus
+
+---
+
+# Ablation 05 — Concept Faithfulness vs clinical labels (MeSH/Problems)
+
+**Data run:** 2026-06-22
+**Macchina:** macOS / Apple Silicon, **device MPS** (auto-rilevato)
+**Notebook:** `notebooks/autoencoder/ablation/05_faithfulness.ipynb` (run headless via nbconvert, 9/9 celle)
+**Input:** checkpoint baseline `models/sae_seed42/` (dict4096, k=32) — **zero training**; `test_embeddings.pt` (1494) + `test_image_ids.json`; etichette cliniche da `data/iu_xray/reports/indiana_reports.csv` (colonne `MeSH`/`Problems`)
+**Config:** matrice di attivazione `A` (1494×4096, TopK continuo) × matrice binaria etichette `Y` (1494×50 dopo filtro prevalenza ≥10); correlazione **point-biserial** vettorizzata `A_zᵀ·Y_z/N`; null = SE analitica `1/√N` + **shuffle-null per-feature** (p95, 200 perm) + **BH-FDR 0.05**.
+
+### In parole semplici
+
+> **La domanda.** Tutte le ablation finora (a0–a4) sono una sola grande domanda: *perché i concetti non sono riproducibili tra seed?* Verdetto: è un limite strutturale, il 0.004 è il pavimento del caso. Ma "instabile" non vuol dire "inutile". Qui cambiamo domanda: **i concetti che il SAE scopre (in un seed) sono significativi, cioè si attivano sulle immagini che contengono davvero una certa patologia/anatomia?** È la differenza tra "concetti rumorosi" e "concetti che significano qualcosa".
+>
+> **Cosa fa ab05.** Prende il SAE seed-42, codifica le immagini di test → per ogni immagina sa quali feature si accendono (`A`). Poi legge le vere etichette cliniche di quelle immagini dai referti (colonne `MeSH`/`Problems` di IU X-Ray: cardiomegalia, versamento pleurico, ecc.) → matrice `Y`. Calcola la correlazione tra ogni feature e ogni etichetta. Una feature è "fedele" se si accende proprio sulle immagini con una certa etichetta — **e lo fa oltre il puro caso** (confronto contro un null calibrato per-feature).
+>
+> **Risultato: PARZIALMENTE SÌ (il primo positivo della serie).** ~10% delle feature "vive" (226/2251) batte il proprio pavimento del caso per-feature. Le più fedeli tracciano esattamente i concetti che un SAE su radiografie *dovrebbe* trovare: **impianti medici** (pacemaker/defibrillatori, |r|=0.46), **versamento pleurico** (0.34), **enfiltrato**, **enfisema polmonare**, **ombra cardiaca**, **edema polmonare**. **I concetti sono instabili cross-seed (a0–a4) ma, quando esistono, sono moderatamente fedeli a etichette cliniche reali.** Instabilità ≠ inutilità.
+
+> **Domanda.** Le feature del SAE (seed 42) predicono la presenza di un'etichetta clinica per-immagine, oltre il caso?
+>
+> **Ipotesi pre-registrata:** una quota non banale di feature live ha `max_j |corr(activation_i, label_j)|` superiore a un null calibrato per-feature (p95 di uno shuffle delle etichette). Le feature più fedeli dovrebbero corrispondere a concetti visivamente concreti e clinicamente attesi.
+>
+> **Esito: PARZIALMENTE CONFERMATO.** 226/2251 feature live (10.0%) battono il proprio shuffle-null p95 (mediana null 0.188). |r|>0.10 sul 53.8% delle live, >0.20 sul 9.5%. Le più forti tracciano impianti medici (0.46), versamento pleurico (0.34), enfisema, ombra cardiaca. Vedi §2/§3.
+
+---
+
+## 1. Cosa produce ogni fase
+
+| Fase | Output |
+|---|---|
+| Etichette cliniche | parsing `MeSH`/`Problems` → 118 termini base; 101 presenti nel test, **50** dopo filtro prevalenza ≥10 |
+| Join per-immagine | `image_id → uid` (via `indiana_projections.csv` + fallback prefisso) → `MeSH`/`Problems`; 0 join mancanti su 1494 |
+| Attivazioni | `mgr.encode(test_emb)` → `A` (1494×4096), 32 non-zero/immagine |
+| Point-biserial | `A_zᵀ·Y_z/N` → matrice corr (4096×50); per-feature max abs(corr) |
+| Null triplo | SE analitica 0.0259 + shuffle-null per-feature p95 + BH-FDR 0.05 |
+| Naming cross-ref | nome RadLex gap-corrected di ogni feature fedele (vs la label a cui è fedele) |
+| Persist | `results/ablation/a5_faithfulness.json` + `a5_faithfulness_headline.png` |
+
+> **Isolamento protocollo:** output scritti solo in `results/ablation/` + `results/figures/ablation/` — la `results/` della baseline **non viene toccata**.
+
+---
+
+## 2. Risultati (seed 42, 1494 test, 50 etichette prevalenti)
+
+> **Come leggere.** Per ogni feature "viva" (che si attiva almeno una volta sul test: 2251/4096 = 55%, coerente col ~44% dead della baseline), prendo la correlazione più forte con una qualsiasi etichetta clinica. `|r|` = quanto la feature traccia la sua etichetta migliore. La colonna chiave è il **null per-feature**: per battere il caso, la feature deve superare *il proprio* p95 (mediana 0.188).
+
+### 2.1 % feature fedeli per soglia (sulle 2251 live)
+
+| soglia abs(corr) | feature live fedeli | % delle live |
+|---:|---:|---:|
+| > 0.10 | 1210 | 53.8% |
+| > 0.15 | 576 | 25.6% |
+| > 0.20 | 213 | 9.5% |
+| > 0.25 | 82 | 3.6% |
+| > 0.30 | 22 | 1.0% |
+
+### 2.2 Null calibrato — il test chiave
+
+> **Cosa significa.** "Oltre il caso" non è un'opinione: per ogni feature, mescolo 200 volte le etichette tra le immagini e misuro la correlazione più forte che otterrei per puro caso. La soglia è il 95° percentile di quello shuffle, **specifica per feature** (corregge per la distribuzione di prevalenza delle etichette). Una feature "passa" solo se batte la *sua* soglia.
+
+| Null | Valore |
+|---|---|
+| SE analitica `1/√N` | 0.0259 (corr>0.10 ≈ 3.9σ) |
+| Shuffle-null p95 (mediana per-feature, 200 perm) | **0.188** |
+| Feature live che battono il proprio null p95 | **226 / 2251 (10.0%)** |
+| BH-FDR 0.05 (su 112550 test) | 3496 coppie (feature,label) sig.; soglia ≈ corr>0.082 |
+
+### 2.3 Top feature fedeli (+ nome RadLex cross-ref)
+
+> **Cosa significa.** Le feature più fedeli e la label a cui si ancorano. Nota il cross-check interessante: la label *reale* (in-distribution, da IU X-Ray) è clinicamente sensata, ma il **nome RadLex** assegnato dal SAE è spesso rumoroso/diverso (es. una feature fedele a "implanted medical device" si chiama "anterior segment of upper lobe" in RadLex). Conferma che il naming RadLex (off-distribution, vedi `VOCAB_BUILDING_ALTERNATIVES.md`) è più debole del comportamento reale del concetto.
+
+| feature | abs(corr) | label fedele (IU X-Ray) | prev. | nome RadLex (gap-corrected) |
+|---:|---:|---|---:|---|
+| 3785 | **0.458** | implanted medical device | 22 | mucosal surface |
+| 2983 | 0.349 | implanted medical device | 22 | anterior segment of upper lobe (L) |
+| 1261 | 0.344 | implanted medical device | 22 | curved sheath |
+| 224 | 0.342 | pleural effusion | 57 | idiopathic pulmonary fibrosis |
+| 1253 | 0.319 | infiltrate | 19 | — |
+| 3260 | 0.315 | diaphragmatic eventration | 10 | — |
+| 3330 | 0.315 | pulmonary emphysema | 10 | — |
+| 3034 | 0.311 | cardiac shadow | 20 | — |
+
+### 2.4 Per-etichetta: il SAE riesce a rappresentare ogni concetto clinico diffuso?
+
+> **Cosa significa.** Per ciascuna etichetta, la feature migliore che la predice. Le etichette visivamente concrete (impianti, versamento, enfisema) raggiungono |r| 0.30–0.46; la copertura decade sulle patologie più sottili.
+
+| etichetta (prevalenza) | miglior corr |
+|---|---:|
+| implanted medical device (22) | 0.458 |
+| pleural effusion (57) | 0.342 |
+| infiltrate (19) | 0.319 |
+| cardiac shadow (20) | 0.311 |
+| pulmonary edema (22) | 0.305 |
+
+---
+
+## 3. Analisi
+
+### 3.1 I concetti esistenti sono genuinamente fedeli, non rumore ✓
+> **Cosa significa.** 226 feature su 2251 (10%) battono un null *per-feature* calibrato — non un valore fisso, ma la soglia specifica che ciascuna feature dovrebbe superare per caso. Corroborato dal BH-FDR (3496 coppie significative) e dall'SE analitica. Il segnale è reale: c'è una minoranza sostanziale di feature il cui pattern di attivazione traccia un'etichetta clinica oltre il caso.
+
+### 3.2 La fedeltà si concentra su concetti visivamente concreti
+> **Cosa significa.** Le feature più forti tracciano **impianti medici** (pacemaker, defibrillatori — oggetti ad alto contrasto), **versamento pleurico**, **enfisema**, **ombra cardiaca**, **edema**. Sono proprio i concetti che un SAE su radiografie toraciche dovrebbe scoprire prima: entità visive ad alto contrasto. Le patologie fini (sottili pattern texturali) restano più deboli — coerente con un regime data-starved su embedding CLIP proiettati.
+
+### 3.3 Fedeltà modesta in valore assoluto (ma sopra il null)
+> **Cosa significa.** La correlazione più forte in assoluto è |r|=0.46, e solo il 10% delle feature batte il null. Non è "ogni concetto è un colpo netto": è "una minoranza significativa ha un ancoraggio clinico reale, al di sopra del caso". Onesto: il valore del SAE qui non è "concetti cristallini", è "struttura sparsa + ricostruzione buona (0.988) + una minoranza di concetti clinicamente fedeli".
+
+### 3.4 Naming RadLex ≠ comportamento reale (cross-check)
+> **Cosa significa.** Una feature fedele a "implanted medical device" porta il nome RadLex "anterior segment of upper lobe". Il comportamento della feature (fedele a impianti) è più informativo del suo nome (off-distribution). Questo **giustifica a posteriori** l'uso di un gold standard in-distribution (MeSH/Problems) per valutare i concetti, oltre al naming RadLex — e rafforza la diagnosi del `concept_naming_analysis.md`: il naming debole è in parte artefatto del vocabolario, non solo dell'SAE.
+
+---
+
+## 4. Giudizio d'insieme: instabilità ≠ inutilità
+
+| Domanda | Esito |
+|---|---|
+| Le feature del SAE predicono etichette cliniche reali oltre il caso? | ✅ **Sì (minoranza sostanziale)** — 226/2251 live (10%) battono un null per-feature |
+| Le più fedeli sono clinicamente sensate? | ✅ **Sì** — impianti, versamento, enfisema, ombra cardiaca, edema |
+| La fedeltà è forte in valore assoluto? | ⚠️ **Modesta** — max |r|≈0.46; concentrata su concetti visivi concreti |
+| Naming RadLex coincide con la label reale? | ❌ **Spesso no** — il comportamento è più informativo del nome off-distribution |
+
+**Posizionamento nel programma (ab00→ab05):**
+1. **a0–a4**: i concetti sono instabili cross-seed (sia indici che direzioni), il 0.004 è il pavimento del caso, e l'instabilità non si fixa con iperparametri — limite strutturale.
+2. **a5 (questa)**: i concetti che *esistono* sono moderatamente ma genuinamente **fedeli** a etichette cliniche reali. **L'asse complementare che la serie mancava**: non "sono riproducibili?" (no) ma "significano qualcosa?" (sì, in parte).
+3. → Il risultato d'insieme è **bilanciato e difendibile**: il SAE su questo dataset ha un limite strutturale dichiarato (seed-dipendenza) MA produce direzioni con grounding clinico reale. Non un fallimento, non un successo completo — un risultato onesto e sfumato.
+
+**Caveat onesti:**
+- **Etichette da referti, non gold standard annotato:** `MeSH`/`Problems` derivano dai report clinici (ricchezza reale ma non annotazione controllata). La fedeltà misura allineamento concetto↔report, non concetto↔verità-di-immagine.
+- **Solo seed 42:** la fedeltà è misurata sul modello di riferimento. Quanto sia stabile la *quota* di feature fedeli across-seed non è testato qui (ma a0 dice quali feature siano è già instabile).
+- **Prevalenza ≥10:** taglia le etichette rarissime (degeneri `|r|=1`). Sensibilità alla soglia non riportata; lo shuffle-null per-feature corregge comunque per la distribuzione di prevalenza.
+
+---
+
+## 5. Note di riproducibilità & stato
+- **Run headless (2026-06-22):** 9/9 celle via `jupyter nbconvert --execute`, backend Agg. Artefatti: `a5_faithfulness.json` (12 KB), `a5_faithfulness_headline.png` (3 pannelli: distribuzione max|corr| + null, % fedeli per soglia, per-label best).
+- **Zero training:** riusa `models/sae_seed42/`. `SAEManager.encode` → attivazioni continue TopK.
+- **Point-biserial, non AUROC:** una matmul `A_zᵀ·Y_z/N` (Pearson con var binaria), O(una matmul) vs ~500k chiamate AUROC su 4096×118.
+- **Null triplo:** SE analitica `1/√N`=0.0259; shuffle-null per-feature p95 (200 perm, `seed=0`); BH-FDR 0.05 sulla matrice (2251 live × 50 label = 112550 test).
+- **Filtro prevalenza ≥10:** evita i casi degeneri `|r|=1` delle etichette in 1–3 immagini (che gonfiavano anche il null). 50/101 label prevalenti tenute (mediana prev 30, max 191).
+- **Naming cross-ref:** usa lo stesso shift del modality gap di ab01–04 (`W_dec -= visual_centroid − text_centroid`) per nominare le feature fedeli in spazio RadLex. `train_emb` usato solo per il gap, mai per la correlazione (test-set discipline).
+- **Isolamento output:** scrive solo `results/ablation/` + `results/figures/ablation/` — baseline intoccata.
+
+## Riferimenti
+- [05_faithfulness.ipynb](05_faithfulness.ipynb) — notebook sorgente
+- [00_consensus.ipynb](00_consensus.ipynb) — a0 (instabilità in spazio direzioni)
+- [03_baselines.ipynb](03_baselines.ipynb) — a3 (0.004 = pavimento del caso)
+- [../../docs/suggestions/VOCAB_BUILDING_ALTERNATIVES.md](../../docs/suggestions/VOCAB_BUILDING_ALTERNATIVES.md) — MeSH/Problems come gold standard in-distribution
+- [../../docs/suggestions/concept_naming_analysis.md](../../docs/suggestions/concept_naming_analysis.md) — naming debole = in parte artefatto vocab (confermato dal cross-ref §3.4)
+- [../../src/autoencoder/sae_module.py](../../src/autoencoder/sae_module.py) — `SAEManager.encode`
+- [../../results/ablation/a5_faithfulness.json](../../results/ablation/a5_faithfulness.json) — metriche complete
+- [../../results/figures/ablation/a5_faithfulness_headline.png](../../results/figures/ablation/a5_faithfulness_headline.png) — figura headline

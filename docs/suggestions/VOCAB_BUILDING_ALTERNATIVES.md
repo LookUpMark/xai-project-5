@@ -1,7 +1,19 @@
 # Costruzione del vocabolario: alternative e ablation derivate
 
+> **Stato (aggiornato 2026-06-22).** Il vocab RadLex e' stato rebuildato a **508
+> termini** (issue #7 risolta). Il naming debole e' stato **ridefinito** in
+> `concept_naming_analysis.md`: con la correzione del modality gap (Soluzione 1)
+> il naming sale a mean 0.395 / max 0.547 (~3×), e la letteratura considera
+> 0.3-0.4 *normale e significativo* per SAE-su-CLIP — non un fallimento.
+> **L'ablation #2 (faithfulness concept↔etichetta MeSH/Problems) e' STATO
+> CONSEGNATO come `notebooks/autoencoder/ablation/05_faithfulness.ipynb` (a5)**:
+> ~10% delle feature live (226/2251) sono fedeli a vere etichette cliniche oltre
+> un null per-feature (le piu' forti: impianti medici |r|=0.46, versamento
+> pleurico, enfisema). Le alternative qui sotto restano valide come **future
+> work** (naming comparison RadLex-vs-gold #1, SPLiCE #3, vocab ibrido/mining).
+
 Il concept naming del run baseline e' debole (score mean 0.117, **max 0.291**)
-perche' il vocabolario RadLex (310 termini, ontologia radiologica generale) e'
+perche' il vocabolario RadLex (508 termini, ontologia radiologica generale) e'
 *off-distribution* rispetto al dominio CXR di IU X-Ray. Questo doc sistematizza
 le alternative di costruzione e gli **ablation aggiuntivi** che ne derivano
 (naming comparison, faithfulness concept<->etichetta, SPLiCE). Da leggersi con
@@ -40,7 +52,7 @@ Estrazione effettiva (split su `;`, base MeSH su `/`, lowercase, escluso
 
 | | RadLex (attuale) | Gold standard MeSH/Problems |
 |---|---|---|
-| Termini | 310 | 118 |
+| Termini | 508 | 118 |
 | Natura | Ontologia generale | Etichette dal dataset |
 | Distribuzione | Molti off-distribution | Solo ciò che c'e' nelle immagini |
 | Allineamento | max cosine 0.29 | atteso piu' alto |
@@ -82,7 +94,12 @@ Ripetere il concept naming del modello baseline (seed 42) con 3 vocabolari
 analysis-only, no retrain (riusa il modello baseline gia' addestrato), serve
 solo ri-encodare i termini del vocab con BiomedCLIP text encoder.
 
-### 2. Faithfulness concept-attivazione <-> etichetta (la porta riaperta)
+### 2. Faithfulness concept-attivazione <-> etichetta (la porta riaperta) — ✅ CONSEGNATO (a5)
+> **Delivered come `05_faithfulness.ipynb` (a5).** Point-biserial correlation
+> feature↔etichetta su 50 label prevalenti (MeSH/Problems), null calibrato
+> per-feature (shuffle p95) + BH-FDR. ~10% delle feature live fedeli oltre il
+> caso. Vedi `notebooks/autoencoder/ablation/REPORT.md` §Ablation 05.
+
 L'handoff aveva droppato "concept <-> 14 patologie NIH" perche' quelle etichette
 **non esistono** in IU X-Ray. Vero. Ma `MeSH`/`Problems` sono etichette
 per-immagine -> riaprono una valutazione di faithfulness reale, con zero nuovi dati.
@@ -127,9 +144,10 @@ dopo, come estensione.
 Il rebuild del vocabolario e' anche l'occasione per risolvere l'issue #7
 (schema mismatch): `build_vocabulary.save_vocabulary` scrive dict
 `{term, similarity_score, source}`, mentre il `data/vocabulary.json` committed
-e' una lista di 310 stringhe. Un rebuild riconcilierebbe lo schema con cio' che
-il codice produce davvero, e `concept_naming` va verificato contro lo schema
-scelto.
+e' una lista di 508 dict `{term,...}`. **Risolto a runtime**: `_vocab_term` in
+`sae_module.py` normalizza dict→stringa `term` ovunque (CLI, notebook, naming),
+e `concept_naming` e' verificato contro questo schema. Il rebuild del 2026-06-22
+ha portato il conteggio a 508.
 
 ## Riferimenti
 

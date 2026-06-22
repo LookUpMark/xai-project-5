@@ -17,7 +17,7 @@ import argparse
 
 from config import VLMConfig, VocabularyConfig
 from utils import load_vlm, load_radlex_terms
-from build_vocabulary import build_vocabulary_pipeline
+from vocabulary_building.build_vocabulary import build_vocabulary_pipeline
 
 
 def parse_args(vlm_config: VLMConfig, vocab_config: VocabularyConfig) -> argparse.Namespace:

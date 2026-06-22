@@ -10,10 +10,10 @@ Tests for the vocabulary building pipeline in build_vocabulary.py.
 ### How to run tests
     
     # Only unit tests (without GPU):
-    python -m pytest tests/test_build_vocabulary.py -v -k "not Integration"
+    python -m pytest tests/unit/test_build_vocabulary.py -v -k "not Integration"
 
-    # All tests (requires CUDA):
-    python -m pytest tests/test_build_vocabulary.py -v
+To run ALL tests including the integration ones:
+    python -m pytest tests/unit/test_build_vocabulary.py -v
 """
 
 import pytest
@@ -23,9 +23,9 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from config import VLMConfig, VocabularyConfig
-from build_vocabulary import (
+from vocabulary_building.build_vocabulary import (
     encode_texts,
-    compute_anchor_centroid,
+    compute_anchor_centroids,
     rank_terms_by_relevance,
     build_final_vocabulary,
     build_vocabulary_pipeline,
@@ -43,10 +43,9 @@ def _make_configs(tmp_path: Path):
     )
     vocab_config = VocabularyConfig(
         output_path=str(tmp_path / "vocabulary.json"),
-        embeddings_output_path=str(tmp_path / "text_vocab_embeddings.pt"),
         top_k=2,
         nih_seed_terms=["cardiomegaly", "effusion"],
-        anchor_queries=["chest radiograph finding"],
+        anchor_groups={"group1": ["chest radiograph finding"]},
     )
     return vlm_config, vocab_config
 
@@ -88,11 +87,10 @@ class TestEncodeTexts:
         assert torch.allclose(norms, torch.ones(3), atol=1e-5), "Embeddings are not L2-normalized"
 
 
-class TestComputeAnchorCentroid:
+class TestComputeAnchorCentroids:
     def test_centroid_computation(self):
         vlm_config, vocab_config = _make_configs(Path("dummy"))
-        # We have 1 anchor query from the helper
-        vocab_config.anchor_queries = ["anchor1", "anchor2"]
+        vocab_config.anchor_groups = {"group1": ["anchor1", "anchor2"]}
 
         mock_model = MagicMock()
         mock_processor = MagicMock()
@@ -107,16 +105,44 @@ class TestComputeAnchorCentroid:
             [0.0, 1.0, 0.0]
         ])
 
-        centroid = compute_anchor_centroid(mock_model, mock_processor, vlm_config, vocab_config)
+        centroids = compute_anchor_centroids(mock_model, mock_processor, vlm_config, vocab_config)
 
         # It should process all anchors in batches
         assert mock_processor.tokenizer.call_args[1]["text"] == ["anchor1", "anchor2"]
         
-        # The centroid shape should match the feature dimension and keepdim=True -> (1, 3)
-        assert centroid.shape == (1, 3)
+        # We expect 1 group centroid of shape (1, 3)
+        assert centroids.shape == (1, 3)
 
         # Centroid must be unit-norm
-        assert torch.allclose(centroid.norm(dim=-1), torch.tensor(1.0)), "Centroid is not normalized"
+        assert torch.allclose(centroids[0].norm(dim=-1), torch.tensor(1.0)), "Centroid is not normalized"
+
+
+
+    def test_centroid_computation_multiple_groups(self):
+        vlm_config, vocab_config = _make_configs(Path("dummy"))
+        vocab_config.anchor_groups = {
+            "group1": ["anchor1"],
+            "group2": ["anchor2", "anchor3"]
+        }
+
+        mock_model = MagicMock()
+        mock_processor = MagicMock()
+        proc_output = MagicMock()
+        proc_output.to.return_value = proc_output
+        mock_processor.tokenizer.return_value = proc_output
+
+        # Mock feature return for each group
+        # group1 has 1 item, group2 has 2 items
+        mock_model.get_text_features.side_effect = [
+            torch.tensor([[1.0, 0.0, 0.0]]),
+            torch.tensor([[0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
+        ]
+
+        centroids = compute_anchor_centroids(mock_model, mock_processor, vlm_config, vocab_config)
+
+        # Expected shape: 2 groups -> (2, 3)
+        assert centroids.shape == (2, 3)
+        assert mock_model.get_text_features.call_count == 2
 
 
 class TestRankTermsByRelevance:
@@ -145,6 +171,40 @@ class TestRankTermsByRelevance:
         assert ranked[1][0] == "apple"
         assert ranked[2][0] == "banana"
         assert ranked[0][1] > ranked[1][1] > ranked[2][1]
+
+
+
+    def test_ranking_with_multiple_centroids(self):
+        terms = ["apple", "banana", "cherry"]
+        
+        # 3 terms, 2 dimensions
+        embeddings = torch.tensor([
+            [1.0, 0.0],  # apple (matches centroid 1)
+            [0.0, 1.0],  # banana (matches centroid 2)
+            [-1.0, -1.0], # cherry (matches neither)
+        ])
+        embeddings = embeddings / embeddings.norm(dim=-1, keepdim=True)
+        
+        # 2 centroids, 2 dimensions
+        centroids = torch.tensor([
+            [1.0, 0.0],  # Centroid 1
+            [0.0, 1.0],  # Centroid 2
+        ])
+        centroids = centroids / centroids.norm(dim=-1, keepdim=True)
+
+        ranked = rank_terms_by_relevance(terms, embeddings, centroids)
+
+        # Apple matches C1 perfectly (score 1.0)
+        # Banana matches C2 perfectly (score 1.0)
+        # Cherry matches neither (score < 0)
+        
+        assert len(ranked) == 3
+        
+        # Apple and Banana should have score 1.0, Cherry < 0
+        scores = {k: v for k, v in ranked}
+        assert torch.isclose(torch.tensor(scores["apple"]), torch.tensor(1.0))
+        assert torch.isclose(torch.tensor(scores["banana"]), torch.tensor(1.0))
+        assert scores["cherry"] < 0.0
 
 
 class TestBuildFinalVocabulary:
@@ -182,12 +242,12 @@ class TestBuildFinalVocabulary:
 
 
 class TestBuildVocabularyPipeline:
-    @patch("build_vocabulary.save_vocab_embeddings")
-    @patch("build_vocabulary.save_vocabulary")
-    @patch("build_vocabulary.build_final_vocabulary")
-    @patch("build_vocabulary.rank_terms_by_relevance")
-    @patch("build_vocabulary.compute_anchor_centroid")
-    @patch("build_vocabulary.encode_texts")
+    @patch("vocabulary_building.build_vocabulary.save_vocab_embeddings")
+    @patch("vocabulary_building.build_vocabulary.save_vocabulary")
+    @patch("vocabulary_building.build_vocabulary.build_final_vocabulary")
+    @patch("vocabulary_building.build_vocabulary.rank_terms_by_relevance")
+    @patch("vocabulary_building.build_vocabulary.compute_anchor_centroids")
+    @patch("vocabulary_building.build_vocabulary.encode_texts")
     def test_pipeline_injects_seeds_and_calls_functions(
         self,
         mock_encode,
@@ -254,10 +314,9 @@ class TestIntegrationVocabularyPipeline:
         vlm_config = VLMConfig(device="cuda", batch_size=4)
         vocab_config = VocabularyConfig(
             output_path=str(tmp_path / "medical_vocabulary.json"),
-            embeddings_output_path=str(tmp_path / "vocab_embeddings.pt"),
             top_k=2,
             nih_seed_terms=["pneumonia", "effusion"],
-            anchor_queries=["chest radiograph finding"],
+            anchor_groups={"group1": ["chest radiograph finding"]},
         )
 
         all_terms = ["broken bone", "cardiomegaly", "headache"]

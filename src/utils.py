@@ -198,12 +198,34 @@ def split_embeddings(
         raise ValueError(
             f"Expected 2D embeddings tensor, got shape {embeddings.shape}"
         )
-    indices = np.arange(len(embeddings))
-    train_idx, test_idx = _sklearn_split(
-        indices,
-        train_size=train_ratio,
-        random_state=seed,
-    )
+
+    # Group by base ID to prevent data leakage of augmented images
+    if source_ids_path is not None:
+        import json
+        with open(source_ids_path, "r", encoding="utf-8") as f:
+            image_ids = json.load(f)
+            
+        if len(image_ids) != len(embeddings):
+            raise ValueError("ID sidecar length does not match embeddings length")
+            
+        unique_ids = list(set(image_ids))
+        train_unique, test_unique = _sklearn_split(
+            unique_ids,
+            train_size=train_ratio,
+            random_state=seed,
+        )
+        
+        train_set = set(train_unique)
+        train_idx = [i for i, img_id in enumerate(image_ids) if img_id in train_set]
+        test_idx = [i for i, img_id in enumerate(image_ids) if img_id not in train_set]
+        
+    else:
+        indices = np.arange(len(embeddings))
+        train_idx, test_idx = _sklearn_split(
+            indices,
+            train_size=train_ratio,
+            random_state=seed,
+        )
 
     train_emb = embeddings[train_idx]
     test_emb = embeddings[test_idx]

@@ -7,15 +7,15 @@ All models are mocked — no GPU or real weights required.
 """
 
 import json
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
 from torch.utils.data import Dataset
 
-from config import VLMConfig, EmbeddingConfig
+from config import SAEConfig, VLMConfig, EmbeddingConfig, AugmentationConfig
 from autoencoder.sae_module import SAEManager
-import extract_embeddings
+from embedding_extraction import extract_embeddings
 
 
 # ---------------------------------------------------------------------------
@@ -63,6 +63,12 @@ class FakeTextDataset(Dataset):
         return self.texts[idx], f"report_{idx}.txt"
 
 
+@pytest.fixture(autouse=True)
+def disable_augmentation():
+    with patch("embedding_extraction.extract_embeddings.augmentation", AugmentationConfig(enabled=False)):
+        yield
+
+
 @pytest.fixture
 def vlm_config():
     """VLMConfig — model identity + runtime params only.
@@ -84,7 +90,7 @@ def embedding_config(tmp_path):
     return EmbeddingConfig(
         image_dir=str(tmp_path / "images"),
         reports_dir=str(tmp_path / "reports"),
-        output_dir=str(tmp_path / "embeddings"),
+        output_base=str(tmp_path / "embeddings"),
     )
 
 

@@ -6,7 +6,7 @@ Creates train/test split if not already on disk, trains on train split only,
 evaluates sanity checks on held-out test set.
 
 Prerequisites:
-    - embeddings/visual_embeddings.pt (output of 01_extract_embeddings.py)
+    - embeddings/visual_embeddings.pt (output of embedding_extraction/extract_embeddings.py)
 
 Run:
     python src/autoencoder/train_sae.py
@@ -47,7 +47,7 @@ def prepare_split() -> None:
     if not source.exists():
         raise FileNotFoundError(
             f"Embeddings not found: {source}. "
-            f"Run first: python src/01_extract_embeddings.py"
+            f"Run first: python src/embedding_extraction/extract_embeddings.py"
         )
 
     embeddings = utils.load_tensor(source)

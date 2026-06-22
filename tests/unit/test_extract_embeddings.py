@@ -21,12 +21,12 @@ Tests for extract_visual_embeddings and extract_text_embeddings from extract_emb
 import torch
 import pytest
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from torch.utils.data import Dataset
 from PIL import Image
 
-from config import VLMConfig, EmbeddingConfig
-import extract_embeddings
+from config import VLMConfig, EmbeddingConfig, AugmentationConfig
+from embedding_extraction import extract_embeddings
 
 extract_visual_embeddings = extract_embeddings.extract_visual_embeddings
 extract_text_embeddings = extract_embeddings.extract_text_embeddings
@@ -77,10 +77,15 @@ def _make_configs(tmp_path: Path, batch_size: int = 2):
         device="cpu",
     )
     embedding_config = EmbeddingConfig(
-        output_dir=str(tmp_path / "embeddings"),
+        output_base=str(tmp_path / "embeddings"),
     )
     return vlm_config, embedding_config
 
+
+@pytest.fixture(autouse=True)
+def disable_augmentation():
+    with patch("embedding_extraction.extract_embeddings.augmentation", AugmentationConfig(enabled=False)):
+        yield
 
 # =========================================================================
 # Unit tests – extract_visual_embeddings
@@ -456,7 +461,7 @@ class TestIntegrationSingleSample:
             device="cuda",
         )
         embedding_config = EmbeddingConfig(
-            output_dir=str(tmp_path / "integration_embeddings"),
+            output_base=str(tmp_path / "integration_embeddings"),
         )
 
         # -- Extract visual embedding -------------------------------------

@@ -9,8 +9,8 @@ requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["config", "utils", "extract_embeddings", "build_vocabulary"]
-packages = ["xai_datasets"]
+py-modules = ["config", "utils", "evaluate_llm_judge"]
+packages = ["xai_datasets", "vocabulary_building", "embedding_extraction", "augmentation", "autoencoder"]
 
 [tool.setuptools.package-dir]
 "" = "src"

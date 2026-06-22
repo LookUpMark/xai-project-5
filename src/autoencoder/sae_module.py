@@ -426,14 +426,16 @@ class SAEManager:
             )
 
         W_dec = self.get_decoder_weights()  # (dict_size, 512)
-        
+
+        # Identify dead features on the ORIGINAL (pre-shift) decoder norms: "dead" is
+        # a property of the learned feature, not of the gap-shifted vector. (Computing
+        # it after the shift would mask genuinely-zero decoder rows, since a zero row
+        # becomes -gap with norm ||gap|| > 0.)
+        dead_threshold = self.config.get("dead_threshold", 1e-8)
+        dead_mask = W_dec.norm(dim=1) < dead_threshold
+
         if modality_gap is not None:
             W_dec = W_dec - modality_gap.unsqueeze(0).to(W_dec.device)
-
-        # Identify dead features (zero or near-zero decoder vectors)
-        norms = W_dec.norm(dim=1)
-        dead_threshold = self.config.get("dead_threshold", 1e-8)
-        dead_mask = norms < dead_threshold
 
         # Normalize → dot product equals cosine similarity
         # For dead features, F.normalize produces NaN; set them to zero instead
@@ -504,9 +506,12 @@ class SAEManager:
              "activation_entropy", "dict_utilization_pct"}
 
         Notes:
-            - dead_features_pct: Features with zero activation across ALL samples.
-              A feature is "dead" if its decoder column has zero norm OR if no sample
-              ever activates it. High dead % (>30%) suggests dict_size is too large.
+            - dead_features_pct: features that NEVER activate on this batch
+              (activation-based definition: ``active_per_feature == 0``). This is
+              distinct from the decoder-norm definition used in ``name_concepts``
+              (``dead_threshold`` on the learned decoder vector); the two can diverge
+              (e.g. 0% decoder-norm dead vs ~30-65% activation dead). High activation
+              dead % suggests dict_size is too large for the data.
             - activation_entropy: Shannon entropy over feature activation frequencies.
               Higher values = more uniform utilization. Maximum = log(dict_size).
               Very low entropy indicates a few features dominate.
@@ -581,10 +586,12 @@ class SAEManager:
             chunk_size = effective_config.get("chunk_size", 512)
             for start in range(0, embeddings.shape[0], chunk_size):
                 chunk = embeddings[start : start + chunk_size]
-                _, _, indices = mgr.encode_topk(chunk)
-                # Use only top-n for comparison
-                if n < indices.shape[1]:
-                    indices = indices[:, :n]
+                _, values, indices = mgr.encode_topk(chunk)
+                # The library uses torch.topk(k, sorted=False), so the returned k
+                # entries are not guaranteed to be value-ordered. Sort by value
+                # descending before slicing the top-n so a future n<k stays correct.
+                sort_idx = values.argsort(dim=1, descending=True)
+                indices = torch.gather(indices, 1, sort_idx)[:, :n]
                 for row in indices.cpu():
                     sample_sets.append(set(row.tolist()))
             active_sets.append(sample_sets)

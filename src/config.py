@@ -230,8 +230,14 @@ class VocabularyConfig:
 
 @dataclass(frozen=True)
 class AugmentationConfig:
-    """Settings for data augmentation on Chest X-Rays."""
-    enabled: bool = True
+    """Settings for data augmentation on Chest X-Rays.
+
+    Default disabled: augmentation is an optional extension (member-1 ablation
+    over embeddings/augmented/). The standard pipeline runs on
+    embeddings/standard/ with augmentation off. Enable explicitly when
+    generating/running the augmented ablation.
+    """
+    enabled: bool = False
     num_augmentations: int = 2
     rotation_degrees: int = 5
     crop_scale: tuple[float, float] = (0.95, 1.0)
@@ -252,7 +258,7 @@ class SAEConfig:
     """
 
     activation_dim: int = 512
-    dict_size: int = 2048
+    dict_size: int = 4096  # matches committed models (sae_seed*), _DEFAULTS, ablation notebooks
     k: int = 32
     lr: Optional[float] = None  # None = auto-scale from library
     steps: int = 50_000

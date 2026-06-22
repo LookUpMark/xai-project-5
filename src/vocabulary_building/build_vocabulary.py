@@ -38,6 +38,7 @@ def encode_texts(
                 return_tensors="pt",
                 padding=True,
                 truncation=True,
+                max_length=512,
             ).to(vlm_config.device)
 
             outputs = model.get_text_features(**inputs)

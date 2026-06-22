@@ -37,8 +37,8 @@ logger = setup_logging(__name__)
 
 # Paths
 EXPLANATIONS_PATH = paths.results_dir / "sample_explanations.json"
-REPORTS_CSV_PATH = paths.data_dir / "iu_xray" / "indiana_reports.csv"
-PROJECTIONS_CSV_PATH = paths.data_dir / "iu_xray" / "indiana_projections.csv"
+REPORTS_CSV_PATH = paths.data_dir / "iu_xray" / "reports" / "indiana_reports.csv"
+PROJECTIONS_CSV_PATH = paths.data_dir / "iu_xray" / "reports" / "indiana_projections.csv"
 OUTPUT_CSV_PATH = paths.results_dir / "aligned_scores.csv"
 CHECKPOINT_PATH = paths.results_dir / ".judge_checkpoint.json"
 
@@ -76,16 +76,23 @@ VALID_VERDICTS = ("Aligned", "Unaligned", "Uncertain")
 _pipe = None
 
 def get_pipeline():
-    """Load the MedGemma pipeline once and cache it globally."""
+    """Load the MedGemma pipeline once and cache it globally.
+
+    Device/dtype adapts to the host: CUDA uses bfloat16 + device_map='auto'
+    (the original config); Apple Silicon uses float16 + 'mps' (bfloat16 is
+    incompletely supported on MPS); CPU falls back to float32.
+    """
     global _pipe
     if _pipe is None:
         logger.info("Loading model %s ...", MODEL_NAME)
-        _pipe = pipeline(
-            "text-generation",
-            model=MODEL_NAME,
-            torch_dtype=torch.bfloat16,
-            device_map="auto",
-        )
+        if torch.cuda.is_available():
+            kwargs = dict(torch_dtype=torch.bfloat16, device_map="auto")
+        elif torch.backends.mps.is_available():
+            kwargs = dict(torch_dtype=torch.float16, device="mps")
+        else:
+            kwargs = dict(torch_dtype=torch.float32, device="cpu")
+        logger.info("Device/dtype: %s", kwargs)
+        _pipe = pipeline("text-generation", model=MODEL_NAME, **kwargs)
         logger.info("Model loaded successfully.")
     return _pipe
 

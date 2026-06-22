@@ -37,7 +37,8 @@ logger = setup_logging(__name__)
 
 # Paths
 EXPLANATIONS_PATH = paths.results_dir / "sample_explanations.json"
-REPORTS_CSV_PATH = paths.data_dir / "iu_xray" / "reports.csv"
+REPORTS_CSV_PATH = paths.data_dir / "iu_xray" / "indiana_reports.csv"
+PROJECTIONS_CSV_PATH = paths.data_dir / "iu_xray" / "indiana_projections.csv"
 OUTPUT_CSV_PATH = paths.results_dir / "aligned_scores.csv"
 CHECKPOINT_PATH = paths.results_dir / ".judge_checkpoint.json"
 
@@ -279,6 +280,7 @@ def evaluate(
     batch_save_every: int = 25,
     explanations_path: Path | None = None,
     reports_path: Path | None = None,
+    projections_path: Path | None = None,
     output_path: Path | None = None,
 ) -> Path:
     """
@@ -290,7 +292,9 @@ def evaluate(
         explanations_path: Override for the explanations JSON path.
             Defaults to ``results/sample_explanations.json``.
         reports_path: Override for the reports CSV path.
-            Defaults to ``data/iu_xray/reports.csv``.
+            Defaults to ``data/iu_xray/indiana_reports.csv``.
+        projections_path: Override for the projections CSV path.
+            Defaults to ``data/iu_xray/indiana_projections.csv``.
         output_path: Override for the output CSV path.
             Defaults to ``results/aligned_scores.csv``.
 
@@ -299,6 +303,7 @@ def evaluate(
     """
     eff_explanations = explanations_path or EXPLANATIONS_PATH
     eff_reports = reports_path or REPORTS_CSV_PATH
+    eff_projections = projections_path or PROJECTIONS_CSV_PATH
     eff_output = output_path or OUTPUT_CSV_PATH
 
     # --- Load inputs ---
@@ -309,22 +314,54 @@ def evaluate(
 
     if not eff_reports.exists():
         logger.error("Reports CSV not found: %s", eff_reports)
-        logger.error("Ensure data/iu_xray/reports.csv exists.")
+        logger.error("Ensure data/iu_xray/indiana_reports.csv exists.")
+        sys.exit(1)
+
+    if not eff_projections.exists():
+        logger.error("Projections CSV not found: %s", eff_projections)
+        logger.error("Ensure data/iu_xray/indiana_projections.csv exists.")
         sys.exit(1)
 
     with open(eff_explanations, "r") as f:
         explanations = json.load(f)
 
     reports_df = pd.read_csv(eff_reports)
+    projections_df = pd.read_csv(eff_projections)
     logger.info("Loaded %d sample explanations", len(explanations))
-    logger.info("Loaded %d reports", len(reports_df))
+    logger.info("Loaded %d reports, %d projections", len(reports_df), len(projections_df))
 
-    # Build a fast lookup: image_id (as str) → combined_text.
-    # The CSV uses integer image_id values that match sample_idx in the
-    # explanations JSON, so we normalise both sides to str for robustness.
-    report_lookup = dict(
-        zip(reports_df["image_id"].astype(str), reports_df["combined_text"])
+    # Build a fast lookup: filename → report text.
+    #
+    # The explanations JSON uses image filenames (e.g. "3222_IM-1522-2001.dcm.png")
+    # as image_id.  The indiana_reports.csv uses a numeric `uid` key and stores
+    # the report text in `findings` and `impression` columns.  We bridge them
+    # via indiana_projections.csv which maps filename → uid.
+    #
+    # Step 1: Build uid → combined report text (findings + impression)
+    def _combine_report(row) -> str:
+        parts = []
+        if pd.notna(row.get("findings")):
+            parts.append(str(row["findings"]).strip())
+        if pd.notna(row.get("impression")):
+            parts.append(str(row["impression"]).strip())
+        return " ".join(parts) if parts else ""
+
+    reports_df["combined_text"] = reports_df.apply(_combine_report, axis=1)
+    uid_to_report = dict(
+        zip(reports_df["uid"].astype(str), reports_df["combined_text"])
     )
+
+    # Step 2: Build filename → uid mapping from projections
+    filename_to_uid = dict(
+        zip(projections_df["filename"], projections_df["uid"].astype(str))
+    )
+
+    # Step 3: Build the final filename → report text lookup
+    report_lookup = {}
+    for filename, uid in filename_to_uid.items():
+        report_text = uid_to_report.get(uid)
+        if report_text:
+            report_lookup[filename] = report_text
 
     # --- Resume support ---
     if resume:
@@ -339,17 +376,21 @@ def evaluate(
     eval_pairs = []
     skipped_no_report = 0
     for item in explanations:
-        # Normalise to str so the lookup always matches the CSV integer IDs.
-        image_id = str(item.get("image_id", item.get("sample_idx")))
+        # image_id in the explanations JSON is the image filename
+        # (e.g. "3222_IM-1522-2001.dcm.png")
+        image_id = item.get("image_id", "")
         report = report_lookup.get(image_id)
-        if report is None or (isinstance(report, float) and pd.isna(report)):
+        if not report:
             skipped_no_report += 1
             continue
 
-        # Support both field names used historically
-        concepts_list = item.get("findings", item.get("top_k_concepts", []))
+        # The explanations JSON uses "top_k_concepts" with sub-keys
+        # "feature_id", "name", "activation"
+        concepts_list = item.get("top_k_concepts", [])
         for concept_info in concepts_list:
-            concept_name = concept_info.get("concept", concept_info.get("name"))
+            concept_name = concept_info.get("name", "")
+            if not concept_name:
+                continue
             key = (image_id, concept_name)
             if key in done_keys:
                 continue
@@ -358,10 +399,6 @@ def evaluate(
                 "concept_name": concept_name,
                 "feature_id": concept_info["feature_id"],
                 "activation": concept_info["activation"],
-                # Preserve naming confidence for downstream analysis
-                "naming_confidence": concept_info.get(
-                    "naming_confidence", concept_info.get("score", None)
-                ),
                 "report": report,
             })
 
@@ -404,7 +441,6 @@ def evaluate(
                 "feature_id": pair["feature_id"],
                 "concept": pair["concept_name"],
                 "activation": pair["activation"],
-                "naming_confidence": pair.get("naming_confidence"),
                 "verdict": verdict,
                 "raw_response": result_state.get("raw_response", ""),
             })
@@ -417,7 +453,6 @@ def evaluate(
                 "feature_id": pair["feature_id"],
                 "concept": pair["concept_name"],
                 "activation": pair["activation"],
-                "naming_confidence": pair.get("naming_confidence"),
                 "verdict": "Uncertain",
                 "raw_response": f"ERROR: {e}",
             })
@@ -455,7 +490,7 @@ def _save_final(records: list[dict], output_path: Path | None = None) -> Path:
     # Drop raw_response for the clean output file; keep naming_confidence
     output_cols = [
         "image_id", "feature_id", "concept",
-        "activation", "naming_confidence", "verdict",
+        "activation", "verdict",
     ]
     existing_cols = [c for c in output_cols if c in df.columns]
     df[existing_cols].to_csv(dest, index=False)
@@ -528,6 +563,7 @@ def main():
     logger.info("LLM Judge — model=%s", MODEL_NAME)
     logger.info("  Explanations : %s", EXPLANATIONS_PATH)
     logger.info("  Reports      : %s", REPORTS_CSV_PATH)
+    logger.info("  Projections  : %s", PROJECTIONS_CSV_PATH)
     logger.info("  Output       : %s", OUTPUT_CSV_PATH)
 
     output_csv = evaluate(

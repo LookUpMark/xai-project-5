@@ -1,159 +1,159 @@
-# REPORT — Ablazioni SAE (`notebooks/autoencoder/ablation/`)
+# REPORT — SAE Ablations (`notebooks/autoencoder/ablation/`)
 
-Report cumulativo del programma di ablation. Una sezione per notebook, aggiornata ad ogni run.
+Cumulative report of the ablation program. One section per notebook, updated on every run.
 
-**Companion:** `../baseline/REPORT.md` descrive il run baseline (TopK, dict4096, k=32, 5 seed) da cui tutte queste ablation derivano. L'instabilità cross-seed osservata nel baseline (Jaccard 0.0038) è la domanda madre dell'intero programma; la sua interpretazione come "pavimento del caso" è stabilita qui (Ablation 03).
+**Companion:** `../baseline/REPORT.md` describes the baseline run (TopK, dict4096, k=32, 5 seeds) from which all these ablations derive. The cross-seed instability observed in the baseline (Jaccard 0.0038) is the master question of the whole program; its interpretation as the "chance floor" is established here (Ablation 03).
 
-**Indice**
-- [Sintesi esecutiva](#sintesi-esecutiva)
-- [Glossario](#glossario)
-- [Metriche e null: definizioni formali](#metriche-e-null-definizioni-formali)
+**Table of contents**
+- [Executive summary](#executive-summary)
+- [Glossary](#glossary)
+- [Metrics and null: formal definitions](#metrics-and-null-formal-definitions)
 - [Ablation 00 — Cross-Seed Consensus (direction-space)](#ablation-00--cross-seed-consensus-direction-space)
 - [Ablation 01 — Dictionary-Size Ladder (lr pinned)](#ablation-01--dictionary-size-ladder-lr-pinned)
 - [Ablation 02 — k (Sparsity) Sweep, null-calibrated](#ablation-02--k-sparsity-sweep-null-calibrated)
 - [Ablation 03 — Concept Baselines + Empirical Jaccard Floor](#ablation-03--concept-baselines--empirical-jaccard-floor)
 - [Ablation 04 — Activation-Family Bake-off (TopK vs BatchTopK vs JumpReLU)](#ablation-04--activation-family-bake-off-topk-vs-batchtopk-vs-jumprelu)
 - [Ablation 05 — Concept Faithfulness vs clinical labels (MeSH/Problems)](#ablation-05--concept-faithfulness-vs-clinical-labels-meshproblems)
-- [Conclusione cumulativa](#conclusione-cumulativa)
-- [Bibliografia](#bibliografia)
+- [Cumulative conclusion](#cumulative-conclusion)
+- [Bibliography](#bibliography)
 
 ---
 
-## Sintesi esecutiva
+## Executive summary
 
-Il run baseline (vedi `../baseline/REPORT.md`) raggiunge una ricostruzione ottima (cosine 0.988 con soli `k=32` feature attivi) ma scopre concetti **quasi completamente diversi** ad ogni seed: mean cross-seed index-Jaccard **0.0038 ≈ 0**. L'intero programma di ablation nasce da una domanda: il 0.0038 è un fallimento reale del metodo, oppure il pavimento matematico del caso? E si può mitigare agendo su un iperparametro?
+The baseline run (see `../baseline/REPORT.md`) achieves excellent reconstruction (cosine 0.988 with only `k=32` active features) but discovers **almost completely different** concepts at every seed: mean cross-seed index-Jaccard **0.0038 ≈ 0**. The entire ablation program originates from one question: is the 0.0038 a real failure of the method, or the mathematical chance floor? And can it be mitigated by tuning a hyperparameter?
 
-Le prime cinque ablation (00–04) investigano la **causa** dell'instabilità lungo quattro assi ortogonali — spazio di rappresentazione, capacità del dizionario, sparsità, famiglia di attivazione — sempre contro un null calibrato (analitico o empirico). La sesta (05) apre l'asse complementare della **fedeltà**: ammesso che i concetti siano instabili, quelli che esistono sono almeno clinicamente significativi?
+The first five ablations (00–04) investigate the **cause** of the instability along four orthogonal axes — representation space, dictionary capacity, sparsity, activation family — always against a calibrated null (analytical or empirical). The sixth (05) opens the complementary axis of **faithfulness**: assuming the concepts are unstable, are the ones that exist at least clinically meaningful?
 
-| Ab | Asse | Domanda | Esito |
+| Ab | Axis | Question | Outcome |
 |---|---|---|---|
-| **00** | direzioni del decoder | Il 0.0038 è un artefatto di permutazione degli indici? | ❌ No — disgiunti anche nello spazio delle direzioni |
-| **01** | capacità (`dict_size`) | Il sovradimensionamento (4096 = 8×) causa instabilità e dead? | ❌ Per i dead sì, per la stabilità **no** |
-| **02** | sparsità (`k`) | Un `k` diverso porta sopra il null? | ⚠️ Parziale — debole sweet spot a k=16, non risolve |
-| **03** | alternative al SAE | Il SAE batte metodi banali, o è sul pavimento del caso? | ✅ Pavimento del caso — random fa uguale |
-| **04** | famiglia di attivazione | È colpa di TopK? (BatchTopK, JumpReLU) | ❌ dead% sì, stabilità **no** |
-| **05** | fedeltà clinica | I concetti esistenti sono fedeli a etichette reali? | ✅ Parzialmente sì — ~10% fedele oltre il null |
+| **00** | decoder directions | Is 0.0038 an index-permutation artifact? | ❌ No — disjoint even in direction space |
+| **01** | capacity (`dict_size`) | Does over-expansion (4096 = 8×) cause instability and dead? | ❌ For dead yes, for stability **no** |
+| **02** | sparsity (`k`) | Does a different `k` rise above the null? | ⚠️ Partial — weak sweet spot at k=16, does not resolve |
+| **03** | SAE alternatives | Does the SAE beat trivial methods, or sit on the chance floor? | ✅ Chance floor — random does the same |
+| **04** | activation family | Is it TopK's fault? (BatchTopK, JumpReLU) | ❌ dead% yes, stability **no** |
+| **05** | clinical faithfulness | Are the existing concepts faithful to real labels? | ✅ Partially yes — ~10% faithful above the null |
 
-**Conclusione d'insieme.** Il 0.0038 "preoccupante" del baseline **non è un fallimento**: è il pavimento matematico del caso (Ablation 03: Random@4096 = 0.0037 ≈ SAE), confermato come rumore sia in spazio indici (00) che direzioni (03). L'instabilità **non si fixa** con iperparametri: né `dict_size` (01), né `k` (02), né la famiglia di attivazione (04: consensus 0 per tutte e tre) la risolvono. Le cause profonde rimaste sono strutturali — pochi campioni (5976) e non-unicità intrinseca della decomposizione sparsa su embedding CLIP proiettati — e valgono per TopK, BatchTopK e JumpReLU. La diagnosi causale completa è in `docs/suggestions/CONCEPT_INSTABILITY_DIAGNOSIS.md`.
+**Overall conclusion.** The "alarming" baseline 0.0038 **is not a failure**: it is the mathematical chance floor (Ablation 03: Random@4096 = 0.0037 ≈ SAE), confirmed as noise in both index space (00) and direction space (03). The instability **is not fixed** by hyperparameters: neither `dict_size` (01), nor `k` (02), nor the activation family (04: consensus 0 for all three) resolve it. The remaining root causes are structural — few samples (5976) and the intrinsic non-uniqueness of the sparse decomposition on projected CLIP embeddings — and they hold for TopK, BatchTopK and JumpReLU. The full causal diagnosis is in `docs/suggestions/CONCEPT_INSTABILITY_DIAGNOSIS.md`.
 
-Tuttavia **l'instabilità non equivale a inutilità** (05). I concetti che esistono in un seed sono moderatamente ma genuinamente **fedeli** a etichette cliniche reali: ~10% delle feature live (226/2251) batte un null calibrato per-feature, e le più forti tracciano concetti clinicamente attesi (impianti medici |r|=0.46, versamento pleurico, enfisema, ombra cardiaca, edema). Il risultato d'insieme è quindi **bilanciato e difendibile**: il SAE su questo dataset ha un limite strutturale dichiarato (seed-dipendenza) ma produce direzioni con grounding clinico reale — non riproducibili seed-a-seed, ma non rumore.
-
----
-
-## Glossario
-
-Termini ricorrenti nel report. Le definizioni formali (con formule) sono nella sezione successiva.
-
-- **Jaccard (index)** — sovrapposizione tra i *set di indici* delle feature attive di due SAE: `|A∩B|/|A∪B|`. Testa identità di slot ("lo slot `i` del seed A spara sugli stessi sample dello slot `i` del seed B?"). Sensibile alla permutazione.
-- **Jaccard (direction)** — sovrapposizione nello spazio delle *direzioni* del decoder, indipendente dall'indice: si abbinano le feature per similarità geometrica (coseno) via matching Hungarian, tenendo gli abbinamenti con coseno ≥ τ. Risolve l'artefatto di permutazione.
-- **Signal-to-null ratio** — `Jaccard_osservato / E[Jaccard]_caso`. >1 = accordo oltre il caso; ≈1 = sul pavimento del caso; <1 = sotto. Il null è la sovrapposizione attesa tra due dizionari casuali indipendenti a pari dimensione.
-- **Null (calibrazione)** — valore di riferimento "per puro caso". Tre forme usate: (1) **analitico** ipergeometrico `k/(2D−k)` per Jaccard; (2) **shuffle-null** — permutare i tag (seed o etichetta) e ricalcolare la metrica, prendere un percentile (p95); (3) **BH-FDR** — correzione multi-ipotesi Benjamini–Hochberg sui p-value.
-- **Consensus reappearance** — per quante seed/famiglie ricorre una stessa direzione. Si clusterizzano tutte le righe del decoder pooled (`connected_components` su grafo `coseno > τ`) e si conta in quanti seed è rappresentato ciascun cluster. `consensus@≥k/5` = frazione di cluster presenti in ≥k seed.
-- **Dead feature** — due definizioni divergenti, vanno tenute distinte:
-  - *decoder-norm dead* = riga del decoder a norma ~0 (`‖w_i‖ < 1e-8`). Nei checkpoint addestrati è **0%** (la libreria normalizza ogni colonna ad ogni step).
-  - *activation dead* = feature mai non-zero sul test set. Nel baseline ~**44%** (dizionario sovradimensionato per ~7400 immagini).
-- **L0** — numero di feature non-zero per immagine. Con TopK è `k` esatto (rigido); con BatchTopK/JumpReLU è variabile (adattivo).
-- **VE (Variance Explained)** — `1 − ‖x−x̂‖²/‖x‖²`. Strettamente legato al cosine di ricostruzione.
-- **Modality gap** — scostamento geometrico sistematico tra lo spazio delle immagini e quello dei testi nei modelli contrastivi (CLIP/BiomedCLIP). Le due modalità occupano "coni" separati; il gap è approssimativamente una traslazione costante. Corretto post-hoc con `W_dec -= (visual_centroid − text_centroid)` prima del naming.
-- **Feature splitting** — quanto le feature vive si somigliano tra loro (mean/p90 pairwise coseno tra alive rows). Splitting alto = ridondanza/collisioni.
-- **Faithfulness** — una feature è "fedele" a un'etichetta clinica se si attiva proprio sulle immagini che contengono quell'etichetta, **oltre il puro caso**. Misurata come correlazione point-biserial tra il pattern di attivazione della feature e l'etichetta binaria.
-- **Point-biserial correlation** — correlazione di Pearson tra una variabile continua e una binaria. Equivalentemente `A_zᵀ·Y_z/N` con entrambe le matrici z-scored. Usata in 05 invece di AUROC per costo O(una matmul).
-- **Hungarian matching** — algoritmo di assegnamento ottimo (`linear_sum_assignment`); in 00 abbinamento 1-a-1 per massimizzare la similarità media tra le feature di due seed.
+However, **instability does not equate to uselessness** (05). The concepts that exist in one seed are moderately but genuinely **faithful** to real clinical labels: ~10% of live features (226/2251) beat a per-feature calibrated null, and the strongest track clinically expected concepts (medical implants |r|=0.46, pleural effusion, emphysema, cardiac shadow, edema). The overall result is therefore **balanced and defensible**: the SAE on this dataset has a declared structural limitation (seed-dependence) but produces directions with real clinical grounding — not reproducible seed-to-seed, but not noise.
 
 ---
 
-## Metriche e null: definizioni formali
+## Glossary
 
-Notazione: `x ∈ ℝⁿ` embedding di un'immagine, `x̂ = W_dec·z + b_dec` ricostruzione SAE, `z ∈ ℝᴰ` codice sparso con `k` non-zero (TopK), `D = dict_size`, `τ` soglia di coseno.
+Recurring terms in the report. Formal definitions (with formulas) are in the next section.
 
-**Ricostruzione.**
-- Cosine: `cos(x, x̂) = ⟨x, x̂⟩ / (‖x‖·‖x̂‖)`. Nel baseline ~0.988.
-- Variance Explained: `VE = 1 − ‖x − x̂‖² / ‖x − b_dec‖²` (rispetto al bias, non all'origine). ~99.3% nel baseline.
-- L0: `‖z‖₀ = #{i : zᵢ ≠ 0}`. TopK lo forza a `k` esatto.
+- **Jaccard (index)** — overlap between the *active index sets* of two SAEs: `|A∩B|/|A∪B|`. Tests slot identity ("does slot `i` of seed A fire on the same samples as slot `i` of seed B?"). Sensitive to permutation.
+- **Jaccard (direction)** — overlap in the *direction* space of the decoder, index-independent: features are matched by geometric similarity (cosine) via Hungarian matching, keeping matches with cosine ≥ τ. Resolves the permutation artifact.
+- **Signal-to-null ratio** — `observed_Jaccard / expected[Jaccard]_chance`. >1 = agreement beyond chance; ≈1 = on the chance floor; <1 = below. The null is the overlap expected between two independent random dictionaries of equal size.
+- **Null (calibration)** — the "by pure chance" reference value. Three forms used: (1) **analytical** hypergeometric `k/(2D−k)` for Jaccard; (2) **shuffle-null** — permute the tags (seed or label) and recompute the metric, take a percentile (p95); (3) **BH-FDR** — Benjamini–Hochberg multiple-hypothesis correction on p-values.
+- **Consensus reappearance** — across how many seeds/families a same direction recurs. All pooled decoder rows are clustered (`connected_components` on a `cosine > τ` graph) and each cluster is counted by how many seeds it spans. `consensus@≥k/5` = fraction of clusters present in ≥k seeds.
+- **Dead feature** — two diverging definitions, keep them distinct:
+  - *decoder-norm dead* = decoder row with norm ~0 (`‖w_i‖ < 1e-8`). In trained checkpoints it is **0%** (the library normalizes each column at every step).
+  - *activation dead* = feature never non-zero on the test set. In the baseline ~**44%** (dictionary oversized for ~7400 images).
+- **L0** — number of non-zero features per image. With TopK it is exactly `k` (rigid); with BatchTopK/JumpReLU it is variable (adaptive).
+- **VE (Variance Explained)** — `1 − ‖x−x̂‖²/‖x‖²`. Strictly tied to reconstruction cosine.
+- **Modality gap** — systematic geometric offset between image space and text space in contrastive models (CLIP/BiomedCLIP). The two modalities occupy separate "cones"; the gap is approximately a constant translation. Corrected post-hoc with `W_dec -= (visual_centroid − text_centroid)` before naming.
+- **Feature-splitting** — how much the live features resemble each other (mean/p90 pairwise cosine among alive rows). High splitting = redundancy/collisions.
+- **Faithfulness** — a feature is "faithful" to a clinical label if it activates precisely on the images that contain that label, **beyond pure chance**. Measured as point-biserial correlation between the feature activation pattern and the binary label.
+- **Point-biserial correlation** — Pearson correlation between a continuous variable and a binary one. Equivalently `A_zᵀ·Y_z/N` with both matrices z-scored. Used in 05 instead of AUROC for O(one matmul) cost.
+- **Hungarian matching** — optimal assignment algorithm (`linear_sum_assignment`); in 00, 1-to-1 matching to maximize the average similarity between the features of two seeds.
 
-**Stabilità.**
-- Index-Jaccard (baseline, 00): `J(A,B) = |A∩B| / |A∪B|` dove `A,B` sono i set di indici attivi di due SAE sullo stesso sample.
-- Direction-Jaccard (00): matching Hungarian su matrice coseno `D×D` tra righe decoder, si contano gli abbinamenti con `cos ≥ τ`.
-- Null analitico per l'index-Jaccard, due dizionari indipendenti di dimensione `D` che scelgono ciascuno `k` indici: `E[J] = Σⱼ j/(2k−j)·P(j)` con `P(j) = hypergeom(M=2D, n=k, N=k)(j)`; per `k ≪ D` si riduce a `E[J] ≈ k/(2D−k)`. A D=4096, k=32 → 0.0039.
-- Signal-to-null ratio: `r = J_osservato / E[J]`.
+---
+
+## Metrics and null: formal definitions
+
+Notation: `x ∈ ℝⁿ` embedding of an image, `x̂ = W_dec·z + b_dec` SAE reconstruction, `z ∈ ℝᴰ` sparse code with `k` non-zero (TopK), `D = dict_size`, `τ` cosine threshold.
+
+**Reconstruction.**
+- Cosine: `cos(x, x̂) = ⟨x, x̂⟩ / (‖x‖·‖x̂‖)`. In the baseline ~0.988.
+- Variance Explained: `VE = 1 − ‖x − x̂‖² / ‖x − b_dec‖²` (relative to the bias, not the origin). ~99.3% in the baseline.
+- L0: `‖z‖₀ = #{i : zᵢ ≠ 0}`. TopK forces it to exactly `k`.
+
+**Stability.**
+- Index-Jaccard (baseline, 00): `J(A,B) = |A∩B| / |A∪B|` where `A,B` are the active index sets of two SAEs on the same sample.
+- Direction-Jaccard (00): Hungarian matching on the `D×D` cosine matrix between decoder rows, counting matches with `cos ≥ τ`.
+- Analytical null for index-Jaccard, two independent dictionaries of size `D` each choosing `k` indices: `E[J] = Σⱼ j/(2k−j)·P(j)` with `P(j) = hypergeom(M=2D, n=k, N=k)(j)`; for `k ≪ D` it reduces to `E[J] ≈ k/(2D−k)`. At D=4096, k=32 → 0.0039.
+- Signal-to-null ratio: `r = observed_J / E[J]`.
 
 **Dead feature.**
-- decoder-norm dead: `‖w_i‖ < 1e-8` (0% nei checkpoint addestrati).
-- activation dead: `∀ sample s: zᵢ(s) = 0` sul test set (~44% baseline).
+- decoder-norm dead: `‖w_i‖ < 1e-8` (0% in trained checkpoints).
+- activation dead: `∀ sample s: zᵢ(s) = 0` on the test set (~44% baseline).
 
-**Consensus (00, 01, 02, 04).** Grafo sparso su righe decoder pooled con archi dove `coseno > τ` → `scipy.sparse.connected_components`. `consensus@≥m/5` = frazione di componenti che includono righe di ≥m seed.
+**Consensus (00, 01, 02, 04).** Sparse graph on pooled decoder rows with edges where `cosine > τ` → `scipy.sparse.connected_components`. `consensus@≥m/5` = fraction of components that include rows from ≥m seeds.
 
-**Shuffle-null.** Per un'ipotesi H su N elementi etichettati: permutare le etichette `B` volte, ricalcolare la metrica sotto H, prendere il percentile (p95 in 05, oppure il valore puro per un p-value in 00). Specifica per-feature in 05 (corregge per la distribuzione di prevalenza dell'etichetta).
+**Shuffle-null.** For a hypothesis H over N labeled elements: permute the labels `B` times, recompute the metric under H, take the percentile (p95 in 05, or the raw value for a p-value in 00). Per-feature in 05 (corrects for the label prevalence distribution).
 
-**Faithfulness (05).** Matrice attivazioni `A ∈ ℝ^{N×D}` (z-scored per feature), matrice etichette `Y ∈ {0,1}^{N×L}` (z-scored per etichetta). Correlazione point-biserial `R = A_zᵀ Y_z / N` (matrice `D×L`). Per feature `i`: `max_j |Rᵢⱼ|`. Null triplo: (1) SE analitica `1/√N` = 0.0259; (2) shuffle-null per-feature p95 (200 perm, mediana 0.188); (3) BH-FDR 0.05 sui `D_live × L` test (112550).
+**Faithfulness (05).** Activation matrix `A ∈ ℝ^{N×D}` (z-scored per feature), label matrix `Y ∈ {0,1}^{N×L}` (z-scored per label). Point-biserial correlation `R = A_zᵀ Y_z / N` (`D×L` matrix). For feature `i`: `max_j |Rᵢⱼ|`. Triple null: (1) analytical SE `1/√N` = 0.0259; (2) per-feature shuffle-null p95 (200 perm, median 0.188); (3) BH-FDR 0.05 on the `D_live × L` tests (112550).
 
-**Modality gap (naming).** `gap = mean(train_emb, 0) − mean(vocab_emb, 0)`; naming gap-corrected: `W_dec ← W_dec − gap`, poi `F.normalize` righe + coseno con `F.normalize(vocab_emb)`. Sposta le colonne del decoder dal "cono" visivo verso quello testuale prima del confronto.
+**Modality gap (naming).** `gap = mean(train_emb, 0) − mean(vocab_emb, 0)`; gap-corrected naming: `W_dec ← W_dec − gap`, then `F.normalize` rows + cosine with `F.normalize(vocab_emb)`. Shifts the decoder columns from the visual "cone" toward the textual one before the comparison.
 
 ---
 
 # Ablation 00 — Cross-Seed Consensus (direction-space)
 
-**Data run:** 2026-06-21 · **Macchina:** Linux / NVIDIA RTX 5070 Laptop, **CUDA** (auto)
+**Run date:** 2026-06-21 · **Machine:** Linux / NVIDIA RTX 5070 Laptop, **CUDA** (auto)
 **Notebook:** `00_consensus.ipynb` (run headless post-fix cell 18)
-**Input:** 5 checkpoint baseline `models/sae_seed{0,42,123,456,789}/` (06-05, riusati — zero training), `test_embeddings.pt` (1494), vocabolario RadLex **508 termini**
-**Config:** `dict_size=4096`, `k=32`, 5 seed, griglia `τ ∈ {0.80, 0.85, 0.90, 0.95}`, headline `τ=0.90`, shuffle-null = 200 permutazioni
+**Input:** 5 baseline checkpoints `models/sae_seed{0,42,123,456,789}/` (06-05, reused — zero training), `test_embeddings.pt` (1494), RadLex vocabulary **508 terms**
+**Config:** `dict_size=4096`, `k=32`, 5 seeds, grid `τ ∈ {0.80, 0.85, 0.90, 0.95}`, headline `τ=0.90`, shuffle-null = 200 permutations
 
-## Contesto e domanda
+## Context and question
 
-Il baseline riporta un mean index-Jaccard di 0.0038 (off-diagonali 0.002–0.010). Quel valore confronta gli **indici**: lo slot `i` del seed A combacia con lo slot `i` del seed B? Se due seed imparano la stessa direzione concettuale ma la salvano a indici diversi — come cinque persone che mettono gli stessi libri su scaffali numerati in modo diverso — l'index-Jaccard li segna zero anche se la geometria coincide. L'ipotesi naturale è quindi che il 0.0038 sia un **artefatto di permutazione**.
+The baseline reports a mean index-Jaccard of 0.0038 (off-diagonals 0.002–0.010). That value compares **indices**: does slot `i` of seed A coincide with slot `i` of seed B? If two seeds learn the same conceptual direction but store it at different indices — like five people putting the same books on differently numbered shelves — the index-Jaccard marks them zero even if the geometry coincides. The natural hypothesis is therefore that 0.0038 is a **permutation artifact**.
 
-Questa ablation lo verifica ri-analizzando lo spazio delle **direzioni** del decoder (invariante all'indice): si poolano tutte le righe `W_dec` dei 5 seed, si clusterizzano per similarità geometrica e si conta in quanti seed ricorre ciascun cluster. Se i concetti fossero gli stessi a indici diversi, apparirebbero cluster multi-seed.
+This ablation verifies it by re-analyzing the **direction** space of the decoder (index-invariant): all `W_dec` rows of the 5 seeds are pooled, clustered by geometric similarity, and each cluster is counted by how many seeds it recurs in. If the concepts were the same at different indices, multi-seed clusters would appear.
 
-**Ipotesi pre-registrata:** il 0.0038 è un artefatto di permutazione → lo spazio delle direzioni mostra cluster multi-seed sopra il null.
+**Pre-registered hypothesis:** 0.0038 is a permutation artifact → direction space shows multi-seed clusters above the null.
 
-**Esito: ipotesi FALSIFICATA.** Lo spazio delle direzioni mostra ~0 struttura condivisa. Solo 1 direzione su 20480 ricorre su ≥3 seed; nessuna su ≥4. Lo shuffle-null dà p=1.0 (l'osservato è identico al caso). I 5 run imparano davvero direzioni diverse, non è solo permutazione.
+**Outcome: hypothesis FALSIFIED.** Direction space shows ~0 shared structure. Only 1 direction out of 20480 recurs across ≥3 seeds; none across ≥4. The shuffle-null gives p=1.0 (the observation is identical to chance). The 5 runs genuinely learn different directions, it is not just permutation.
 
 ---
 
-## 1. Cosa produce ogni fase
+## 1. What each stage produces
 
-| Fase | Output | Stato |
+| Stage | Output | Status |
 |---|---|---|
-| (A) Pool decoder rows | 5×`W_dec` (4096×512) L2-normalizzate, tag seed | ✅ 20480 righe, 0 dead (decoder-norm) |
-| (B) Clustering `cos>τ` | `scipy.connected_components` su grafo sparso | ✅ griglia τ + headline 0.90 |
-| (C) Reappearance | cluster per #seed rappresentati | ✅ consensus@3/4 |
-| (D) Hungarian direction-match | `linear_sum_assignment` per coppia di seed | ✅ direction-Jaccard |
-| (E) Name-agreement | termine RadLex argmax per membro cluster | ✅ |
+| (A) Pool decoder rows | 5×`W_dec` (4096×512) L2-normalized, seed tags | ✅ 20480 rows, 0 dead (decoder-norm) |
+| (B) Clustering `cos>τ` | `scipy.connected_components` on sparse graph | ✅ τ grid + headline 0.90 |
+| (C) Reappearance | clusters by #seeds represented | ✅ consensus@3/4 |
+| (D) Hungarian direction-match | `linear_sum_assignment` per seed pair | ✅ direction-Jaccard |
+| (E) Name-agreement | RadLex argmax term per cluster member | ✅ |
 | (F) Faithfulness proxy | naming-cos + mean test activation | ✅ (proxy, no ground-truth) |
-| (G) Headline figure | `a0_consensus_headline.png` (3 pannelli) | ✅ |
-| (H) Shuffle-null | 200 permutazioni tag → consensus@4 | ✅ p-value |
+| (G) Headline figure | `a0_consensus_headline.png` (3 panels) | ✅ |
+| (H) Shuffle-null | 200 tag permutations → consensus@4 | ✅ p-value |
 | **Persist** | `results/ablation/a0_consensus.json` | ✅ |
 
-> Isolamento: output scritti solo in `results/ablation/` + `results/figures/ablation/` — la `results/` della baseline non viene toccata.
+> Isolation: outputs written only to `results/ablation/` + `results/figures/ablation/` — the baseline `results/` is untouched.
 
 ---
 
-## 2. Risultati
+## 2. Results
 
-### 2.1 Pooling decoder (A) — 20480 righe, 0 dead
+### 2.1 Pooling decoder (A) — 20480 rows, 0 dead
 
-Per ogni seed: `get_decoder_weights()` → `(4096, 512)`, `F.normalize` righe, scarto righe a norma `< 1e-8`. Si ottengono **5 × 4096 = 20480 righe pooled**, tutte live (0% decoder-norm dead). I decoder sono già unit-norm post-training perché la libreria normalizza ogni colonna ad ogni step, quindi lo scarto dead è un no-op.
+For each seed: `get_decoder_weights()` → `(4096, 512)`, `F.normalize` rows, drop rows with norm `< 1e-8`. This yields **5 × 4096 = 20480 pooled rows**, all live (0% decoder-norm dead). The decoders are already unit-norm post-training because the library normalizes each column at every step, so the dead-drop is a no-op.
 
-Qui *decoder-norm dead* = 0% non contraddice il ~44% *activation dead* della baseline: sono due metriche diverse (vedi Glossario).
+Here *decoder-norm dead* = 0% does not contradict the ~44% *activation dead* of the baseline: they are two different metrics (see Glossary).
 
 ### 2.2 Clustering `cos>τ` (B) — headline `τ=0.90`
 
-Grafo sparso `coseno > τ` → connected components. A `τ=0.90` (soglia alta, solo feature quasi identiche) si trova 1 solo cluster condiviso.
+Sparse graph `cosine > τ` → connected components. At `τ=0.90` (high threshold, only near-identical features) only 1 shared cluster is found.
 
-| `τ` | componenti | multi-member | max size | coesione intra (cos medio) |
+| `τ` | components | multi-member | max size | intra cohesion (mean cos) |
 |------:|-----------:|-------------:|---------:|---------------------------:|
 | 0.80 | 20474 | 3 | 4 | 0.832 |
 | 0.85 | 20477 | 1 | 4 | 0.879 |
 | **0.90** | **20478** | **1** | **3** | **0.884** |
 | 0.95 | 20480 | 0 | 1 | — (singleton) |
 
-`τ` più basso fonde direzioni non correlate in pochi cluster giganti; più alto frantuma in singleton. **0.90 è il punto interpretabile** (cluster piccoli e coesi, coesione 0.884, max size 3).
+Lower `τ` merges unrelated directions into a few giant clusters; higher shatters into singletons. **0.90 is the interpretable point** (small cohesive clusters, cohesion 0.884, max size 3).
 
-### 2.3 Reappearance (C) — essenzialmente nulla
+### 2.3 Reappearance (C) — essentially zero
 
-Per ogni cluster a `τ=0.90` si conta in quanti seed è rappresentato. Se un cluster ha feature di ≥3 seed, quel concetto è "robusto".
+For each cluster at `τ=0.90` we count how many seeds it is represented in. If a cluster has features from ≥3 seeds, that concept is "robust".
 
-| #seed per cluster | #cluster |
+| #seeds per cluster | #clusters |
 |---|---|
 | 1 | 20477 |
 | 2 | 0 |
@@ -161,15 +161,15 @@ Per ogni cluster a `τ=0.90` si conta in quanti seed è rappresentato. Se un clu
 | 4 | 0 |
 | 5 | 0 |
 
-- `consensus@≥3/5` = **0.0146%** (1 cluster su 3 seed).
+- `consensus@≥3/5` = **0.0146%** (1 cluster across 3 seeds).
 - `consensus@≥4/5` = **0.00%**.
-- Solo **1 direzione** ricorre su ≥3 seed; nessuna su ≥4. Quasi tutto il decoder pooled è costituito da direzioni seed-esclusive.
+- Only **1 direction** recurs across ≥3 seeds; none across ≥4. Almost all of the pooled decoder consists of seed-exclusive directions.
 
 ### 2.4 Hungarian direction-Jaccard (D) — ~0
 
-Metodo più forte del clustering: per ogni coppia di seed si cerca l'abbinamento ottimo (Hungarian) tra le 4096 feature e si contano i match con `cos ≥ 0.90`. È il massimo sforzo di abbinamento.
+A stronger method than clustering: for each seed pair the optimal matching (Hungarian) between the 4096 features is found and matches with `cos ≥ 0.90` are counted. This is the maximum matching effort.
 
-| Coppia | match / 4096 | rate |
+| Pair | matches / 4096 | rate |
 |---|---|---|
 | 0↔42, 0↔123, 0↔456, 0↔789 | 0 | 0.0000 |
 | 42↔123, 42↔456 | 0 | 0.0000 |
@@ -177,105 +177,105 @@ Metodo più forte del clustering: per ogni coppia di seed si cerca l'abbinamento
 | 123↔456, 123↔789 | 0 | 0.0000 |
 | 456↔789 | 1 | 0.0002 |
 
-- **Direction-Jaccard medio = 4.9e-5** (~0/4096 per coppia) vs raw index-Jaccard baseline = 0.0038.
+- **Mean direction-Jaccard = 4.9e-5** (~0/4096 per pair) vs raw baseline index-Jaccard = 0.0038.
 
-Sono quantità diverse riportate side-by-side, non una "correzione". L'index-Jaccard è identità di slot; il direction-Jaccard è invariante a permutazione. **Entrambe ~0** → niente struttura condivisa né in spazio indici né in spazio direzioni, il che falsifica l'ipotesi "0.0038 è solo permutazione".
+These are different quantities reported side-by-side, not a "correction". Index-Jaccard is slot identity; direction-Jaccard is permutation-invariant. **Both ~0** → no shared structure in either index or direction space, which falsifies the hypothesis "0.0038 is just permutation".
 
 ### 2.5 Name-agreement (E) — 0%
 
-Per i pochissimi cluster condivisi si controlla se i seed li chiamano con lo stesso termine RadLex. L'unico cluster multi-seed non ha termine unanime → **name-agreement rate = 0.00%**. Anche dove c'è un minimo di sovrapposizione geometrica, l'etichetta medica non è coerente.
+For the very few shared clusters we check whether the seeds name them with the same RadLex term. The only multi-seed cluster has no unanimous term → **name-agreement rate = 0.00%**. Even where there is minimal geometric overlap, the medical label is not coherent.
 
-### 2.6 Faithfulness proxy (F) — debole, solo proxy
+### 2.6 Faithfulness proxy (F) — weak, proxy only
 
-Per l'unico concetto che ricorre (cluster di 3 seed, chiamato `bulging fissure sign`):
+For the only recurring concept (3-seed cluster, named `bulging fissure sign`):
 
-| Metrica | Valore |
+| Metric | Value |
 |---|---|
 | n_concepts | 1 |
-| Termine vincente | `bulging fissure sign` |
-| Naming-cos (dir media vs emb termine) | **0.1580** |
-| Mean test activation (membri seed-42) | **0.0047** |
+| Winning term | `bulging fissure sign` |
+| Naming-cos (mean dir vs term emb) | **0.1580** |
+| Mean test activation (seed-42 members) | **0.0047** |
 
-Naming-cos 0.158 = molto debole (vs naming medio baseline gap-corrected 0.395) e attivazione quasi nulla. Proxy dichiarato: naming-cos + activation media, no ground-truth clinico (la valutazione clinica vera è in Ablation 05).
+Naming-cos 0.158 = very weak (vs gap-corrected baseline naming mean 0.395) and activation nearly zero. Declared proxy: naming-cos + mean activation, no clinical ground-truth (the real clinical evaluation is in Ablation 05).
 
-### 2.7 Shuffle-null (H) — p=1.0, nessun segnale oltre il caso
+### 2.7 Shuffle-null (H) — p=1.0, no signal beyond chance
 
-Test di sicurezza: si mescolano a caso le etichette seed 200 volte e si misura quanto "consenso" spunterebbe per puro caso.
+Safety test: the seed labels are randomly shuffled 200 times and we measure how much "consensus" would pop up by pure chance.
 
-- `consensus@≥4/5` osservato: **0.00%**.
+- observed `consensus@≥4/5`: **0.00%**.
 - Shuffle-null (200 perm): **0.00%**.
-- **p-value = 1.0** → osservato = null, gap 0.00 pp. Il consenso osservato non supera la baseline casuale.
+- **p-value = 1.0** → observed = null, gap 0.00 pp. The observed consensus does not exceed the random baseline.
 
 ---
 
-## 3. Giudizio d'insieme: tesi falsificata, onestamente
+## 3. Overall assessment: thesis falsified, honestly
 
-| Domanda | Esito |
+| Question | Outcome |
 |---|---|
-| Il 0.0038 della baseline è un artefatto di permutazione? | ❌ No — direction-Jaccard 4.9e-5, ~0 anche in spazio direzioni |
-| I 5 seed imparano direzioni concettuali vicine? | ❌ No — max coseno off-diagonale within-seed ~0.577, ben sotto 0.90 |
-| Esiste consenso cross-seed sopra il caso? | ❌ No — consensus@4 = 0%, shuffle-null p=1.0 |
-| I concetti stabili sono clinicamente ancorati? | ⚠️ Debole — 1 concetto, naming-cos 0.158 (proxy, no ground-truth) |
+| Is the baseline's 0.0038 a permutation artifact? | ❌ No — direction-Jaccard 4.9e-5, ~0 even in direction space |
+| Do the 5 seeds learn nearby conceptual directions? | ❌ No — max within-seed off-diagonal cosine ~0.577, well below 0.90 |
+| Is there cross-seed consensus above chance? | ❌ No — consensus@4 = 0%, shuffle-null p=1.0 |
+| Are the stable concepts clinically anchored? | ⚠️ Weak — 1 concept, naming-cos 0.158 (proxy, no ground-truth) |
 
-Punti chiave:
+Key points:
 
-1. **L'instabilità della baseline è geometricamente reale, non rumore di labeling.** I 5 SAE scoprono basi sostanzialmente disgiunte: cambiare seed cambia quali direzioni vengono apprese, non solo i loro indici.
-2. **Non è p-hacking.** Abbassare `τ` a 0.80 per fabbricare qualche cluster multi-member produrrebbe un headline "positivo" fittizio su un risultato nullo. L'ablation si rifiuta di farlo.
-3. **Conseguenza operativa.** Il seed primario 42 è arbitrario; naming/explanations della baseline dipendono dal seed. Per concetti riproducibili serve aggregazione cross-seed (model soup, init condiviso, consensus clustering su `τ` molto più basso con validazione) o accettare la seed-dipendenza come limite.
-4. **Direzione di fuga.** Le ablation 01 (dict_size) e 02 (k) — ridurre i gradi di libertà — sono il prossimo test naturale: meno parametri → meno divergenza tra seed.
+1. **The baseline instability is geometrically real, not labeling noise.** The 5 SAEs discover substantially disjoint bases: changing the seed changes which directions are learned, not just their indices.
+2. **It is not p-hacking.** Lowering `τ` to 0.80 to manufacture a few multi-member clusters would produce a fictitious "positive" headline on a null result. The ablation refuses to do it.
+3. **Operational consequence.** The primary seed 42 is arbitrary; the baseline naming/explanations depend on the seed. For reproducible concepts, cross-seed aggregation is needed (model soup, shared init, consensus clustering at a much lower `τ` with validation) or accept seed-dependence as a limitation.
+4. **Escape direction.** Ablations 01 (dict_size) and 02 (k) — reducing degrees of freedom — are the natural next test: fewer parameters → less divergence across seeds.
 
 ---
 
-## 4. Note di riproducibilità
+## 4. Reproducibility notes
 
-- **Run headless (2026-06-21 18:48):** celle 2–24 via `.venv/bin/python` (torch 2.12.0+cu130, CUDA RTX 5070), backend matplotlib Agg. Cell 18 eseguita senza crash dopo il fix dict→term.
-- **Fix applicato in questa run:** cella 6 normalizza `vocabulary.json` (lista di dict `{"term",...}`) → stringhe `term` al load. Senza di esso, `vocab_labels[i]` era un dict → crash `"{t:28s}"` in cell 18.
-- **Zero training:** riusa i 5 checkpoint baseline (06-05). La correzione del modality gap (baseline) non influenza questa ablation — qui si confrontano direzioni del decoder raw, non si fa naming gap-corrected.
-- **Vocabolario = 508 termini** (`data/vocabulary.json` + `embeddings/text_vocab_embeddings.pt` allineati; verificato in run: 508 termini, embeddings `[508, 512]`).
-- **Artefatti:** `results/ablation/a0_consensus.json` (metriche complete) + `results/figures/ablation/a0_consensus_headline.png` (3 pannelli: heatmap index-Jaccard 5×5, istogramma reappearance, scatter 2D decoder pooled UMAP colored by cluster/seed).
-- **Index-Jaccard di riferimento:** la baseline riporta mean 0.0039; questa ablation hard-coda `raw_index_jaccard_mean_baseline = 0.0038` (letterale in cella 24). Difetto rounding 0.0001 — irrilevante.
+- **Headless run (2026-06-21 18:48):** cells 2–24 via `.venv/bin/python` (torch 2.12.0+cu130, CUDA RTX 5070), matplotlib Agg backend. Cell 18 executed without crashing after the dict→term fix.
+- **Fix applied in this run:** cell 6 normalizes `vocabulary.json` (list of `{"term",...}` dicts) → `term` strings at load. Without it, `vocab_labels[i]` was a dict → `"{t:28s}"` crash in cell 18.
+- **Zero training:** reuses the 5 baseline checkpoints (06-05). The modality gap correction (baseline) does not influence this ablation — here raw decoder directions are compared, no gap-corrected naming.
+- **Vocabulary = 508 terms** (`data/vocabulary.json` + `embeddings/text_vocab_embeddings.pt` aligned; verified in run: 508 terms, embeddings `[508, 512]`).
+- **Artifacts:** `results/ablation/a0_consensus.json` (full metrics) + `results/figures/ablation/a0_consensus_headline.png` (3 panels: 5×5 index-Jaccard heatmap, reappearance histogram, 2D UMAP scatter of pooled decoder colored by cluster/seed).
+- **Reference index-Jaccard:** the baseline reports mean 0.0039; this ablation hard-codes `raw_index_jaccard_mean_baseline = 0.0038` (literal in cell 24). 0.0001 rounding defect — irrelevant.
 
 ---
 
 # Ablation 01 — Dictionary-Size Ladder (lr pinned)
 
-**Data run:** 2026-06-21 · **Macchina:** Linux / RTX 5070, **CUDA**
-**Notebook:** `01_dict_size.ipynb` (21/21 celle)
-**Input:** `train_embeddings.pt` (5976) / `test_embeddings.pt` (1494), vocabolario RadLex **508 termini**
-**Config:** `dict_size ∈ {1024, 2048, 4096}`, `k=32`, **lr pinned 4e-4** (capacity = unica variabile), `steps=12000`, `batch_size=256`, seeds `(0, 42, 123)`, naming **gap-corrected**
+**Run date:** 2026-06-21 · **Machine:** Linux / RTX 5070, **CUDA**
+**Notebook:** `01_dict_size.ipynb` (21/21 cells)
+**Input:** `train_embeddings.pt` (5976) / `test_embeddings.pt` (1494), RadLex vocabulary **508 terms**
+**Config:** `dict_size ∈ {1024, 2048, 4096}`, `k=32`, **lr pinned 4e-4** (capacity = the only variable), `steps=12000`, `batch_size=256`, seeds `(0, 42, 123)`, **gap-corrected** naming
 
-## Contesto e domanda
+## Context and question
 
-Il baseline ha due patologie accoppiate: ~44% di feature morte (spreco) e Jaccard ≈ 0.004 (instabilità). Ipotesi naturale: il dizionario di 4096 feature è **8 volte più grande** dello spazio da 512 dimensioni (sovradimensionamento). Forse il sovradimensionamento causa entrambi i problemi — troppa roba inutilizzata che diverge tra seed.
+The baseline has two coupled pathologies: ~44% dead features (waste) and Jaccard ≈ 0.004 (instability). Natural hypothesis: the 4096-feature dictionary is **8 times larger** than the 512-dimensional space (over-expansion). Perhaps over-expansion causes both problems — too much unused stuff that diverges across seeds.
 
-Questa ablation addestra SAE con dizionari di 3 dimensioni diverse (1024, 2048, 4096), tenendo fisso tutto il resto (stesso lr, stesso k). Se l'ipotesi è giusta, dizionari più piccoli dovrebbero avere meno dead **e** più stabilità (signal-to-null ratio più alto).
+This ablation trains SAEs with dictionaries of 3 different sizes (1024, 2048, 4096), keeping everything else fixed (same lr, same k). If the hypothesis is right, smaller dictionaries should have fewer dead **and** more stability (higher signal-to-null ratio).
 
-**Ipotesi pre-registrata:** `dict_size` più piccolo → dead% cala **AND** signal-to-null ratio sale (il null cresce trivialmente quando D cala, quindi il ratio è il confronto corretto).
+**Pre-registered hypothesis:** smaller `dict_size` → dead% drops **AND** signal-to-null ratio rises (the null grows trivially as D drops, so the ratio is the correct comparison).
 
-**Esito: MISTO.** dead% cala come previsto (40.9 → 30.7%) ma la stabilità non migliora — anzi, il dizionario più grande ha il ratio più alto (1.43). L'over-expansion spiega i dead, **non** l'instabilità: sono due problemi separati.
+**Outcome: MIXED.** dead% drops as predicted (40.9 → 30.7%) but stability does not improve — in fact the largest dictionary has the highest ratio (1.43). Over-expansion explains the dead, **not** the instability: they are two separate problems.
 
 ---
 
-## 1. Cosa produce ogni fase
+## 1. What each stage produces
 
-| Fase | Output |
+| Stage | Output |
 |---|---|
-| Training ladder | 3 dict_size × 3 seed = 9 SAE (12k step, lr pinned) |
+| Training ladder | 3 dict_size × 3 seeds = 9 SAEs (12k steps, lr pinned) |
 | Per-size metrics | cosine, dead%, L0, entropy (test) |
-| Within-group Jaccard | matrice 3×3 per size (Protocollo: costante dict_size+k) |
-| Signal-to-null ratio | Jaccard / null ipergeometrico |
-| Consensus reappearance | cluster direction-space (τ=0.9) — stesso algo di 00 |
-| Feature splitting | mean/p90 pairwise cos tra alive rows (subsample 2000) |
-| Revival probe | dict2048, dead_threshold abbassato + auxk forte (negative probe) |
-| Sensitivity | ripete ladder con `lr=auto` |
+| Within-group Jaccard | 3×3 matrix per size (Protocol: constant dict_size+k) |
+| Signal-to-null ratio | Jaccard / hypergeometric null |
+| Consensus reappearance | direction-space clusters (τ=0.9) — same algo as 00 |
+| Feature splitting | mean/p90 pairwise cos among alive rows (subsample 2000) |
+| Revival probe | dict2048, lowered dead_threshold + strong auxk (negative probe) |
+| Sensitivity | repeats the ladder with `lr=auto` |
 | Naming | primary seed 42, gap-corrected, per size |
-| Persist | `results/ablation/a1_dict_size.json` + 3 figure |
+| Persist | `results/ablation/a1_dict_size.json` + 3 figures |
 
 ---
 
-## 2. Risultati per-size (lr pinned 4e-4, 12k step, 3 seed)
+## 2. Per-size results (lr pinned 4e-4, 12k steps, 3 seeds)
 
-La colonna chiave è **ratio** = Jaccard osservato diviso il null (la sovrapposizione attesa per puro caso a quella dimensione). Ratio > 1 = i concetti si accordano oltre il caso; ≈ 1 = sul pavimento.
+The key column is **ratio** = observed Jaccard divided by the null (the overlap expected by pure chance at that size). Ratio > 1 = concepts agree beyond chance; ≈ 1 = on the floor.
 
 | dict_size | cosine | dead% | raw Jaccard | null | **ratio** | consensus reappearance | splitting (mean / p90) | naming (mean / max) |
 |---|---|---|---|---|---|---|---|---|
@@ -285,430 +285,430 @@ La colonna chiave è **ratio** = Jaccard osservato diviso il null (la sovrapposi
 
 ---
 
-## 3. Analisi
+## 3. Analysis
 
-### 3.1 dead% ✓ — scala con dict_size (over-expansion = causa dei dead)
-Riducendo il dizionario, le feature morte scendono monotonamente (40.9 → 33.6 → 30.7%). Conferma: troppi atomi competono per la stessa "torta" di attivazione → molti restano inutilizzati. Il sovradimensionamento causa lo spreco. (Sensitivity `lr=auto`: stesso trend 47 → 42 → 41%.)
+### 3.1 dead% ✓ — scales with dict_size (over-expansion = cause of dead)
+Shrinking the dictionary, dead features drop monotonically (40.9 → 33.6 → 30.7%). Confirmation: too many atoms compete for the same activation "pie" → many remain unused. Over-expansion causes the waste. (Sensitivity `lr=auto`: same trend 47 → 42 → 41%.)
 
-### 3.2 signal-to-null ratio ✗ — NON monotonico (ipotesi falsificata)
-Se il sovradimensionamento causasse anche l'instabilità, ridurre il dizionario dovrebbe alzare il ratio. Invece è il contrario: il dizionario più grande (4096) ha il ratio più alto (1.43), e il 2048 è persino sotto il caso (0.89). Ratio: **4096 (1.43) > 1024 (1.04) > 2048 (0.89)**. L'over-expansion NON spiega l'instabilità.
+### 3.2 signal-to-null ratio ✗ — NOT monotonic (hypothesis falsified)
+If over-expansion also caused the instability, shrinking the dictionary should raise the ratio. Instead it is the opposite: the largest dictionary (4096) has the highest ratio (1.43), and 2048 is even below chance (0.89). Ratio: **4096 (1.43) > 1024 (1.04) > 2048 (0.89)**. Over-expansion does NOT explain the instability.
 
-### 3.3 Consensus reappearance — ~0 ovunque (invariante al dict_size)
-Lo stesso test di 00 (cluster di direzioni condivise tra seed), ripetuto a ogni dimensione: 1024 → 0.03%, 2048 → 0%, 4096 → 0% cluster multi-seed. Identico al null di 00 a tutte le capacità. La mancanza di direzioni condivise non dipende da quanto è grande il dizionario.
+### 3.3 Consensus reappearance — ~0 everywhere (invariant to dict_size)
+The same test as 00 (clusters of directions shared across seeds), repeated at each size: 1024 → 0.03%, 2048 → 0%, 4096 → 0% multi-seed clusters. Identical to the null of 00 at all capacities. The lack of shared directions does not depend on how big the dictionary is.
 
-### 3.4 Feature splitting — direzione OPPOSTA all'ipotesi
-"Splitting" = quante feature vive si somigliano tra loro (collisioni). Mean pairwise cos tra alive rows: **1024 (0.0073) > 2048 (0.0062) > 4096 (0.0043)**, p90 idem. Il dizionario più piccolo ha feature più affollate/redundanti; più atomi = più spazio per dispiegarsi = meno collisioni. L'ipotesi "over-expansion causa splitting" è falsificata.
+### 3.4 Feature splitting — OPPOSITE direction to the hypothesis
+"Splitting" = how much live features resemble each other (collisions). Mean pairwise cos among alive rows: **1024 (0.0073) > 2048 (0.0062) > 4096 (0.0043)**, p90 likewise. The smaller dictionary has more crowded/redundant features; more atoms = more room to spread out = fewer collisions. The hypothesis "over-expansion causes splitting" is falsified.
 
-### 3.5 Naming — stabile cross-size (~0.394)
-mean 0.395 / 0.394 / 0.393, max 0.52–0.54 per tutti e tre. Identico alla baseline (0.3949). La qualità del grounding RadLex per-feature è robusta al dict_size: non è la qualità del singolo concetto a essere instabile, è la composizione del set.
+### 3.5 Naming — stable cross-size (~0.394)
+mean 0.395 / 0.394 / 0.393, max 0.52–0.54 for all three. Identical to the baseline (0.3949). The per-feature RadLex grounding quality is robust to dict_size: it is not the quality of the individual concept that is unstable, it is the composition of the set.
 
-### 3.6 Revival probe (dict2048) — negative probe confermato
-dead_threshold abbassato + auxk forte: **dead% 33.6 → 30.9** (cala ✓) ma **Jaccard 0.0070 → 0.0059** (flat/↓), ratio 0.89 → 0.75. Revivere feature morte riduce lo spreco ma non migliora la robustezza: "alive ≠ robust". Feature vive ma arbitrarie sono disaccoppiate dalla stabilità.
+### 3.6 Revival probe (dict2048) — negative probe confirmed
+lowered dead_threshold + strong auxk: **dead% 33.6 → 30.9** (drops ✓) but **Jaccard 0.0070 → 0.0059** (flat/↓), ratio 0.89 → 0.75. Reviving dead features reduces waste but does not improve robustness: "alive ≠ robust". Live-but-arbitrary features are decoupled from stability.
 
 ---
 
-## 4. Giudizio d'insieme: over-expansion = dead, NON instability
+## 4. Overall assessment: over-expansion = dead, NOT instability
 
-| Patologia | Causa? | Evidenza |
+| Pathology | Cause? | Evidence |
 |---|---|---|
-| ~44% dead features | ✅ Over-expansion | dead% scala con dict_size (40.9 → 30.7%) |
-| Cross-seed instability (Jaccard 0.004) | ❌ NON over-expansion | ratio non sale riducendo dict; consensus ~0 ovunque |
+| ~44% dead features | ✅ Over-expansion | dead% scales with dict_size (40.9 → 30.7%) |
+| Cross-seed instability (Jaccard 0.004) | ❌ NOT over-expansion | ratio does not rise when shrinking dict; consensus ~0 everywhere |
 
-L'over-expansion spiega lo spreco (dead), non l'instabilità. L'ipotesi "overcompleteness causa primaria dell'instabilità" è rifinita da questa ablation: ridurre il dizionario riduce i dead ma non rende i concetti riproducibili. L'instabilità è più fondamentale — probabili cause: pochi campioni (5976) + non-unicità intrinseca del TopK SAE su questo cloud. Non risolvibile abbassando dict_size.
+Over-expansion explains the waste (dead), not the instability. The hypothesis "overcompleteness is the primary cause of instability" is refined by this ablation: shrinking the dictionary reduces the dead but does not make the concepts reproducible. The instability is more fundamental — likely causes: few samples (5976) + intrinsic non-uniqueness of the TopK SAE on this cloud. Not solvable by lowering dict_size.
 
-Punti chiave:
-1. **Dict più piccolo è comunque "meglio"** (meno dead, stessa ricostruzione 0.99+, stesso naming 0.39, meno compute) — ma **non** per la robustezza.
-2. **Naming robusto cross-size** → il grounding individuale funziona; il problema è *quale set* di feature si apprende.
-3. **Revival probe**: vivificare i dead non aiuta → l'instabilità non è un problema di "feature addormentate".
-4. **Prossimi test naturali:** 02 (k più vincolato?), 03 (baselines). Se anche k non aiuta, l'instabilità è strutturale.
+Key points:
+1. **A smaller dict is still "better"** (fewer dead, same reconstruction 0.99+, same naming 0.39, less compute) — but **not** for robustness.
+2. **Naming robust cross-size** → individual grounding works; the problem is *which set* of features is learned.
+3. **Revival probe**: reviving the dead does not help → the instability is not a "sleeping features" problem.
+4. **Natural next tests:** 02 (more constrained k?), 03 (baselines). If k does not help either, the instability is structural.
 
 ---
 
-## 5. Note di riproducibilità
-- **Run IDE (2026-06-21 19:03):** 21/21 celle, 9 SAE addestrati (3 size × 3 seed, 12k step) + revival probe + sensitivity. Artefatti: `a1_dict_size.json`, `a1_naming_dict{1024,2048,4096}.json`, 3 figure.
-- **3 seed (non 5):** ladder controllato a `(0,42,123)` per compute; sufficiente per il trend di capacity. 12k step (non 50k baseline) — il punto 4096 qui è fresh re-run, confronto apples-to-apples dentro il ladder.
-- **lr pinned 4e-4:** rende capacity l'unica variabile. Sensitivity `lr=auto` coincide con 4e-4 a queste size → l'effetto è genuinamente di capacity.
-- **Signal-to-null = Jaccard / E[J] ipergeometrico**, `E[J] ≈ k/(2D−k)` per `k≪D`. Forma esatta e approssimata concordano a 4 decimali.
-- **Baseline reference** (nel json): cosine 0.988, dead 44%, Jaccard 0.0038, naming mean 0.395 / max 0.546.
+## 5. Reproducibility notes
+- **IDE run (2026-06-21 19:03):** 21/21 cells, 9 SAEs trained (3 sizes × 3 seeds, 12k steps) + revival probe + sensitivity. Artifacts: `a1_dict_size.json`, `a1_naming_dict{1024,2048,4096}.json`, 3 figures.
+- **3 seeds (not 5):** ladder controlled at `(0,42,123)` for compute; sufficient for the capacity trend. 12k steps (not the 50k baseline) — the 4096 point here is a fresh re-run, apples-to-apples comparison within the ladder.
+- **lr pinned 4e-4:** makes capacity the only variable. Sensitivity `lr=auto` coincides with 4e-4 at these sizes → the effect is genuinely about capacity.
+- **Signal-to-null = Jaccard / E[J] hypergeometric**, `E[J] ≈ k/(2D−k)` for `k≪D`. Exact and approximate forms agree to 4 decimals.
+- **Baseline reference** (in the json): cosine 0.988, dead 44%, Jaccard 0.0038, naming mean 0.395 / max 0.546.
 
 ---
 
 # Ablation 02 — k (Sparsity) Sweep, null-calibrated
 
-**Data run:** 2026-06-21 · **Macchina:** Linux / RTX 5070, **CUDA**
-**Notebook:** `02_k_sweep.ipynb` (12/12 celle)
+**Run date:** 2026-06-21 · **Machine:** Linux / RTX 5070, **CUDA**
+**Notebook:** `02_k_sweep.ipynb` (12/12 cells)
 **Input:** `train_embeddings.pt` (5976) / `test_embeddings.pt` (1494)
-**Config:** `dict_size` **fissato a 2048**, `k ∈ {8, 16, 32, 64}`, seeds `(0, 42, 123, 456)`, `steps=12000`, `lr=auto` (scala solo con dict_size → costante tra i gruppi k, elimina il confound 01). Within-group Jaccard con `n=k` esplicito, null ipergeometrico esatto, bootstrap CI 1000× sui 1494 sample test.
+**Config:** `dict_size` **fixed at 2048**, `k ∈ {8, 16, 32, 64}`, seeds `(0, 42, 123, 456)`, `steps=12000`, `lr=auto` (scales only with dict_size → constant across k-groups, removes the 01 confound). Within-group Jaccard with explicit `n=k`, exact hypergeometric null, bootstrap CI 1000× over the 1494 test samples.
 
-## Contesto e domanda
+## Context and question
 
-Dopo 01 (il dizionario non conta per la stabilità), si prova l'altro parametro: **k**, cioè quanti concetti attivi per immagine. Il baseline usa k=32. Più k = meno sparso ma forse più stabile; meno k = più sparso ma forse collassa. Qui il dizionario è fissato a 2048 e si varia k, confrontando la stabilità col null esatto (calcolato analiticamente) con intervalli di confidenza bootstrap.
+After 01 (the dictionary does not matter for stability), the other parameter is tried: **k**, i.e. how many active concepts per image. The baseline uses k=32. More k = less sparse but perhaps more stable; less k = sparser but perhaps collapses. Here the dictionary is fixed at 2048 and k is varied, comparing stability against the exact null (computed analytically) with bootstrap confidence intervals.
 
-**Ipotesi pre-registrata:** ratio ≈ 1 al baseline (k=32), **rising as k shrinks** (meno feature attive → meno overlap casuale → ratio↑ se i concetti sono reali), con dead% ↗ a k molto piccolo. Il Pareto front (VE vs ratio) sceglie il sweet spot.
+**Pre-registered hypothesis:** ratio ≈ 1 at baseline (k=32), **rising as k shrinks** (fewer active features → less random overlap → ratio↑ if the concepts are real), with dead% ↗ at very small k. The Pareto front (VE vs ratio) picks the sweet spot.
 
-**Esito: PARZIALE.** Il baseline k=32 è sul pavimento del caso (ratio 0.954 ≈ 1). C'è un debole sweet spot a **k=16** (ratio 1.30, l'unico dove l'intervallo di confidenza esclude 1). k=8 è patologico (91.6% dead, collassa sotto il caso). k modula la stabilità più di dict_size, ma non la risolve — anche al picco l'accordo assoluto resta minuscolo.
+**Outcome: PARTIAL.** The baseline k=32 is on the chance floor (ratio 0.954 ≈ 1). There is a weak sweet spot at **k=16** (ratio 1.30, the only one where the confidence interval excludes 1). k=8 is pathological (91.6% dead, collapses below chance). k modulates stability more than dict_size, but does not resolve it — even at the peak the absolute agreement remains tiny.
 
 ---
 
-## 1. Cosa produce ogni fase
+## 1. What each stage produces
 
-| Fase | Output |
+| Stage | Output |
 |---|---|
-| Training grid | 4 k × 4 seed = 16 SAE (12k step, dict_size=2048 fisso) |
-| Per-k ricostruzione | cosine, VE, MSE, L0 (=k), dead% (test) |
-| Within-group Jaccard | `compute_stability` per k-gruppo, `n=k` esplicito |
+| Training grid | 4 k × 4 seeds = 16 SAEs (12k steps, dict_size=2048 fixed) |
+| Per-k reconstruction | cosine, VE, MSE, L0 (=k), dead% (test) |
+| Within-group Jaccard | `compute_stability` per k-group, explicit `n=k` |
 | Exact hypergeometric null | `Σ_j j/(2k−j)·P(j)` via `scipy.stats.hypergeom` |
-| Signal-to-null ratio | raw Jaccard / null, CI 95% bootstrap 1000× |
-| Consensus reappearance | direction-space, τ=0.9 (stesso algo 00/01) |
-| Baseline anchor | dict4096/k32 come punto standalone null-calibrato (NON confrontato via Jaccard) |
+| Signal-to-null ratio | raw Jaccard / null, 95% bootstrap CI 1000× |
+| Consensus reappearance | direction-space, τ=0.9 (same algo as 00/01) |
+| Baseline anchor | dict4096/k32 as a standalone null-calibrated point (NOT compared via Jaccard) |
 | Figures | `a2_k_vs_stability.png`, `a2_pareto_front.png` |
 | Persist | `results/ablation/a2_k_sweep.json` |
 
 ---
 
-## 2. Risultati per-k (dict_size=2048, 12k step, 4 seed)
+## 2. Per-k results (dict_size=2048, 12k steps, 4 seeds)
 
-`signal/null` = quanto l'accordo osservato supera il caso. >1 = segnale reale; ≈1 = rumore; <1 = sotto il caso. Se la **CI 95%** non include 1, il segnale è statisticamente significativo (succede solo a k=16).
+`signal/null` = how much the observed agreement exceeds chance. >1 = real signal; ≈1 = noise; <1 = below chance. If the **95% CI** does not include 1, the signal is statistically significant (happens only at k=16).
 
-| k | cosine | VE | dead% | raw Jaccard | null | **signal/null** | CI 95% | consensus ≥2 | ≥3 |
+| k | cosine | VE | dead% | raw Jaccard | null | **signal/null** | 95% CI | consensus ≥2 | ≥3 |
 |---|---|---|---|---|---|---|---|---|---|
 | 8 | 0.984 | 0.968 | **91.6** | 0.00167 | 0.00209 | 0.80 | 0.69–0.90 | 0.65% | 0.48% |
 | 16 | 0.989 | 0.978 | 74.7 | 0.00528 | 0.00405 | **1.30** | **1.24–1.37** | 0.16% | 0.11% |
 | 32 | 0.992 | 0.985 | 41.3 | 0.00916 | 0.00799 | 1.15 | 1.12–1.18 | 0.037% | 0.037% |
 | 64 | 0.997 | 0.994 | 40.2 | 0.01557 | 0.01599 | 0.97 | 0.96–0.99 | 0% | 0% |
 
-**Baseline anchor** (dict4096/k32): raw 0.0038, null 0.00398, ratio **0.954** (~1, sul floor).
+**Baseline anchor** (dict4096/k32): raw 0.0038, null 0.00398, ratio **0.954** (~1, on the floor).
 
 ---
 
-## 3. Analisi
+## 3. Analysis
 
-### 3.1 Baseline sul null floor ✓ — "0.0038 è rumore"
-Ratio baseline 0.954 ≈ 1 → il Jaccard 0.0038 del baseline è statisticamente indistinguibile dal random-overlap. A k=32/dict4096 i concetti non sono più riproducibili di due dizionari casuali. Claim onesto e difendibile.
+### 3.1 Baseline on the null floor ✓ — "0.0038 is noise"
+Baseline ratio 0.954 ≈ 1 → the baseline Jaccard 0.0038 is statistically indistinguishable from random overlap. At k=32/dict4096 the concepts are no more reproducible than two random dictionaries. An honest and defensible claim.
 
-### 3.2 Signal-to-null NON monotonico — picco a k=16
-L'ipotesi "più sparso = più stabile" è parzialmente falsificata: il ratio sale da k=64 a k=16, ma a k=8 crolla sotto il caso (91.6% dead, niente da allineare). **k=16 è l'unico k dove la CI esclude 1** (1.24–1.37): l'accordo reale supera chiaramente il caso. Sweet spot di stabilità.
+### 3.2 Signal-to-null NOT monotonic — peak at k=16
+The hypothesis "sparser = more stable" is partially falsified: the ratio rises from k=64 to k=16, but at k=8 it collapses below chance (91.6% dead, nothing to align). **k=16 is the only k where the CI excludes 1** (1.24–1.37): the real agreement clearly exceeds chance. Stability sweet spot.
 
 ### 3.3 dead% ↗ small k ✓
-91.6% (k=8) → 74.7% (k=16) → 41.3% (k=32) → 40.2% (k=64). Meno feature attive per pass → più feature mai si attivano. k=8 patologico.
+91.6% (k=8) → 74.7% (k=16) → 41.3% (k=32) → 40.2% (k=64). Fewer active features per pass → more features never activate. k=8 pathological.
 
-### 3.4 Consensus reappearance — ingannevole a k=8
-A k=8 la "reappearance" sembra alta (0.65%) ma è un'illusione: con 91.6% dead, il set vivo è minuscolo (~170/2048), quindi i cluster sono forzati dall'affollamento, non da riproducibilità reale. Il signal-to-null (che corregge per la dimensionalità) lo conferma: k=8 è sotto il caso. k=16 resta il sweet spot onesto.
+### 3.4 Consensus reappearance — misleading at k=8
+At k=8 the "reappearance" looks high (0.65%) but it is an illusion: with 91.6% dead, the live set is tiny (~170/2048), so clusters are forced by crowding, not by real reproducibility. The signal-to-null (which corrects for dimensionality) confirms it: k=8 is below chance. k=16 remains the honest sweet spot.
 
-### 3.5 Tradeoff stabilità ↔ ricostruzione (Pareto)
-k↑ → migliore ricostruzione (cosine 0.984→0.997, VE 0.968→0.994) e meno dead (91.6→40.2%), ma ratio cala sopra k=16. k=16 massimizza la stabilità (1.30); k=32 è il compromesso operativo (1.15, recon 0.992, dead 41.3%). Nessun k raggiunge riproducibilità reale (raw Jaccard max 0.006, consensus ~0).
+### 3.5 Stability ↔ reconstruction tradeoff (Pareto)
+k↑ → better reconstruction (cosine 0.984→0.997, VE 0.968→0.994) and fewer dead (91.6→40.2%), but the ratio drops above k=16. k=16 maximizes stability (1.30); k=32 is the operational compromise (1.15, recon 0.992, dead 41.3%). No k reaches real reproducibility (raw Jaccard max 0.006, consensus ~0).
 
 ---
 
-## 4. Giudizio d'insieme: k modula, non risolve
+## 4. Overall assessment: k modulates, does not resolve
 
-Confronto con 01 (entrambi sweep di un iperparametro):
+Comparison with 01 (both sweeps of one hyperparameter):
 
-| Sweep | Cosa muove stability? | Verdetto |
+| Sweep | What moves stability? | Verdict |
 |---|---|---|
-| 01 — dict_size | ratio invariante (~flat) | dict_size NON spiega instabilità |
-| 02 — k (dict fisso) | ratio non-monotonico, picco k=16 | k MODULA la stabilità (debolmente) |
+| 01 — dict_size | ratio invariant (~flat) | dict_size does NOT explain instability |
+| 02 — k (fixed dict) | ratio non-monotonic, peak k=16 | k MODULATES stability (weakly) |
 
-k conta più di dict_size: c'è un optimum a k=16 (ratio 1.30, l'unico chiaramente sopra null). Ma:
-1. Anche al picco, **accordo assoluto minuscolo** (raw Jaccard 0.005, consensus direction-space ~0). k=16 alza il *rapporto* sopra il caso, non risolve la riproducibilità.
-2. **k=8 patologico** (91.6% dead) — troppo sparso.
-3. **k=32 (baseline) è sul null floor** → i concetti baseline sono rumore in spazio indici.
+k matters more than dict_size: there is an optimum at k=16 (ratio 1.30, the only one clearly above null). But:
+1. Even at the peak, **tiny absolute agreement** (raw Jaccard 0.005, direction-space consensus ~0). k=16 raises the *ratio* above chance, it does not solve reproducibility.
+2. **k=8 pathological** (91.6% dead) — too sparse.
+3. **k=32 (baseline) is on the null floor** → baseline concepts are noise in index space.
 
-Risposta cumulativa: 01 (over-expansion = dead, non instability) + 02 (k ha un debole sweet spot, non risolve; il baseline stesso è rumore-vs-null) → l'instabilità è **strutturale**. Né dict_size né k la risolvono.
+Cumulative answer: 01 (over-expansion = dead, not instability) + 02 (k has a weak sweet spot, does not resolve; the baseline itself is noise-vs-null) → the instability is **structural**. Neither dict_size nor k resolve it.
 
 ---
 
-## 5. Note di riproducibilità
-- **Run IDE (2026-06-21 19:23):** 12/12 celle, 16 SAE (4 k × 4 seed). Artefatti: `a2_k_sweep.json` + 2 figure.
-- **dict_size=2048 fisso** → lr auto-scale identico tra k-gruppi (elimina confound dict→LR di 01).
-- **4 seed (non 3/5):** `(0,42,123,456)` per più potenza statistica sul bootstrap CI.
-- **Null = ipergeometrico esatto** `Σ_j j/(2k−j)·P(j)`, P(j) via `hypergeom(M=D,n=k,N=k)`. CI via bootstrap 1000× (mean-of-ratios).
-- **Baseline anchor** standalone (dict_size diverso → Jaccard cross-config vietato dal protocollo).
+## 5. Reproducibility notes
+- **IDE run (2026-06-21 19:23):** 12/12 cells, 16 SAEs (4 k × 4 seeds). Artifacts: `a2_k_sweep.json` + 2 figures.
+- **dict_size=2048 fixed** → identical lr auto-scale across k-groups (removes the dict→LR confound of 01).
+- **4 seeds (not 3/5):** `(0,42,123,456)` for more statistical power on the bootstrap CI.
+- **Null = exact hypergeometric** `Σ_j j/(2k−j)·P(j)`, P(j) via `hypergeom(M=D,n=k,N=k)`. CI via 1000× bootstrap (mean-of-ratios).
+- **Baseline anchor** standalone (different dict_size → cross-config Jaccard forbidden by the protocol).
 
 ---
 
 # Ablation 03 — Concept Baselines + Empirical Jaccard Floor
 
-**Data run:** 2026-06-21 · **Macchina:** Linux / RTX 5070, **CUDA**
-**Notebook:** `03_baselines.ipynb` (13/13 celle)
-**Input:** `train_embeddings.pt` (5976, fit PCA/KMeans qui) / `test_embeddings.pt` (1494, score metriche qui), vocabolario RadLex **508 termini**
-**Config:** **zero training** — 3 dizionari hand-built (Random, Dense-PCA, Freq-KMeans) da embedding esistenti; `D_b=256` (spazio indice condiviso within-group), `D_B_BIG=4096` (Random nel native index space del SAE), `K=32`, seeds `(0,42,123)`, naming **gap-corrected**, SAE reference hard-codato.
+**Run date:** 2026-06-21 · **Machine:** Linux / RTX 5070, **CUDA**
+**Notebook:** `03_baselines.ipynb` (13/13 cells)
+**Input:** `train_embeddings.pt` (5976, fit PCA/KMeans here) / `test_embeddings.pt` (1494, score metrics here), RadLex vocabulary **508 terms**
+**Config:** **zero training** — 3 hand-built dictionaries (Random, Dense-PCA, Freq-KMeans) from existing embeddings; `D_b=256` (shared index space within-group), `D_B_BIG=4096` (Random in the SAE native index space), `K=32`, seeds `(0,42,123)`, **gap-corrected** naming, hardcoded SAE reference.
 
-## Contesto e domanda
+## Context and question
 
-Tutte le ablation finora confrontavano il SAE con se stesso (seed diversi). Qui la domanda è più diretta: **il SAE è davvero meglio di metodi banali?** E soprattutto — il famoso 0.0038 di instabilità è un fallimento del SAE o è il rumore che otterrebbe chiunque, anche buttando numeri a caso?
+All ablations so far compared the SAE with itself (different seeds). Here the question is more direct: **is the SAE really better than trivial methods?** And above all — is the famous 0.0038 instability a failure of the SAE, or the noise anyone would get, even throwing numbers at random?
 
-Si costruiscono 3 dizionari banali senza addestramento: **Random** (direzioni casuali), **Dense-PCA** (le direzioni principali dei dati), **Freq-KMeans** (i centri di 256 cluster nei dati). Il test chiave: prendere un dizionario Random a 4096 feature, rifarlo 3 volte con seed diversi, misurare la sovrapposizione. Quello è il **pavimento del caso** — il rumore minimo inevitabile.
+Three trivial dictionaries are built without training: **Random** (random directions), **Dense-PCA** (the principal directions of the data), **Freq-KMeans** (the centers of 256 clusters in the data). The key test: take a 4096-feature Random dictionary, redo it 3 times with different seeds, measure the overlap. That is the **chance floor** — the unavoidable minimum noise.
 
-**Ipotesi pre-registrata:** Random@4096 within-group Jaccard ≈ 0.004 → calibra il 0.0038 del SAE come near-null (artefatto di spazio indici). PCA = ceiling denso di ricostruzione. SAE = unico metodo sparse + nominato.
+**Pre-registered hypothesis:** Random@4096 within-group Jaccard ≈ 0.004 → calibrates the SAE's 0.0038 as near-null (an index-space artifact). PCA = dense reconstruction ceiling. SAE = the only sparse + named method.
 
-**Esito: TESI CONFERMATA sul Jaccard floor; il SAE sopravvive solo su sparsità + naming top-end.** Random@4096 = 0.0037 ≈ SAE 0.0038 (ratio 0.95, sul floor). Ma il naming mean del SAE (0.395) è appena sopra il Random (0.372) — lo shift del gap domina il signal. KMeans (0.83) schiaccia tutti sul naming, ma con centroidi densi non monosemantici.
+**Outcome: THESIS CONFIRMED on the Jaccard floor; the SAE survives only on sparsity + top-end naming.** Random@4096 = 0.0037 ≈ SAE 0.0038 (ratio 0.95, on the floor). But the SAE naming mean (0.395) is barely above Random (0.372) — the gap shift dominates the signal. KMeans (0.83) crushes everyone on naming, but with dense non-monosemantic centroids.
 
 ---
 
-## 1. Cosa produce ogni fase
+## 1. What each stage produces
 
-| Fase | Output | Stato |
+| Stage | Output | Status |
 |---|---|---|
-| 3 dizionari baseline | Random (256 + 4096), Dense-PCA (256), Freq-KMeans (256) — per seed | ✅ 4 baselines × 3 seed |
-| Ricostruzione fair-L0 | cosine a L0=32 (top-k coefficienti per magnitudo) | ✅ |
-| Naming gap-corrected | decoder rows ↔ vocab, stesso shift del SAE | ✅ |
-| Within-group index-Jaccard | Random@256 e Random@4096 (3 seed → null empirico) | ✅ |
-| Null analitico cross-check | `E[J] ≈ k/(2D−k)` ipergeometrico | ✅ ratio 1.00 / 0.95 |
-| Tabelle + figure | comparison table + jaccard-floor bar | ✅ |
-| Persist | `results/ablation/a3_baselines.json` + `a3_cache/` (fit PCA/KMeans) | ✅ |
+| 3 baseline dictionaries | Random (256 + 4096), Dense-PCA (256), Freq-KMeans (256) — per seed | ✅ 4 baselines × 3 seeds |
+| Fair-L0 reconstruction | cosine at L0=32 (top-k coefficients by magnitude) | ✅ |
+| Gap-corrected naming | decoder rows ↔ vocab, same shift as the SAE | ✅ |
+| Within-group index-Jaccard | Random@256 and Random@4096 (3 seeds → empirical null) | ✅ |
+| Analytical null cross-check | `E[J] ≈ k/(2D−k)` hypergeometric | ✅ ratio 1.00 / 0.95 |
+| Tables + figures | comparison table + jaccard-floor bar | ✅ |
+| Persist | `results/ablation/a3_baselines.json` + `a3_cache/` (PCA/KMeans fit) | ✅ |
 
-> Rubric ≥3 baselines soddisfatta: Random / Dense-PCA / Freq-KMeans, ciascuno costruito da train embedding e scored su test con le metriche standalone del SAE.
+> Rubric ≥3 baselines satisfied: Random / Dense-PCA / Freq-KMeans, each built from train embeddings and scored on test with the SAE's standalone metrics.
 
 ---
 
-## 2. Risultati (primary seed 42; SAE reference hard-codato, gap-corrected)
+## 2. Results (primary seed 42; hardcoded SAE reference, gap-corrected)
 
-| Metodo | recon cosine | L0 | dead% | naming mean | naming max |
+| Method | recon cosine | L0 | dead% | naming mean | naming max |
 |---|---|---|---|---|---|
 | **SAE** (dict4096, k32, baseline) | 0.988 | 32 | 44.0 | 0.395 | 0.546 |
 | Random (D=256) | 0.454 | 32 | 0.0 | 0.372 | 0.442 |
 | Dense-PCA (D=256) | **0.996** | 32 | 0.0 | 0.383 | 0.594 |
 | Freq-KMeans (D=256) | 0.961 | 32 | 0.0 | **0.829** | **0.875** |
 
-**Random-Jaccard floor (within-group, 3 seed)** — il test chiave dell'intera ablation:
+**Random-Jaccard floor (within-group, 3 seeds)** — the key test of the whole ablation:
 
-| Gruppo | D | empirical J | analytical null | ratio |
+| Group | D | empirical J | analytical null | ratio |
 |---|---|---|---|---|
 | Random (small) | 256 | 0.0666 | 0.0667 | 1.00 |
 | **Random (big)** | **4096** | **0.0037** | **0.0039** | **0.95** |
-| — SAE baseline (cross-seed, 5 seed) | 4096 | 0.0038 | — | — |
+| — SAE baseline (cross-seed, 5 seeds) | 4096 | 0.0038 | — | — |
 
 ---
 
-## 3. Analisi
+## 3. Analysis
 
-### 3.1 Random@4096 ≈ SAE → index-Jaccard del SAE sul floor del caso ✓
-Il SAE e un dizionario di numeri casuali hanno la stessa sovrapposizione tra run (0.0038 vs 0.0037). Ratio 0.95 = il SAE siede esattamente sul null empirico per dizionari 4096-dim. Il 0.0038 cross-seed è calibrato come near-null in spazio indici: confrontare indici tra dizionari 4096-dim indipendenti produce ~0.004 di puro overlap casuale. Cross-check analitico `k/(2D−k)` = 0.0039 conferma (ratio 0.95).
+### 3.1 Random@4096 ≈ SAE → the SAE index-Jaccard is on the chance floor ✓
+The SAE and a dictionary of random numbers have the same between-run overlap (0.0038 vs 0.0037). Ratio 0.95 = the SAE sits exactly on the empirical null for 4096-dim dictionaries. The 0.0038 cross-seed is calibrated as near-null in index space: comparing indices between independent 4096-dim dictionaries yields ~0.004 of pure random overlap. Analytical cross-check `k/(2D−k)` = 0.0039 confirms (ratio 0.95).
 
-### 3.2 PCA = ceiling denso di ricostruzione ✓ (non è "SAE è scarso")
-PCA 0.996 > SAE 0.988 su raw cosine, ma è atteso e pedagogico: PCA è denso (256 atomi tutti attivi, zeroato a L0=32 solo dopo il fit per confronto fair) — sacrifica sparsità e monosemanticità per la ricostruzione. Il SAE perde ~0.008 di cosine in cambio di L0=32 enforced + naming. È il Pareto tradeoff, non un difetto.
+### 3.2 PCA = dense reconstruction ceiling ✓ (it is not "the SAE is poor")
+PCA 0.996 > SAE 0.988 on raw cosine, but this is expected and pedagogical: PCA is dense (256 atoms all active, zeroed to L0=32 only after the fit for a fair comparison) — it sacrifices sparsity and monosemanticity for reconstruction. The SAE loses ~0.008 cosine in exchange for enforced L0=32 + naming. It is the Pareto tradeoff, not a defect.
 
-### 3.3 Naming: SAE ≈ Random, KMeans schiaccia tutti ⚠️ (risultato severo)
-naming mean: **KMeans 0.829 >> SAE 0.395 ≈ PCA 0.383 ≈ Random 0.372**. Il SAE batte il Random di soli +0.023: lo shift del modality gap muove tutte le righe decoder della stessa quantità prima del coseno → domina il signal, e l'apprendimento del SAE aggiunge margine minimo sul naming medio. KMeans domina perché i centroidi sono i modi della distribuzione dati → allineati al cloud del vocabolario. Ma naming mean alto ≠ grounding genuino: i centroidi KMeans sono blend densi (non monosemantici), l'alta similarità riflette allineamento cloud-vs-cloud, non concetti isolati.
+### 3.3 Naming: SAE ≈ Random, KMeans crushes everyone ⚠️ (severe result)
+naming mean: **KMeans 0.829 >> SAE 0.395 ≈ PCA 0.383 ≈ Random 0.372**. The SAE beats Random by only +0.023: the modality gap shift moves all decoder rows by the same amount before the cosine → it dominates the signal, and the SAE's learning adds minimal margin on the mean naming. KMeans dominates because the centroids are the modes of the data distribution → aligned with the vocabulary cloud. But high naming mean ≠ genuine grounding: KMeans centroids are dense blends (not monosemantic), the high similarity reflects cloud-vs-cloud alignment, not isolated concepts.
 
-Caveat dict-size: SAE 4096 feature vs baseline 256 → per-feature naming mean non perfettamente comparabile. L'ordine (KMeans >> resto ≈) resta il signal robusto; il confronto più pulito è il **top-end** (max): SAE 0.546 > Random 0.442.
+Dict-size caveat: SAE 4096 features vs baseline 256 → per-feature naming mean not perfectly comparable. The order (KMeans >> rest ≈) remains the robust signal; the cleanest comparison is the **top-end** (max): SAE 0.546 > Random 0.442.
 
-### 3.4 Random recon scala con D: 0.45 (256) → 0.60 (4096)
-Più atomi casuali = più probabilità che qualcuno allinei con `x` → ricostruzione top-k migliore anche per puro caso. Conferma che raw recon cresce trivialmente con dict_size anche senza apprendimento — ragione in più per normalizzare via null (come fanno 01/02).
+### 3.4 Random recon scales with D: 0.45 (256) → 0.60 (4096)
+More random atoms = more probability that some align with `x` → better top-k reconstruction even by pure chance. Confirms that raw recon grows trivially with dict_size even without learning — one more reason to normalize via the null (as 01/02 do).
 
 ---
 
-## 4. Giudizio d'insieme: il SAE sopravvive solo su sparsità + naming top-end
+## 4. Overall assessment: the SAE survives only on sparsity + top-end naming
 
-| Domanda | Esito |
+| Question | Outcome |
 |---|---|
 | Rubric ≥3 baselines? | ✅ Random / PCA / KMeans |
-| Il 0.0038 del SAE è sopra il null (spazio indici)? | ❌ No — Random@4096 0.0037, ratio 0.95, sul floor |
-| PCA batte SAE su recon? | ✅ Sì (0.996 vs 0.988) — atteso, è il ceiling denso |
-| SAE batte i baseline sul naming? | ⚠️ Appena (mean 0.395 vs Random 0.372); max 0.546 > Random 0.442 (top-end sì) |
-| KMeans domina il naming? | ✅ Sì (0.829) — ma modi dati densi, non monosemantici |
+| Is the SAE's 0.0038 above the null (index space)? | ❌ No — Random@4096 0.0037, ratio 0.95, on the floor |
+| Does PCA beat the SAE on recon? | ✅ Yes (0.996 vs 0.988) — expected, it is the dense ceiling |
+| Does the SAE beat baselines on naming? | ⚠️ Barely (mean 0.395 vs Random 0.372); max 0.546 > Random 0.442 (top-end yes) |
+| Does KMeans dominate naming? | ✅ Yes (0.829) — but dense data modes, not monosemantic |
 
-**Verdetto cumulativo (00→03):**
-1. 00 (direction-Jaccard ~0) + 03 (index-Jaccard sul null floor) → il 0.0038 del SAE è rumore **sia in spazio indici che direzioni**. Conferma indipendente via due null diversi.
-2. Il SAE non vince su recon (PCA ceiling) né sul naming medio (≈ Random). L'unica advantage difendibile: **L0=32 enforced per costruzione** (PCA/KMeans sono dense) + **top-end naming** (max 0.546 > 0.442).
-3. Risultato più severo della serie fin qui. 01/02 mostravano che l'instabilità non si risolve con iperparametri; 03 mostra che il SAE appena supera baselines casuali sull'asse naming-mean. Il valore del SAE qui è **strutturale** (sparsità garantita, recon 0.988 a L0=32), non un guadagno misurabile sui concetti vs alternative generiche. (Questo verdetto severo viene poi **ribilanciato** da 05: i concetti, pur instabili, sono clinicamente fedeli.)
+**Cumulative verdict (00→03):**
+1. 00 (direction-Jaccard ~0) + 03 (index-Jaccard on the null floor) → the SAE's 0.0038 is noise **in both index and direction space**. Independent confirmation via two different nulls.
+2. The SAE does not win on recon (PCA ceiling) nor on mean naming (≈ Random). The only defensible advantage: **L0=32 enforced by construction** (PCA/KMeans are dense) + **top-end naming** (max 0.546 > 0.442).
+3. The most severe result of the series so far. 01/02 showed that instability is not resolved by hyperparameters; 03 shows that the SAE barely beats random baselines on the naming-mean axis. The SAE's value here is **structural** (guaranteed sparsity, recon 0.988 at L0=32), not a measurable gain on concepts vs generic alternatives. (This severe verdict is then **rebalanced** by 05: the concepts, though unstable, are clinically faithful.)
 
 ---
 
-## 5. Note di riproducibilità
-- **Run IDE (2026-06-21 19:35):** 13/13 celle, zero training. Artefatti: `a3_baselines.json` (6.1 KB), `a3_cache/` (PCA + KMeans fit per seed, `.npz`), 2 figure.
-- **Zero training / no model writes:** `SAEManager.train` mai chiamato. PCA/KMeans fit su train, metriche scored su test (test-set discipline).
-- **Metriche standalone:** `compute_stability`/`name_concepts`/`compute_cosine_reconstruction` richiedono un `AutoEncoderTopK` su disco → riscritte come funzioni libere, verificate contro `sae_module.py`.
-- **Naming gap-corrected per tutti:** `modality_gap = train_emb.mean(0) − vocab_emb.mean(0)` applicato a ogni `W_dec` → confronto naming apples-to-apples.
-- **SAE reference hard-codato:** numeri dal baseline REPORT (gap-corrected), non ri-addestrato qui.
-- **Null analitico:** `E[J] ≈ k/(2D−k)` per `k≪D`; ratio empirical/analytical 1.00 (D=256) e 0.95 (D=4096).
+## 5. Reproducibility notes
+- **IDE run (2026-06-21 19:35):** 13/13 cells, zero training. Artifacts: `a3_baselines.json` (6.1 KB), `a3_cache/` (PCA + KMeans fit per seed, `.npz`), 2 figures.
+- **Zero training / no model writes:** `SAEManager.train` never called. PCA/KMeans fit on train, metrics scored on test (test-set discipline).
+- **Standalone metrics:** `compute_stability`/`name_concepts`/`compute_cosine_reconstruction` require an `AutoEncoderTopK` on disk → rewritten as free functions, verified against `sae_module.py`.
+- **Gap-corrected naming for all:** `modality_gap = train_emb.mean(0) − vocab_emb.mean(0)` applied to every `W_dec` → apples-to-apples naming comparison.
+- **Hardcoded SAE reference:** numbers from the baseline REPORT (gap-corrected), not retrained here.
+- **Analytical null:** `E[J] ≈ k/(2D−k)` for `k≪D`; empirical/analytical ratio 1.00 (D=256) and 0.95 (D=4096).
 
 ---
 
 # Ablation 04 — Activation-Family Bake-off (TopK vs BatchTopK vs JumpReLU)
 
-**Data run:** 2026-06-21 · **Macchina:** Linux / RTX 5070, **CUDA**
-**Notebook:** `04_activation_bakeoff.ipynb` (29 celle)
-**Input:** `train_embeddings.pt` (5976) / `test_embeddings.pt` (1494), vocabolario RadLex **508 termini**
-**Config:** **3 famiglie di attivazione** addestrate a config identico: TopK (baseline), BatchTopK, JumpReLU. `dict_size=2048` (spazio indice condiviso), **lr=5e-5 pinned & matched** (elimina il confound lr ~8×), `steps=12000`, seeds `(0,42,123)`, naming **gap-corrected**.
+**Run date:** 2026-06-21 · **Machine:** Linux / RTX 5070, **CUDA**
+**Notebook:** `04_activation_bakeoff.ipynb` (29 cells)
+**Input:** `train_embeddings.pt` (5976) / `test_embeddings.pt` (1494), RadLex vocabulary **508 terms**
+**Config:** **3 activation families** trained at identical config: TopK (baseline), BatchTopK, JumpReLU. `dict_size=2048` (shared index space), **lr=5e-5 pinned & matched** (removes the ~8× lr confound), `steps=12000`, seeds `(0,42,123)`, **gap-corrected** naming.
 
-## Contesto e domanda
+## Context and question
 
-Tutte le ablation finora usano TopK. Forse il problema è proprio TopK — la sua regola "esattamente 32 feature per immagine" è rigida. Esistono famiglie alternative: **BatchTopK** (sceglie i top-k su tutto il batch, non per-sample → ogni immagine può usare più o meno feature) e **JumpReLU** (soglia imparata per-feature). Forse una di queste trova concetti più riproducibili. BatchTopK e JumpReLU non erano mai state provate su VLM medici — questa è la novità dell'ablation.
+All ablations so far use TopK. Perhaps the problem is TopK itself — its "exactly 32 features per image" rule is rigid. Alternative families exist: **BatchTopK** (chooses the top-k over the whole batch, not per-sample → each image can use more or fewer features) and **JumpReLU** (a threshold learned per-feature). Perhaps one of these finds more reproducible concepts. BatchTopK and JumpReLU had never been tried on medical VLMs — this is the ablation's novelty.
 
-Si addestrano le 3 famiglie a configurazione identica (stesso lr, stesso dizionario, stessi seed) e le si confronta su ricostruzione, dead%, stabilità within-family, e soprattutto **consenso cross-famiglia**: quanti concetti vengono riscoperti da famiglie diverse.
+The 3 families are trained at identical configuration (same lr, same dictionary, same seeds) and compared on reconstruction, dead%, within-family stability, and above all **cross-family consensus**: how many concepts are rediscovered by different families.
 
-**Ipotesi pre-registrata:** a lr matched, BatchTopK/JumpReLU danno consensus-rate più alto e dead% più basso di TopK, perché permettono alle feature di specializzarsi sui sample che le servono invece di forzare k=32 per sample.
+**Pre-registered hypothesis:** at matched lr, BatchTopK/JumpReLU give a higher consensus-rate and lower dead% than TopK, because they let features specialize on the samples that need them instead of forcing k=32 per sample.
 
-**Esito: MISTO/FALSIFICATO.** dead% ✓ BatchTopK (4.8%) molto meglio di TopK (16%); JumpReLU peggio (49%). Ma consensus-rate **0 per tutti e tre** (τ=0.90), ricostruzione/naming/stabilità ~identiche. Cross-famiglia: 2.8% condiviso tra 2 famiglie, 0% tra tutte e 3. La famiglia di attivazione modula dead%, **non** la riproducibilità.
+**Outcome: MIXED/FALSIFIED.** dead% ✓ BatchTopK (4.8%) much better than TopK (16%); JumpReLU worse (49%). But consensus-rate **0 for all three** (τ=0.90), reconstruction/naming/stability ~identical. Cross-family: 2.8% shared between 2 families, 0% across all 3. The activation family modulates dead%, **not** reproducibility.
 
 ---
 
-## 1. Cosa produce ogni fase
+## 1. What each stage produces
 
-| Fase | Output |
+| Stage | Output |
 |---|---|
-| Training | 3 famiglie × 3 seed = 9 SAE (12k step, lr=5e-5 matched) |
-| Per-famiglia metriche | recon cosine, MSE, L0 effettivo, dead%, entropia (test) |
-| Distribuzione L0 | istogramma per-sample (TopK=puntiforme a 32, altre=variabile) |
-| Within-family stability | Jaccard renormalizzato n=20 (3 seed per famiglia) |
-| Consensus reappearance | cluster direction-space τ=0.90, within-family (stesso algo 00/01) |
-| **Cross-activation consensus** | pool 9 modelli, cluster τ=0.90, conta cluster che spannano ≥2 famiglie |
-| Naming | seed 42, gap-corrected, per famiglia |
+| Training | 3 families × 3 seeds = 9 SAEs (12k steps, lr=5e-5 matched) |
+| Per-family metrics | recon cosine, MSE, effective L0, dead%, entropy (test) |
+| L0 distribution | per-sample histogram (TopK=point mass at 32, others=variable) |
+| Within-family stability | renormalized Jaccard n=20 (3 seeds per family) |
+| Consensus reappearance | direction-space clusters τ=0.90, within-family (same algo as 00/01) |
+| **Cross-activation consensus** | pool 9 models, cluster τ=0.90, count clusters spanning ≥2 families |
+| Naming | seed 42, gap-corrected, per family |
 | Figures | 4 (`a4_effective_l0_distribution`, `a4_jumprelu_threshold_hist`, `a4_activation_comparison`, `a4_cross_activation_consensus`) |
 | Persist | `results/ablation/a4_activation.json` |
 
 ---
 
-## 2. Risultati (3 seed, lr=5e-5 matched, dict=2048)
+## 2. Results (3 seeds, lr=5e-5 matched, dict=2048)
 
-### 2.1 Per-famiglia: ricostruzione, L0, dead%
+### 2.1 Per-family: reconstruction, L0, dead%
 
-| Famiglia | recon cosine | L0 effettivo | dead% | util% |
+| Family | recon cosine | effective L0 | dead% | util% |
 |---|---|---|---|---|
-| **TopK** | 0.9913 | 32.0 (rigido) | 16.0 | 84.4 |
+| **TopK** | 0.9913 | 32.0 (rigid) | 16.0 | 84.4 |
 | **BatchTopK** | 0.9917 | ~38.3 | **4.8** | 95.2 |
 | **JumpReLU** | 0.9905 | ~33.4 | 48.8 | 51.2 |
 
-Le tre famiglie ricostruiscono praticamente uguale (~0.99). La grande differenza è i dead%: BatchTopK spreca pochissimo (4.8%), JumpReLU ne spreca metà (49% — la soglia imparata non converge bene a questo lr/steps), TopK sta in mezzo (16%). L'L0 effettivo: TopK sempre 32 (rigido), BatchTopK ~38, JumpReLU ~33. (Baseline riferimento dict4096: recon 0.988, dead 44% — il TopK qui ha dead più basso perché dict=2048 + lr=5e-5.)
+The three families reconstruct almost identically (~0.99). The big difference is dead%: BatchTopK wastes very little (4.8%), JumpReLU wastes half (49% — the learned threshold does not converge well at this lr/steps), TopK is in between (16%). Effective L0: TopK always 32 (rigid), BatchTopK ~38, JumpReLU ~33. (Baseline reference dict4096: recon 0.988, dead 44% — the TopK here has lower dead because dict=2048 + lr=5e-5.)
 
-### 2.2 Within-family stability (Jaccard renormalizzato n=20, floor=0.00977)
+### 2.2 Within-family stability (renormalized Jaccard n=20, floor=0.00977)
 
-| Famiglia | mean Jaccard (n=20) | signal/null |
+| Family | mean Jaccard (n=20) | signal/null |
 |---|---|---|
 | TopK | 0.00477 | 0.49× |
 | BatchTopK | 0.00521 | 0.53× |
 | JumpReLU | 0.00419 | 0.43× |
 
-Tutti e tre ~0.005, signal-to-null ~0.5×. Le tre famiglie sono essenzialmente identiche sulla stabilità — differenze 0.43–0.53× non significative. Nessuna famiglia è "più riproducibile".
+All three ~0.005, signal-to-null ~0.5×. The three families are essentially identical on stability — differences 0.43–0.53× are not significant. No family is "more reproducible".
 
 ### 2.3 Consensus reappearance (direction-space, τ=0.90, within-family)
 
-| Famiglia | pooled rows | cluster | consensus (≥2 seed) | rate |
+| Family | pooled rows | clusters | consensus (≥2 seeds) | rate |
 |---|---|---|---|---|
 | TopK | 6144 | 6144 | 0 | 0.000 |
 | BatchTopK | 6144 | 6144 | 0 | 0.000 |
 | JumpReLU | 6144 | 6144 | 0 | 0.000 |
 
-Nessuna famiglia riscopre le stesse direzioni tra seed a τ=0.90.
+No family redisCOVERS the same directions across seeds at τ=0.90.
 
-### 2.4 Cross-activation consensus (9 modelli, τ=0.90) — il test chiave della novità
+### 2.4 Cross-activation consensus (9 models, τ=0.90) — the key novelty test
 
-La domanda di novità: ci sono concetti che **famiglie diverse** riscoprono (non solo seed diversi della stessa famiglia)?
+The novelty question: are there concepts that **different families** rediscover (not just different seeds of the same family)?
 
-| Metrica | Valore |
+| Metric | Value |
 |---|---|
-| Pooled rows (9 modelli) | 18432 |
-| Cluster totali (τ=0.90) | 17936 |
-| Cluster che spannano ≥2 famiglie | 496 (**2.8%**) |
-| Cluster che spannano tutte e 3 | 0 (**0%**) |
+| Pooled rows (9 models) | 18432 |
+| Total clusters (τ=0.90) | 17936 |
+| Clusters spanning ≥2 families | 496 (**2.8%**) |
+| Clusters spanning all 3 | 0 (**0%**) |
 
-Solo 2.8% dei concetti è condiviso tra 2 famiglie, 0% tra tutte e 3. Quasi tutte le direzioni sono specifiche della famiglia: non esiste un "nucleo" di concetti universali che tutte le famiglie trovano.
+Only 2.8% of concepts are shared between 2 families, 0% across all 3. Almost all directions are family-specific: there is no "core" of universal concepts that all families find.
 
 ### 2.5 Naming (seed 42, gap-corrected)
 
-| Famiglia | n_live | naming mean | naming max |
+| Family | n_live | naming mean | naming max |
 |---|---|---|---|
 | TopK | 2048 | 0.4026 | 0.5489 |
 | BatchTopK | 2048 | 0.3969 | 0.5457 |
 | JumpReLU | 2048 | 0.3897 | **0.5812** |
 
-L'allineamento col vocabolario RadLex è quasi identico tra le famiglie (~0.40 medio, ~0.55–0.58 max). JumpReLU ha il naming max leggermente più alto. Top concept coerenti: anatomia vertebrale (ligamentum flavum, spinal stenosis), devices (core needle, shapeable wire tip).
+Alignment with the RadLex vocabulary is nearly identical across families (~0.40 mean, ~0.55–0.58 max). JumpReLU has a slightly higher naming max. Coherent top concepts: vertebral anatomy (ligamentum flavum, spinal stenosis), devices (core needle, shapeable wire tip).
 
 ---
 
-## 3. Analisi
+## 3. Analysis
 
-### 3.1 dead% ✓ risponde alla famiglia — BatchTopK è il migliore
-L'unica parte dell'ipotesi che tiene: BatchTopK ha molti meno dead (4.8%) di TopK (16%). Ha senso: il top-(k·B) globale lascia specializzare le feature sui sample che le servono → meno spreco. JumpReLU peggiora (49% dead) — la sua soglia imparata non converge bene a lr=5e-5/12k step. Ma questo riguarda l'efficienza del dizionario (spreco), **non** la riproducibilità.
+### 3.1 dead% ✓ responds to family — BatchTopK is the best
+The only part of the hypothesis that holds: BatchTopK has far fewer dead (4.8%) than TopK (16%). It makes sense: the global top-(k·B) lets features specialize on the samples that need them → less waste. JumpReLU is worse (49% dead) — its learned threshold does not converge well at lr=5e-5/12k steps. But this concerns dictionary efficiency (waste), **not** reproducibility.
 
-### 3.2 Consensus ✗ ZERO per tutti — ipotesi falsificata
-L'ipotesi principale ("BatchTopK/JumpReLU più riproducibili") crolla: tutte e tre le famiglie hanno 0 cluster condivisi a τ=0.90. Cambiare la funzione di attivazione non crea concetti più riproducibili. Il signal-to-null within-family è ~0.5× per tutti — identico. La stabilità è invariante alla famiglia.
+### 3.2 Consensus ✗ ZERO for all — hypothesis falsified
+The main hypothesis ("BatchTopK/JumpReLU more reproducible") collapses: all three families have 0 shared clusters at τ=0.90. Changing the activation function does not create more reproducible concepts. The within-family signal-to-null is ~0.5× for all — identical. Stability is invariant to the family.
 
-### 3.3 Cross-family: 2.8% condiviso, 0% universale
-Il 2.8% dei concetti è trovato da 2 famiglie (un segnale debole ma non zero), ma nessun concetto è trovato da tutte e 3. Le famiglie sono quasi completamente disgiunte in spazio direzioni: non esiste un dizionario universale latente che tutte scoprono.
+### 3.3 Cross-family: 2.8% shared, 0% universal
+2.8% of concepts are found by 2 families (a weak but non-zero signal), but no concept is found by all 3. The families are almost completely disjoint in direction space: there is no latent universal dictionary that all discover.
 
-### 3.4 Ricostruzione + naming identici tra famiglie
-Sugli assi "tecnici" (ricostruzione ~0.99, naming ~0.40) le tre famiglie sono indistinguibili. La scelta di famiglia non cambia la qualità tecnica né l'ancoraggio RadLex. Cambia solo dead% (efficienza) e il profilo L0 (TopK rigido, altre adattivo).
+### 3.4 Reconstruction + naming identical across families
+On the "technical" axes (reconstruction ~0.99, naming ~0.40) the three families are indistinguishable. The family choice does not change technical quality nor RadLex anchoring. It only changes dead% (efficiency) and the L0 profile (TopK rigid, others adaptive).
 
-### 3.5 L0 adattivo = la novità reale (ma ininfluente sulla stabilità)
-La differenza visibile tra le famiglie è il profilo L0: TopK è un picco puntiforme a 32 (rigido), BatchTopK/JumpReLU hanno una distribuzione (ogni immagine usa un numero diverso di feature). È il comportamento "sparsità adattiva" non studiato su VLM medici. Però non porta a concetti più riproducibili: la novità c'è, ma non risolve il problema centrale.
+### 3.5 Adaptive L0 = the real novelty (but inconsequential on stability)
+The visible difference between families is the L0 profile: TopK is a point mass at 32 (rigid), BatchTopK/JumpReLU have a distribution (each image uses a different number of features). It is the "adaptive sparsity" behavior not studied on medical VLMs. However it does not lead to more reproducible concepts: the novelty exists, but it does not solve the central problem.
 
 ---
 
-## 4. Giudizio d'insieme: la famiglia non salva la riproducibilità
+## 4. Overall assessment: the family does not save reproducibility
 
-| Domanda | Esito |
+| Question | Outcome |
 |---|---|
-| Rubric (≥1 variante non-TopK)? | ✅ BatchTopK + JumpReLU |
-| BatchTopK/JumpReLU più riproducibili di TopK? | ❌ No — consensus 0 per tutti |
-| dead% più basso con famiglie alternative? | ⚠️ Parziale — BatchTopK sì (4.8%), JumpReLU no (49%) |
-| Esiste un nucleo di concetti universali tra famiglie? | ❌ No — 0% span 3 famiglie, 2.8% span 2 |
-| Ricostruzione/naming cambiano con la famiglia? | ❌ No — identici (~0.99, ~0.40) |
+| Rubric (≥1 non-TopK variant)? | ✅ BatchTopK + JumpReLU |
+| Are BatchTopK/JumpReLU more reproducible than TopK? | ❌ No — consensus 0 for all |
+| Lower dead% with alternative families? | ⚠️ Partial — BatchTopK yes (4.8%), JumpReLU no (49%) |
+| Is there a core of universal concepts across families? | ❌ No — 0% span 3 families, 2.8% span 2 |
+| Do reconstruction/naming change with the family? | ❌ No — identical (~0.99, ~0.40) |
 
-**Verdetto cumulativo (00→04, chiusura dell'indagine):**
-1. 04 è il **test più profondo**: cambia il meccanismo centrale (la funzione di attivazione), non un iperparametro. Neanche questo aiuta la riproducibilità.
-2. **dead% e stabilità sono disaccoppiate** (come in 01): BatchTopK riduce i dead, ma i concetti restano non riproducibili. Essere "efficiente" ≠ essere "robusto".
-3. **Conferma strutturale definitiva:** l'instabilità non è dovuta a TopK, né a dict_size, né a k. È strutturale — pochi campioni (5976) + non-unicità della decomposizione sparsa (vale per tutte e 3 le famiglie).
+**Cumulative verdict (00→04, closure of the investigation):**
+1. 04 is the **deepest test**: it changes the central mechanism (the activation function), not a hyperparameter. Not even this helps reproducibility.
+2. **dead% and stability are decoupled** (as in 01): BatchTopK reduces the dead, but the concepts remain non-reproducible. Being "efficient" ≠ being "robust".
+3. **Definitive structural confirmation:** the instability is not due to TopK, nor to dict_size, nor to k. It is structural — few samples (5976) + non-uniqueness of the sparse decomposition (holds for all 3 families).
 
-**Caveat onesti:**
-- **lr matched (5e-5):** elimina il confound lr ~8×, ma potrebbe sotto-addestrare TopK/BatchTopK (default ~2.8e-4). Confronto valido ma conservativo.
-- **JumpReLU 49% dead:** probabilmente lr/steps/warmup non ottimali per questa famiglia (nessun tuning per-famiglia). Non è un verdetto su JumpReLU in assoluto, solo a config matched.
-- **3 seed (non 5):** compute. Il consensus a 0 è già netto.
+**Honest caveats:**
+- **lr matched (5e-5):** removes the ~8× lr confound, but may under-train TopK/BatchTopK (default ~2.8e-4). Valid but conservative comparison.
+- **JumpReLU 49% dead:** likely non-optimal lr/steps/warmup for this family (no per-family tuning). It is not a verdict on JumpReLU in absolute, only at matched config.
+- **3 seeds (not 5):** compute. The consensus at 0 is already sharp.
 
 ---
 
-## 5. Note di riproducibilità
-- **Run IDE (2026-06-21 20:06):** 29 celle, 9 SAE (3 famiglie × 3 seed, 12k step). Artefatti: `a4_activation.json` (6.1 KB), 4 figure, modelli in `models/ablation_a4/{topk,batchtopk,jumprelu}_2048/sae_seed{N}/`.
-- **lr pinned 5e-5 matched:** elimina il confound lr (TopK/BatchTopK auto-scale ~2.8e-4 a dict2048; JumpReLU default 7e-5). Conservativo ma valido cross-famiglia.
-- **3 famiglie via `trainSAE` diretto** (non `SAEManager.train`, che hardcoda TopKTrainer). Loader bespoke per-famiglia (`AutoEncoderTopK`/`BatchTopKSAE`/`JumpReluAutoEncoder`); decoder-row extraction differisce (TopK/BatchTopK: `decoder.weight.T`; JumpReLU: `W_dec` già `(dict,act)`).
-- **`compute_stability` non usato:** hardcoda `AutoEncoderTopK` → crash su BatchTopK/JumpReLU. Jaccard riscritto standalone, renormalizzato a n=20 comune.
-- **Dead% = activation-based** (feature mai non-zero sul test), standalone.
-- **Naming gap-corrected** per tutte e 3 (`W_dec -= gap`).
+## 5. Reproducibility notes
+- **IDE run (2026-06-21 20:06):** 29 cells, 9 SAEs (3 families × 3 seeds, 12k steps). Artifacts: `a4_activation.json` (6.1 KB), 4 figures, models in `models/ablation_a4/{topk,batchtopk,jumprelu}_2048/sae_seed{N}/`.
+- **lr pinned 5e-5 matched:** removes the lr confound (TopK/BatchTopK auto-scale ~2.8e-4 at dict2048; JumpReLU default 7e-5). Conservative but valid cross-family.
+- **3 families via direct `trainSAE`** (not `SAEManager.train`, which hardcodes TopKTrainer). Bespoke per-family loader (`AutoEncoderTopK`/`BatchTopKSAE`/`JumpReluAutoEncoder`); decoder-row extraction differs (TopK/BatchTopK: `decoder.weight.T`; JumpReLU: `W_dec` already `(dict,act)`).
+- **`compute_stability` not used:** hardcodes `AutoEncoderTopK` → crash on BatchTopK/JumpReLU. Jaccard rewritten standalone, renormalized to a common n=20.
+- **Dead% = activation-based** (feature never non-zero on test), standalone.
+- **Gap-corrected naming** for all 3 (`W_dec -= gap`).
 
 ---
 
 # Ablation 05 — Concept Faithfulness vs clinical labels (MeSH/Problems)
 
-**Data run:** 2026-06-22 · **Macchina:** macOS / Apple Silicon, **device MPS** (auto)
-**Notebook:** `05_faithfulness.ipynb` (run headless via nbconvert, 9/9 celle)
-**Input:** checkpoint baseline `models/sae_seed42/` (dict4096, k=32) — zero training; `test_embeddings.pt` (1494) + `test_image_ids.json`; etichette cliniche da `data/iu_xray/reports/indiana_reports.csv` (colonne `MeSH`/`Problems`)
-**Config:** matrice di attivazione `A` (1494×4096, TopK continuo) × matrice binaria etichette `Y` (1494×50 dopo filtro prevalenza ≥10); correlazione **point-biserial** vettorizzata `A_zᵀ·Y_z/N`; null = SE analitica `1/√N` + shuffle-null per-feature (p95, 200 perm) + BH-FDR 0.05.
+**Run date:** 2026-06-22 · **Machine:** macOS / Apple Silicon, **MPS device** (auto)
+**Notebook:** `05_faithfulness.ipynb` (run headless via nbconvert, 9/9 cells)
+**Input:** baseline checkpoint `models/sae_seed42/` (dict4096, k=32) — zero training; `test_embeddings.pt` (1494) + `test_image_ids.json`; clinical labels from `data/iu_xray/reports/indiana_reports.csv` (`MeSH`/`Problems` columns)
+**Config:** activation matrix `A` (1494×4096, continuous TopK) × binary label matrix `Y` (1494×50 after prevalence filter ≥10); vectorized **point-biserial** correlation `A_zᵀ·Y_z/N`; null = analytical SE `1/√N` + per-feature shuffle-null (p95, 200 perm) + BH-FDR 0.05.
 
-## Contesto e domanda
+## Context and question
 
-Tutte le ablation finora (00–04) sono una sola grande domanda: *perché i concetti non sono riproducibili tra seed?* Verdetto: è un limite strutturale, il 0.004 è il pavimento del caso. Ma "instabile" non vuol dire "inutile". Qui si cambia domanda: **i concetti che il SAE scopre (in un seed) sono significativi, cioè si attivano sulle immagini che contengono davvero una certa patologia/anatomia?** È la differenza tra "concetti rumorosi" e "concetti che significano qualcosa".
+All ablations so far (00–04) are one big question: *why are the concepts not reproducible across seeds?* Verdict: it is a structural limitation, 0.004 is the chance floor. But "unstable" does not mean "useless". Here the question changes: **are the concepts the SAE discovers (in one seed) meaningful, i.e. do they activate on the images that actually contain a certain pathology/anatomy?** It is the difference between "noisy concepts" and "concepts that mean something".
 
-Si prende il SAE seed-42, si codificano le immagini di test → per ogni immagine si sa quali feature si accendono (`A`). Poi si leggono le vere etichette cliniche di quelle immagini dai referti (colonne `MeSH`/`Problems` di IU X-Ray: cardiomegalia, versamento pleurico, ecc.) → matrice `Y`. Si calcola la correlazione tra ogni feature e ogni etichetta. Una feature è "fedele" se si accende proprio sulle immagini con una certa etichetta — e lo fa oltre il puro caso (confronto contro un null calibrato per-feature).
+Take the seed-42 SAE, encode the test images → for each image we know which features fire (`A`). Then read the true clinical labels of those images from the reports (`MeSH`/`Problems` columns of IU X-Ray: cardiomegaly, pleural effusion, etc.) → matrix `Y`. Compute the correlation between each feature and each label. A feature is "faithful" if it fires precisely on the images with a certain label — and does so beyond pure chance (comparison against a per-feature calibrated null).
 
-**Ipotesi pre-registrata:** una quota non banale di feature live ha `max_j |corr(activation_i, label_j)|` superiore a un null calibrato per-feature (p95 di uno shuffle delle etichette). Le feature più fedeli dovrebbero corrispondere a concetti visivamente concreti e clinicamente attesi.
+**Pre-registered hypothesis:** a non-trivial fraction of live features has `max_j |corr(activation_i, label_j)|` above a per-feature calibrated null (p95 of a label shuffle). The most faithful features should correspond to visually concrete and clinically expected concepts.
 
-**Esito: PARZIALMENTE CONFERMATO — il primo positivo della serie.** 226/2251 feature live (10.0%) battono il proprio shuffle-null p95 (mediana null 0.188). |r|>0.10 sul 53.8% delle live, >0.20 sul 9.5%. Le più forti tracciano impianti medici (0.46), versamento pleurico (0.34), enfisema, ombra cardiaca. I concetti sono instabili cross-seed (00–04) ma, quando esistono, sono moderatamente fedeli a etichette cliniche reali.
+**Outcome: PARTIALLY CONFIRMED — the first positive of the series.** 226/2251 live features (10.0%) beat their shuffle-null p95 (null median 0.188). |r|>0.10 on 53.8% of live, >0.20 on 9.5%. The strongest track medical implants (0.46), pleural effusion (0.34), emphysema, cardiac shadow. The concepts are unstable cross-seed (00–04) but, when they exist, they are moderately faithful to real clinical labels.
 
 ---
 
-## 1. Cosa produce ogni fase
+## 1. What each stage produces
 
-| Fase | Output |
+| Stage | Output |
 |---|---|
-| Etichette cliniche | parsing `MeSH`/`Problems` → 118 termini base; 101 presenti nel test, **50** dopo filtro prevalenza ≥10 |
-| Join per-immagine | `image_id → uid` (via `indiana_projections.csv` + fallback prefisso) → `MeSH`/`Problems`; 0 join mancanti su 1494 |
-| Attivazioni | `mgr.encode(test_emb)` → `A` (1494×4096), 32 non-zero/immagine |
-| Point-biserial | `A_zᵀ·Y_z/N` → matrice corr (4096×50); per-feature max abs(corr) |
-| Null triplo | SE analitica 0.0259 + shuffle-null per-feature p95 + BH-FDR 0.05 |
-| Naming cross-ref | nome RadLex gap-corrected di ogni feature fedele (vs la label a cui è fedele) |
+| Clinical labels | parsing `MeSH`/`Problems` → 118 base terms; 101 present in test, **50** after prevalence filter ≥10 |
+| Per-image join | `image_id → uid` (via `indiana_projections.csv` + prefix fallback) → `MeSH`/`Problems`; 0 missing joins out of 1494 |
+| Activations | `mgr.encode(test_emb)` → `A` (1494×4096), 32 non-zero/image |
+| Point-biserial | `A_zᵀ·Y_z/N` → corr matrix (4096×50); per-feature max abs(corr) |
+| Triple null | analytical SE 0.0259 + per-feature shuffle-null p95 + BH-FDR 0.05 |
+| Naming cross-ref | gap-corrected RadLex name of each faithful feature (vs the label it is faithful to) |
 | Persist | `results/ablation/a5_faithfulness.json` + `a5_faithfulness_headline.png` |
 
 ---
 
-## 2. Risultati (seed 42, 1494 test, 50 etichette prevalenti)
+## 2. Results (seed 42, 1494 test, 50 prevalent labels)
 
-Per ogni feature "viva" (che si attiva almeno una volta sul test: 2251/4096 = 55%, coerente col ~44% dead della baseline) si prende la correlazione più forte con una qualsiasi etichetta clinica. `|r|` = quanto la feature traccia la sua etichetta migliore. La colonna chiave è il **null per-feature**: per battere il caso, la feature deve superare il proprio p95 (mediana 0.188).
+For each "live" feature (activating at least once on test: 2251/4096 = 55%, consistent with the baseline ~44% dead) the strongest correlation with any clinical label is taken. `|r|` = how much the feature tracks its best label. The key column is the **per-feature null**: to beat chance, the feature must exceed its own p95 (median 0.188).
 
-### 2.1 % feature fedeli per soglia (sulle 2251 live)
+### 2.1 % faithful features per threshold (on the 2251 live)
 
-| soglia abs(corr) | feature live fedeli | % delle live |
+| threshold abs(corr) | faithful live features | % of live |
 |---:|---:|---:|
 | > 0.10 | 1210 | 53.8% |
 | > 0.15 | 576 | 25.6% |
@@ -716,22 +716,22 @@ Per ogni feature "viva" (che si attiva almeno una volta sul test: 2251/4096 = 55
 | > 0.25 | 82 | 3.6% |
 | > 0.30 | 22 | 1.0% |
 
-### 2.2 Null calibrato — il test chiave
+### 2.2 Calibrated null — the key test
 
-"Oltre il caso" non è un'opinione: per ogni feature si mescolano 200 volte le etichette tra le immagini e si misura la correlazione più forte che si otterrebbe per puro caso. La soglia è il 95° percentile di quello shuffle, **specifica per feature** (corregge per la distribuzione di prevalenza delle etichette). Una feature "passa" solo se batte la sua soglia.
+"Beyond chance" is not an opinion: for each feature the labels are shuffled 200 times across the images and the strongest correlation obtainable by pure chance is measured. The threshold is the 95th percentile of that shuffle, **feature-specific** (corrects for the label prevalence distribution). A feature "passes" only if it beats its own threshold.
 
-| Null | Valore |
+| Null | Value |
 |---|---|
-| SE analitica `1/√N` | 0.0259 (corr>0.10 ≈ 3.9σ) |
-| Shuffle-null p95 (mediana per-feature, 200 perm) | **0.188** |
-| Feature live che battono il proprio null p95 | **226 / 2251 (10.0%)** |
-| BH-FDR 0.05 (su 112550 test) | 3496 coppie (feature,label) sig.; soglia ≈ corr>0.082 |
+| Analytical SE `1/√N` | 0.0259 (corr>0.10 ≈ 3.9σ) |
+| Shuffle-null p95 (per-feature median, 200 perm) | **0.188** |
+| Live features beating their p95 null | **226 / 2251 (10.0%)** |
+| BH-FDR 0.05 (on 112550 tests) | 3496 significant (feature,label) pairs; threshold ≈ corr>0.082 |
 
-### 2.3 Top feature fedeli (+ nome RadLex cross-ref)
+### 2.3 Top faithful features (+ RadLex name cross-ref)
 
-Le feature più fedeli e la label a cui si ancorano. Cross-check interessante: la label reale (in-distribution, da IU X-Ray) è clinicamente sensata, ma il nome RadLex assegnato dal SAE è spesso rumoroso/diverso. Conferma che il naming RadLex (off-distribution, vedi `VOCAB_BUILDING_ALTERNATIVES.md`) è più debole del comportamento reale del concetto.
+The most faithful features and the label they anchor to. Interesting cross-check: the real label (in-distribution, from IU X-Ray) is clinically sensible, but the RadLex name assigned by the SAE is often noisy/different. Confirms that RadLex naming (off-distribution, see `VOCAB_BUILDING_ALTERNATIVES.md`) is weaker than the concept's real behavior.
 
-| feature | abs(corr) | label fedele (IU X-Ray) | prev. | nome RadLex (gap-corrected) |
+| feature | abs(corr) | faithful label (IU X-Ray) | prev. | RadLex name (gap-corrected) |
 |---:|---:|---|---:|---|
 | 3785 | **0.458** | implanted medical device | 22 | mucosal surface |
 | 2983 | 0.349 | implanted medical device | 22 | anterior segment of upper lobe (L) |
@@ -742,11 +742,11 @@ Le feature più fedeli e la label a cui si ancorano. Cross-check interessante: l
 | 3330 | 0.315 | pulmonary emphysema | 10 | — |
 | 3034 | 0.311 | cardiac shadow | 20 | — |
 
-### 2.4 Per-etichetta: il SAE riesce a rappresentare ogni concetto clinico diffuso?
+### 2.4 Per-label: can the SAE represent every widespread clinical concept?
 
-Per ciascuna etichetta, la feature migliore che la predice. Le etichette visivamente concrete (impianti, versamento, enfisema) raggiungono |r| 0.30–0.46; la copertura decade sulle patologie più sottili.
+For each label, the best feature predicting it. Visually concrete labels (implants, effusion, emphysema) reach |r| 0.30–0.46; coverage decays on subtler pathologies.
 
-| etichetta (prevalenza) | miglior corr |
+| label (prevalence) | best corr |
 |---|---:|
 | implanted medical device (22) | 0.458 |
 | pleural effusion (57) | 0.342 |
@@ -756,83 +756,83 @@ Per ciascuna etichetta, la feature migliore che la predice. Le etichette visivam
 
 ---
 
-## 3. Analisi
+## 3. Analysis
 
-### 3.1 I concetti esistenti sono genuinamente fedeli, non rumore ✓
-226 feature su 2251 (10%) battono un null per-feature calibrato — non un valore fisso, ma la soglia specifica che ciascuna feature dovrebbe superare per caso. Corroborato dal BH-FDR (3496 coppie significative) e dall'SE analitica. Il segnale è reale: c'è una minoranza sostanziale di feature il cui pattern di attivazione traccia un'etichetta clinica oltre il caso.
+### 3.1 The existing concepts are genuinely faithful, not noise ✓
+226 features out of 2251 (10%) beat a calibrated per-feature null — not a fixed value, but the specific threshold each feature should exceed by chance. Corroborated by BH-FDR (3496 significant pairs) and the analytical SE. The signal is real: there is a substantial minority of features whose activation pattern tracks a clinical label beyond chance.
 
-### 3.2 La fedeltà si concentra su concetti visivamente concreti
-Le feature più forti tracciano impianti medici (pacemaker, defibrillatori — oggetti ad alto contrasto), versamento pleurico, enfisema, ombra cardiaca, edema. Sono proprio i concetti che un SAE su radiografie toraciche dovrebbe scoprire prima: entità visive ad alto contrasto. Le patologie fini (sottili pattern texturali) restano più deboli — coerente con un regime data-starved su embedding CLIP proiettati.
+### 3.2 Faithfulness concentrates on visually concrete concepts
+The strongest features track medical implants (pacemakers, defibrillators — high-contrast objects), pleural effusion, emphysema, cardiac shadow, edema. These are exactly the concepts an SAE on chest radiographs should discover first: high-contrast visual entities. Fine pathologies (subtle textural patterns) remain weaker — consistent with a data-starved regime on projected CLIP embeddings.
 
-### 3.3 Fedeltà modesta in valore assoluto (ma sopra il null)
-La correlazione più forte in assoluto è |r|=0.46, e solo il 10% delle feature batte il null. Non è "ogni concetto è un colpo netto": è "una minoranza significativa ha un ancoraggio clinico reale, al di sopra del caso". Onesto: il valore del SAE qui non è "concetti cristallini", è "struttura sparsa + ricostruzione buona (0.988) + una minoranza di concetti clinicamente fedeli".
+### 3.3 Modest faithfulness in absolute terms (but above the null)
+The strongest absolute correlation is |r|=0.46, and only 10% of features beat the null. It is not "every concept is a clean hit": it is "a significant minority has a real clinical anchor, above chance". Honest: the SAE's value here is not "crystalline concepts", it is "sparse structure + good reconstruction (0.988) + a minority of clinically faithful concepts".
 
-### 3.4 Naming RadLex ≠ comportamento reale (cross-check)
-Una feature fedele a "implanted medical device" porta il nome RadLex "anterior segment of upper lobe". Il comportamento della feature (fedele a impianti) è più informativo del suo nome (off-distribution). Questo giustifica a posteriori l'uso di un gold standard in-distribution (MeSH/Problems) per valutare i concetti, oltre al naming RadLex — e rafforza la diagnosi di `concept_naming_analysis.md`: il naming debole è in parte artefatto del vocabolario, non solo dell'SAE.
+### 3.4 RadLex naming ≠ real behavior (cross-check)
+A feature faithful to "implanted medical device" carries the RadLex name "anterior segment of upper lobe". The feature's behavior (faithful to implants) is more informative than its name (off-distribution). This a posteriori justifies using an in-distribution gold standard (MeSH/Problems) to evaluate the concepts, alongside RadLex naming — and reinforces the diagnosis of `concept_naming_analysis.md`: the weak naming is partly an artifact of the vocabulary, not only of the SAE.
 
 ---
 
-## 4. Giudizio d'insieme: instabilità ≠ inutilità
+## 4. Overall assessment: instability ≠ uselessness
 
-| Domanda | Esito |
+| Question | Outcome |
 |---|---|
-| Le feature del SAE predicono etichette cliniche reali oltre il caso? | ✅ Sì (minoranza sostanziale) — 226/2251 live (10%) battono un null per-feature |
-| Le più fedeli sono clinicamente sensate? | ✅ Sì — impianti, versamento, enfisema, ombra cardiaca, edema |
-| La fedeltà è forte in valore assoluto? | ⚠️ Modesta — max |r|≈0.46; concentrata su concetti visivi concreti |
-| Naming RadLex coincide con la label reale? | ❌ Spesso no — il comportamento è più informativo del nome off-distribution |
+| Do the SAE features predict real clinical labels beyond chance? | ✅ Yes (substantial minority) — 226/2251 live (10%) beat a per-feature null |
+| Are the most faithful ones clinically sensible? | ✅ Yes — implants, effusion, emphysema, cardiac shadow, edema |
+| Is the faithfulness strong in absolute terms? | ⚠️ Modest — max |r|≈0.46; concentrated on visually concrete concepts |
+| Does RadLex naming coincide with the real label? | ❌ Often no — behavior is more informative than the off-distribution name |
 
-**Posizionamento nel programma (00→05):**
-1. 00–04: i concetti sono instabili cross-seed (sia indici che direzioni), il 0.004 è il pavimento del caso, e l'instabilità non si fixa con iperparametri — limite strutturale.
-2. 05 (questa): i concetti che esistono sono moderatamente ma genuinamente **fedeli** a etichette cliniche reali. È l'asse complementare che la serie mancava: non "sono riproducibili?" (no) ma "significano qualcosa?" (sì, in parte).
-3. Il risultato d'insieme è bilanciato e difendibile: il SAE su questo dataset ha un limite strutturale dichiarato (seed-dipendenza) ma produce direzioni con grounding clinico reale. Non un fallimento, non un successo completo — un risultato onesto e sfumato.
+**Position in the program (00→05):**
+1. 00–04: the concepts are unstable cross-seed (both indices and directions), 0.004 is the chance floor, and the instability is not fixed by hyperparameters — a structural limitation.
+2. 05 (this): the concepts that exist are moderately but genuinely **faithful** to real clinical labels. It is the complementary axis the series lacked: not "are they reproducible?" (no) but "do they mean something?" (yes, partly).
+3. The overall result is balanced and defensible: the SAE on this dataset has a declared structural limitation (seed-dependence) but produces directions with real clinical grounding. Not a failure, not a complete success — an honest and nuanced result.
 
-**Caveat onesti:**
-- **Etichette da referti, non gold standard annotato:** `MeSH`/`Problems` derivano dai report clinici (ricchezza reale ma non annotazione controllata). La fedeltà misura allineamento concetto↔report, non concetto↔verità-di-immagine.
-- **Solo seed 42:** la fedeltà è misurata sul modello di riferimento. Quanto sia stabile la *quota* di feature fedeli across-seed non è testato qui (ma 00 dice quali feature siano è già instabile).
-- **Prevalenza ≥10:** taglia le etichette rarissime (degeneri `|r|=1`). Lo shuffle-null per-feature corregge comunque per la distribuzione di prevalenza.
-
----
-
-## 5. Note di riproducibilità
-- **Run headless (2026-06-22):** 9/9 celle via `jupyter nbconvert --execute`, backend Agg. Artefatti: `a5_faithfulness.json` (12 KB), `a5_faithfulness_headline.png` (3 pannelli: distribuzione max|corr| + null, % fedeli per soglia, per-label best).
-- **Zero training:** riusa `models/sae_seed42/`. `SAEManager.encode` → attivazioni continue TopK.
-- **Point-biserial, non AUROC:** una matmul `A_zᵀ·Y_z/N` (Pearson con var binaria), O(una matmul) vs ~500k chiamate AUROC su 4096×118.
-- **Null triplo:** SE analitica `1/√N`=0.0259; shuffle-null per-feature p95 (200 perm, `seed=0`); BH-FDR 0.05 sulla matrice (2251 live × 50 label = 112550 test).
-- **Filtro prevalenza ≥10:** evita i casi degeneri `|r|=1` delle etichette in 1–3 immagini. 50/101 label prevalenti tenute (mediana prev 30, max 191).
-- **Naming cross-ref:** usa lo stesso shift del modality gap di 01–04 (`W_dec -= visual_centroid − text_centroid`). `train_emb` usato solo per il gap, mai per la correlazione (test-set discipline).
-- **Isolamento output:** scrive solo `results/ablation/` + `results/figures/ablation/` — baseline intoccata.
+**Honest caveats:**
+- **Labels from reports, not annotated gold standard:** `MeSH`/`Problems` derive from clinical reports (real richness but not controlled annotation). Faithfulness measures concept↔report alignment, not concept↔image-truth.
+- **Only seed 42:** faithfulness is measured on the reference model. How stable the *quota* of faithful features is across seeds is not tested here (but 00 says which features they are is already unstable).
+- **Prevalence ≥10:** cuts the rarest labels (degenerate `|r|=1`). The per-feature shuffle-null corrects for the prevalence distribution anyway.
 
 ---
 
-## Conclusione cumulativa
+## 5. Reproducibility notes
+- **Headless run (2026-06-22):** 9/9 cells via `jupyter nbconvert --execute`, Agg backend. Artifacts: `a5_faithfulness.json` (12 KB), `a5_faithfulness_headline.png` (3 panels: max|corr| distribution + null, % faithful per threshold, per-label best).
+- **Zero training:** reuses `models/sae_seed42/`. `SAEManager.encode` → continuous TopK activations.
+- **Point-biserial, not AUROC:** one matmul `A_zᵀ·Y_z/N` (Pearson with binary var), O(one matmul) vs ~500k AUROC calls on 4096×118.
+- **Triple null:** analytical SE `1/√N`=0.0259; per-feature shuffle-null p95 (200 perm, `seed=0`); BH-FDR 0.05 on the matrix (2251 live × 50 labels = 112550 tests).
+- **Prevalence filter ≥10:** avoids the degenerate `|r|=1` cases of labels in 1–3 images. 50/101 prevalent labels kept (median prev 30, max 191).
+- **Naming cross-ref:** uses the same modality gap shift as 01–04 (`W_dec -= visual_centroid − text_centroid`). `train_emb` used only for the gap, never for the correlation (test-set discipline).
+- **Output isolation:** writes only to `results/ablation/` + `results/figures/ablation/` — baseline untouched.
 
-| Ab | Asse | Esito sintetico |
+---
+
+## Cumulative conclusion
+
+| Ab | Axis | Synthetic outcome |
 |---|---|---|
-| 00 | direzioni | Il 0.0038 non è permutazione: direction-Jaccard ~0, consensus@4 = 0%, shuffle-null p=1.0 |
-| 01 | dict_size | dead% ✓ scala con la capacità; stabilità ✗ invariante (ratio 4096 > 1024 > 2048) |
-| 02 | k | baseline k=32 sul null floor (ratio 0.954); debole sweet spot a k=16 (ratio 1.30); k=8 patologico |
-| 03 | baselines | Random@4096 = 0.0037 ≈ SAE → il 0.0038 è il pavimento del caso; SAE sopravvive su sparsità + naming top-end |
-| 04 | famiglia | dead% ✓ (BatchTopK 4.8%); consensus ✗ 0 per tutti; cross-family 2.8% / 0% universale |
-| 05 | fedeltà | 226/2251 live (10%) fedeli oltre il null; top: impianti |r|=0.46, versamento, enfisema, ombra cardiaca |
+| 00 | directions | 0.0038 is not permutation: direction-Jaccard ~0, consensus@4 = 0%, shuffle-null p=1.0 |
+| 01 | dict_size | dead% ✓ scales with capacity; stability ✗ invariant (ratio 4096 > 1024 > 2048) |
+| 02 | k | baseline k=32 on the null floor (ratio 0.954); weak sweet spot at k=16 (ratio 1.30); k=8 pathological |
+| 03 | baselines | Random@4096 = 0.0037 ≈ SAE → 0.0038 is the chance floor; SAE survives on sparsity + top-end naming |
+| 04 | family | dead% ✓ (BatchTopK 4.8%); consensus ✗ 0 for all; cross-family 2.8% / 0% universal |
+| 05 | faithfulness | 226/2251 live (10%) faithful above the null; top: implants |r|=0.46, effusion, emphysema, cardiac shadow |
 
-1. Il "0.004" del baseline è il **pavimento matematico del caso** (03), non un fallimento — confermato come rumore in spazio indici (03) e direzioni (00).
-2. Non si fixa con dict_size (01), k (02), o famiglia di attivazione (04). L'instabilità è un **limite strutturale** dichiarato del metodo su questo dataset (pochi campioni + non-unicità della decomposizione sparsa su embedding CLIP proiettati).
-3. Ma l'instabilità **non equivale a inutilità** (05): i concetti esistenti sono moderatamente fedeli a etichette cliniche reali.
-4. **Cosa fare:** accettare la seed-dipendenza come limite dichiarato, oppure aggregare i seed (model soup / consensus clustering con validazione). Il valore del SAE è **strutturale** (sparsità garantita + recon 0.988) **e parzialmente semantico** (05), oltre al naming top-end sopra il caso.
+1. The baseline's "0.004" is the **mathematical chance floor** (03), not a failure — confirmed as noise in index space (03) and direction space (00).
+2. It is not fixed by dict_size (01), k (02), or activation family (04). The instability is a declared **structural limitation** of the method on this dataset (few samples + non-uniqueness of the sparse decomposition on projected CLIP embeddings).
+3. But instability **does not equate to uselessness** (05): the existing concepts are moderately faithful to real clinical labels.
+4. **What to do:** accept seed-dependence as a declared limitation, or aggregate the seeds (model soup / consensus clustering with validation). The SAE's value is **structural** (guaranteed sparsity + recon 0.988) **and partially semantic** (05), plus top-end naming above chance.
 
-Soft spot aperti: fedeltà misurata solo su seed 42 (la quota fedele cross-seed non è testata — vedi 00); etichette derivate da referti, non gold standard annotato; pre-projection (06) / augmented (07) restano future work.
+Open soft spots: faithfulness measured only on seed 42 (the faithful quota across seeds is not tested — see 00); labels derived from reports, not an annotated gold standard; pre-projection (06) / augmented (07) remain future work.
 
 ---
 
-## Bibliografia
+## Bibliography
 
-Riferimenti che sostengono le scelte metodologiche e il framing teorico. La diagnosi causale estesa è in `docs/suggestions/CONCEPT_INSTABILITY_DIAGNOSIS.md`.
+References supporting the methodological choices and the theoretical framing. The extended causal diagnosis is in `docs/suggestions/CONCEPT_INSTABILITY_DIAGNOSIS.md`.
 
-- Olshausen & Field (1997) — sparse coding; regime dati-campioni/feature.
-- Spielman, Wang, Wright (2012) — "Exact Recovery of Sparsely-Used Dictionaries": condizioni di identificabilità del dictionary learning.
-- Soltanolkotabi, Elhamifar, Candès (2013–2014) — robustness/identifiability dello structured sparsity.
-- Bricken et al. (2023) "Towards Monosemanticity" — SAE su milioni di attivazioni (regime data-rich di riferimento).
-- Gao, Dupré la Tour et al. (2024) "Scaling and Evaluating Sparse Autoencoders" [arXiv:2406.04093] — architettura Top-K SAE usata nel progetto.
-- Rajamanoharan et al. (2024) — BatchTopK / JumpReLU SAE (varianti in 04).
-- Bhalla, Srinivas, Hsieh (2024) "SpLiCE" [arXiv:2402.10376] — naming via ottimizzazione sparsa sui pesi del decoder.
-- Liang et al. (2022) "Mind the Gap" [arXiv:2203.02053] — caratterizzazione formale del modality gap nei modelli contrastivi (framing del naming gap-corrected).
+- Olshausen & Field (1997) — sparse coding; data-samples/features regime.
+- Spielman, Wang, Wright (2012) — "Exact Recovery of Sparsely-Used Dictionaries": identifiability conditions of dictionary learning.
+- Soltanolkotabi, Elhamifar, Candès (2013–2014) — robustness/identifiability of structured sparsity.
+- Bricken et al. (2023) "Towards Monosemanticity" — SAE on millions of activations (reference data-rich regime).
+- Gao, Dupré la Tour et al. (2024) "Scaling and Evaluating Sparse Autoencoders" [arXiv:2406.04093] — Top-K SAE architecture used in the project.
+- Rajamanoharan et al. (2024) — BatchTopK / JumpReLU SAE (variants in 04).
+- Bhalla, Srinivas, Hsieh (2024) "SpLiCE" [arXiv:2402.10376] — naming via sparse optimization on decoder weights.
+- Liang et al. (2022) "Mind the Gap" [arXiv:2203.02053] — formal characterization of the modality gap in contrastive models (framing of the gap-corrected naming).

@@ -1,97 +1,97 @@
-# REPORT — Run del notebook autoencoder (`pipeline.ipynb`)
+# REPORT — Autoencoder notebook run (`pipeline.ipynb`)
 
-**Data run:** 2026-06-21
-**Macchina:** Linux / NVIDIA RTX 5070 Laptop, **device CUDA** (auto-rilevato)
-**Input:** embedding BiomedCLIP (512-d) di IU X-Ray — `train_embeddings.pt` (5976), `test_embeddings.pt` (1494), vocabolario RadLex **508 termini** (`text_vocab_embeddings.pt` + `data/vocabulary.json`)
-**Config SAE:** Top-K, `k=32`, `dict_size=4096`, `steps=50000`, `lr=auto` (~4e-4), `batch_size=256`, **5 seed** = `(0, 42, 123, 456, 789)`, `primary_seed=42`
+**Run date:** 2026-06-21
+**Machine:** Linux / NVIDIA RTX 5070 Laptop, **CUDA device** (auto-detected)
+**Input:** BiomedCLIP embeddings (512-d) of IU X-Ray — `train_embeddings.pt` (5976), `test_embeddings.pt` (1494), RadLex vocabulary **508 terms** (`text_vocab_embeddings.pt` + `data/vocabulary.json`)
+**SAE config:** Top-K, `k=32`, `dict_size=4096`, `steps=50000`, `lr=auto` (~4e-4), `batch_size=256`, **5 seeds** = `(0, 42, 123, 456, 789)`, `primary_seed=42`
 
-**Companion:** `../ablation/REPORT.md` estende questo run con il programma di ablation (00–05). L'instabilità cross-seed osservata qui (Jaccard 0.0039) è la domanda madre di quel programma; la sua interpretazione come "pavimento del caso" è stabilita dall'Ablation 03, e la fedeltà clinica dei concetti dall'Ablation 05.
+**Companion:** `../ablation/REPORT.md` extends this run with the ablation program (00–05). The cross-seed instability observed here (Jaccard 0.0039) is the central question of that program; its interpretation as the "chance floor" is established by Ablation 03, and the clinical faithfulness of the concepts by Ablation 05.
 
-**Indice**
-- [Sintesi esecutiva](#sintesi-esecutiva)
-- [Glossario](#glossario)
-- [Metriche: definizioni formali](#metriche-definizioni-formali)
-- [1. Cosa ha prodotto ogni fase](#1-cosa-ha-prodotto-ogni-fase)
-- [2. Risultati nel dettaglio](#2-risultati-nel-dettaglio)
-- [3. Giudizio d'insieme](#3-giudizio-dinsieme)
-- [4. Direzioni successive (gia' coperte dalle ablation)](#4-direzioni-successive-gia-coperte-dalle-ablation)
-- [5. Note di riproducibilità & stato](#5-note-di-riproducibilita--stato)
+**Table of contents**
+- [Executive summary](#executive-summary)
+- [Glossary](#glossary)
+- [Metrics: formal definitions](#metrics-formal-definitions)
+- [1. What each stage produced](#1-what-each-stage-produced)
+- [2. Results in detail](#2-results-in-detail)
+- [3. Overall assessment](#3-overall-assessment)
+- [4. Next directions (already covered by the ablations)](#4-next-directions-already-covered-by-the-ablations)
+- [5. Reproducibility notes & status](#5-reproducibility-notes--status)
 
 ---
 
-## Sintesi esecutiva
+## Executive summary
 
-La pipeline trasforma le radiografie in concetti interpretabili. BiomedCLIP converte ogni immagine in un vettore opaco di 512 dimensioni; lo **Sparse Autoencoder (SAE)** decompone ciascun vettore in `k=32` feature (concetti) prese da un dizionario di 4096. L'obiettivo è sostituire un vettore denso illeggibile con una lista corta di concetti medici (es. "tubo endotracheale", "anatomia vertebrale").
+The pipeline transforms radiographs into interpretable concepts. BiomedCLIP converts each image into an opaque 512-dimensional vector; the **Sparse Autoencoder (SAE)** decomposes each vector into `k=32` features (concepts) drawn from a dictionary of 4096. The goal is to replace an illegible dense vector with a short list of medical concepts (e.g. "endotracheal tube", "vertebral anatomy").
 
-Tre assi di valutazione:
+Three evaluation axes:
 
-| Asse | Risultato |
+| Axis | Result |
 |---|---|
-| **Ricostruisce bene?** (qualità tecnica) | ✅ Cosine 0.988 con soli 32 concetti su 4096 — quasi perfetto |
-| **I concetti hanno senso medico?** (interpretabilità) | ✅ Dopo il fix del modality gap: allineamento RadLex mean 0.40 / max 0.55 (era 0.12 / 0.29) |
-| **Sono riproducibili?** (robustezza) | ❌ 5 run scoprono concetti quasi completamente diversi (Jaccard 0.004). Limite strutturale, non un bug |
+| **Does it reconstruct well?** (technical quality) | ✅ Cosine 0.988 with only 32 concepts out of 4096 — nearly perfect |
+| **Do the concepts make medical sense?** (interpretability) | ✅ After the modality gap fix: RadLex alignment mean 0.40 / max 0.55 (was 0.12 / 0.29) |
+| **Are they reproducible?** (robustness) | ❌ 5 runs discover almost completely different concepts (Jaccard 0.004). A structural limitation, not a bug |
 
-**La novità di questa run — modality gap corretto (Soluzione 1).** BiomedCLIP ha un modality gap: lo spazio dei vettori visivi e quello dei vettori testuali non coincidono, sono "traslati" l'uno rispetto all'altro (img↔text coseno ~0.27 vs intra-modale ~0.79). Senza correzione si confrontavano le colonne del decoder (spazio visivo) con gli embedding del vocabolario (spazio testuale) — come misurare la distanza tra due città su mappe con coordinate sfalsate. La correzione `W_dec -= (visual_centroid − text_centroid)` riallinea le mappe prima del confronto. **Risultato: naming score da mean 0.117 / max 0.29 a mean 0.395 / max 0.55** (~3.4× medio).
+**The novelty of this run — modality gap corrected (Solution 1).** BiomedCLIP has a modality gap: the space of visual vectors and the space of text vectors do not coincide; they are "shifted" relative to each other (img↔text cosine ~0.27 vs intra-modal ~0.79). Without correction, decoder columns (visual space) were being compared with vocabulary embeddings (text space) — like measuring the distance between two cities on maps with offset coordinates. The correction `W_dec -= (visual_centroid − text_centroid)` realigns the maps before the comparison. **Result: naming score from mean 0.117 / max 0.29 to mean 0.395 / max 0.55** (~3.4× on average).
 
-Nota storica: i modelli precedenti erano **toy a 100 step** (dead 97.6%, cosine 0.14), poi sostituiti con **5 modelli reali a 50k step**. I 5 SAE attuali sono validi: la correzione del modality gap non richiede riaddestramento (è uno shift locale su `W_dec` dentro `name_concepts`, non tocca i pesi salvati). Ricostruzione e stabilità sono identiche pre/post fix.
+Historical note: the previous models were **100-step toy models** (dead 97.6%, cosine 0.14), later replaced with **5 real 50k-step models**. The 5 current SAEs are valid: the modality gap correction does not require retraining (it is a local shift on `W_dec` inside `name_concepts`, it does not touch the saved weights). Reconstruction and stability are identical pre/post fix.
 
-**Sull'instabilità (Jaccard 0.004).** Questo report la documenta come il limite principale, ma non la risolve: è materiale per le ablation successive. Il risultato chiave, stabilito in `../ablation/REPORT.md` (Ablation 03), è che il 0.0039 **non è un fallimento del SAE** ma il pavimento matematico del caso — due dizionari grandi e indipendenti si sovrappongono sempre per ~0.004 per pura probabilità (Random@4096 = 0.0037 ≈ SAE). E l'Ablation 05 mostra che i concetti, pur instabili, sono moderatamente **fedeli** a etichette cliniche reali (~10% delle feature live oltre il null). L'instabilità non equivale a inutilità.
-
----
-
-## Glossario
-
-- **SAE (Sparse Autoencoder)** — ricostruisce un embedding `x` come `x̂ = W_dec·z + b_dec`, dove `z` è un codice **sparso** (pochi non-zero). TopK forza esattamente `k` non-zero. Le colonne di `W_dec` sono le "direzioni" dei concetti.
-- **Cosine reconstruction** — `cos(x, x̂)`: quanto la ricostruzione è parallela all'originale. 0.988 = perdita minima.
-- **L0** — numero di feature attive (non-zero) per immagine. Qui `k=32` esatto per costruzione (TopK).
-- **Dead feature** — due definizioni divergenti (vedi Metriche):
-  - *naming dead* = colonna del decoder a norma zero. **0** qui (la libreria normalizza ogni colonna ad ogni step).
-  - *activation dead* = feature mai attiva sul test. **~44%** qui (dizionario sovradimensionato per ~7400 immagini).
-- **Jaccard cross-seed** — sovrapposizione tra i set di indici attivi di due SAE: `|A∩B|/|A∪B|`. 0.004 = concetti quasi completamente diversi tra seed. Sensibile alla permutazione degli indici (l'Ablation 00 lo verifica nello spazio delle direzioni).
-- **Concept naming** — per ogni feature, il termine RadLex più simile (coseno tra la direzione della feature e l'embedding del termine). Score alto = concetto ancorato a un termine reale.
-- **Modality gap** — scostamento geometrico sistematico tra spazio immagini e spazio testi nei modelli contrastivi. Corretto post-hoc con `W_dec -= (visual_centroid − text_centroid)`. Analisi completa in `docs/suggestions/concept_naming_analysis.md`.
-- **Explanations (pseudo-report)** — per ogni immagine di test, i suoi top-k concetti attivi assemblati in una descrizione testuale. È l'input che il giudice LLM (MedGemma) valuterà.
+**On the instability (Jaccard 0.004).** This report documents it as the main limitation but does not resolve it: it is material for the subsequent ablations. The key result, established in `../ablation/REPORT.md` (Ablation 03), is that 0.0039 **is not an SAE failure** but the mathematical chance floor — two large, independent dictionaries always overlap by ~0.004 by pure probability (Random@4096 = 0.0037 ≈ SAE). And Ablation 05 shows that the concepts, although unstable, are moderately **faithful** to real clinical labels (~10% of live features above the null). Instability does not equate to uselessness.
 
 ---
 
-## Metriche: definizioni formali
+## Glossary
 
-**Ricostruzione (TopK SAE).** `x̂ = W_dec·z + b_dec`, con `z = topk(ReLU(W_enc·(x − b_enc) + b_enc), k)`. TopK azzera tutti tranne i `k` valori più alti.
+- **SAE (Sparse Autoencoder)** — reconstructs an embedding `x` as `x̂ = W_dec·z + b_dec`, where `z` is a **sparse** code (few non-zero entries). TopK forces exactly `k` non-zero entries. The columns of `W_dec` are the concept "directions".
+- **Cosine reconstruction** — `cos(x, x̂)`: how parallel the reconstruction is to the original. 0.988 = minimal loss.
+- **L0** — number of active (non-zero) features per image. Here exactly `k=32` by construction (TopK).
+- **Dead feature** — two diverging definitions (see Metrics):
+  - *naming dead* = decoder column with zero norm. **0** here (the library normalizes each column at every step).
+  - *activation dead* = feature never active on the test set. **~44%** here (dictionary oversized for ~7400 images).
+- **Cross-seed Jaccard** — overlap between the active index sets of two SAEs: `|A∩B|/|A∪B|`. 0.004 = almost completely different concepts across seeds. Sensitive to index permutation (Ablation 00 verifies it in the direction space).
+- **Concept naming** — for each feature, the most similar RadLex term (cosine between the feature direction and the term embedding). High score = concept anchored to a real term.
+- **Modality gap** — systematic geometric offset between image space and text space in contrastive models. Corrected post-hoc with `W_dec -= (visual_centroid − text_centroid)`. Full analysis in `docs/suggestions/concept_naming_analysis.md`.
+- **Explanations (pseudo-report)** — for each test image, its active top-k concepts assembled into a textual description. It is the input that the LLM judge (MedGemma) will evaluate.
+
+---
+
+## Metrics: formal definitions
+
+**Reconstruction (TopK SAE).** `x̂ = W_dec·z + b_dec`, with `z = topk(ReLU(W_enc·(x − b_enc) + b_enc), k)`. TopK zeros out all but the top `k` values.
 - Cosine: `cos(x, x̂) = ⟨x, x̂⟩/(‖x‖·‖x̂‖)`.
 - Variance Explained: `VE = 1 − ‖x − x̂‖²/‖x − b_dec‖²` (~99.3%).
-- L0: `‖z‖₀ = k = 32` (rigido, garantito da TopK).
-- Entropia: `H(p) = −Σᵢ pᵢ log pᵢ` sulla distribuzione di utilizzo delle feature sul test (~6.3 nats → ~540 feature usate).
+- L0: `‖z‖₀ = k = 32` (rigid, guaranteed by TopK).
+- Entropy: `H(p) = −Σᵢ pᵢ log pᵢ` over the feature usage distribution on the test set (~6.3 nats → ~540 features used).
 
 **Dead feature.**
-- naming dead: `‖w_i‖ ≈ 0` (0 qui, colonne unit-norm post-training).
-- activation dead: `∀ s : zᵢ(s) = 0` sul test (~44% qui).
+- naming dead: `‖w_i‖ ≈ 0` (0 here, unit-norm columns post-training).
+- activation dead: `∀ s : zᵢ(s) = 0` on the test set (~44% here).
 
-**Jaccard cross-seed.** `J(A,B) = |A∩B|/|A∪B|` dove `A,B` = set di indici attivi di due SAE su un sample. Mean sulle 10 coppie di seed. Null analitico `k/(2D−k)` = 0.0039 a D=4096, k=32 → ratio ~1 (sul pavimento del caso).
+**Cross-seed Jaccard.** `J(A,B) = |A∩B|/|A∪B|` where `A,B` = active index sets of two SAEs on a sample. Mean over the 10 seed pairs. Analytical null `k/(2D−k)` = 0.0039 at D=4096, k=32 → ratio ~1 (on the chance floor).
 
-**Modality gap (naming gap-corrected).** `gap = mean(train_emb, 0) − mean(vocab_emb, 0)`; `W_dec ← W_dec − gap`, poi `F.normalize` righe + coseno con `F.normalize(vocab_emb)`. Corrisponde a *Soluzione 1* di `docs/suggestions/concept_naming_analysis.md`.
+**Modality gap (naming gap-corrected).** `gap = mean(train_emb, 0) − mean(vocab_emb, 0)`; `W_dec ← W_dec − gap`, then `F.normalize` rows + cosine with `F.normalize(vocab_emb)`. Corresponds to *Solution 1* of `docs/suggestions/concept_naming_analysis.md`.
 
 ---
 
-## 1. Cosa ha prodotto ogni fase
+## 1. What each stage produced
 
-| Fase | Output | Stato |
+| Stage | Output | Status |
 |---|---|---|
-| Split train/test | `train/test_embeddings.pt` | ⏭️ saltato (già currente) |
-| **Training SAE** | `models/sae_seed{0,42,123,456,789}/` (50k step) | ✅ 5 modelli (riusati, 06-05) |
-| Modality gap | `models/modality_gap.pt` (512-d) | ✅ pre-computato, riusato |
-| Loss curve | `figures/loss_curve.png` + 50 checkpoint | ✅ rigenerata (17:41) |
+| Train/test split | `train/test_embeddings.pt` | ⏭️ skipped (already current) |
+| **SAE training** | `models/sae_seed{0,42,123,456,789}/` (50k step) | ✅ 5 models (reused, 06-05) |
+| Modality gap | `models/modality_gap.pt` (512-d) | ✅ pre-computed, reused |
+| Loss curve | `figures/loss_curve.png` + 50 checkpoint | ✅ regenerated (17:41) |
 | Concept naming | `results/concept_names.json` (4096 feature) | ✅ gap-corrected |
-| Explanations | `results/sample_explanations.json` (1494 record) | ✅ ⚠️ vedi image_id |
+| Explanations | `results/sample_explanations.json` (1494 record) | ✅ ⚠️ see image_id |
 | Stability | `results/stability_analysis.json` (Jaccard 5×5 + per-seed) | ✅ |
-| Figure | `concept_scores_dist`, `per_seed_metrics`, `jaccard_heatmap`, `sparsity_summary`, `concept_activations_heatmap`, `loss_curve` | ✅ rigenerate |
+| Figure | `concept_scores_dist`, `per_seed_metrics`, `jaccard_heatmap`, `sparsity_summary`, `concept_activations_heatmap`, `loss_curve` | ✅ regenerated |
 
 ---
 
-## 2. Risultati nel dettaglio
+## 2. Results in detail
 
-### 2.1 Qualità di ricostruzione — ✅ OTTIMA
+### 2.1 Reconstruction quality — ✅ EXCELLENT
 
-La ricostruzione misura se, ricombinando i 32 concetti attivi per un'immagine, si ottiene di nuovo il vettore originale. Un cosine di 0.988 significa che il vettore ricostruito è quasi parallelo all'originale: la decomposizione perde pochissimo. Questa metrica è **gap-indipendente** (usa il path encoder, non tocca `W_dec`).
+Reconstruction measures whether, by recombining the 32 active concepts for an image, the original vector is obtained again. A cosine of 0.988 means the reconstructed vector is almost parallel to the original: the decomposition loses very little. This metric is **gap-independent** (it uses the encoder path, it does not touch `W_dec`).
 
 | Seed | MSE (raw) | Cosine | Dead % | Dict util % | Entropy |
 |------|-----------|--------|--------|-------------|---------|
@@ -101,34 +101,34 @@ La ricostruzione misura se, ricombinando i 32 concetti attivi per un'immagine, s
 | 456 | 4.4e-5 | 0.9887 | 45.7 | 54.3 | 6.3529 |
 | 789 | 4.5e-5 | 0.9886 | 43.0 | 57.0 | 6.3258 |
 
-- **Cosine medio ~0.988** → vettore ricostruito quasi parallelo all'originale.
-- **L0 = 32.0** su tutti i seed = esattamente `k`: il vincolo Top-K è rispettato alla perfezione (ogni immagine usa esattamente 32 concetti, mai uno di più).
-- I 5 seed sono coerenti tra loro (MSE 4.4–4.6e-5, cosine 0.9882–0.9888) → riproducibile a livello di *qualità*.
+- **Mean cosine ~0.988** → reconstructed vector almost parallel to the original.
+- **L0 = 32.0** across all seeds = exactly `k`: the Top-K constraint is perfectly respected (each image uses exactly 32 concepts, never one more).
+- The 5 seeds are mutually consistent (MSE 4.4–4.6e-5, cosine 0.9882–0.9888) → reproducible at the *quality* level.
 
-*(La cella "loss curve" riporta MSE su scala di attivazione normalizzata, non confrontabile col MSE raw; il segnale corretto di convergenza è cosine ~0.988 + plateau della curva.)*
+*(The "loss curve" cell reports MSE on a normalized activation scale, not comparable with the raw MSE; the correct convergence signal is cosine ~0.988 + plateau of the curve.)*
 
-### 2.2 Sparsity — ✅ CORRETTA
+### 2.2 Sparsity — ✅ CORRECT
 
-La sparsità è il punto di un SAE: un vettore denso (tutti i 512 numeri) è illeggibile, 32 concetti sono interpretabili. L0=32 e entropia ~6.3 confermano che la sparsità funziona come voluto.
+Sparsity is the point of an SAE: a dense vector (all 512 numbers) is illegible, 32 concepts are interpretable. L0=32 and entropy ~6.3 confirm that sparsity works as intended.
 
-- **L0 medio = 32.0** = `k`. Vincolo Top-K rispettato.
-- **Entropia ~6.3 nats** → le attivazioni sono distribuite su ~`e^6.3 ≈ 540` feature diverse nel test set (uso diffuso, non concentrato su poche feature).
+- **Mean L0 = 32.0** = `k`. Top-K constraint respected.
+- **Entropy ~6.3 nats** → activations are spread across ~`e^6.3 ≈ 540` distinct features in the test set (widespread usage, not concentrated on a few features).
 
-### 2.3 Dead features — ⚠️ MODERATA
+### 2.3 Dead features — ⚠️ MODERATE
 
-Le feature "dead" non si attivano mai, su nessuna immagine: sono spreco. ~44% significa che su 4096 feature, ~1800 sono inutilizzate. Succede perché il dizionario (4096) è sovradimensionato rispetto al numero di immagini (~7400). Atteso per dataset piccoli — non fatale, ma è spreco.
+"Dead" features never activate, on any image: they are waste. ~44% means that out of 4096 features, ~1800 are unused. This happens because the dictionary (4096) is oversized relative to the number of images (~7400). Expected for small datasets — not fatal, but it is waste.
 
-- **~41–46% delle 4096 feature non si attiva mai** sul test (dict utilization ~54–59%).
-- ~1800 feature "morte" → dizionario (4096) sovradimensionato per ~7400 immagini.
-- ⚠️ **Due definizioni di "dead" divergenti** (come da CLAUDE.md) — importante non confonderle:
-  - *Naming dead* (decoder a norma zero, in `concept_names.json`): **0** (nessuna — la lib `dictionary_learning` normalizza a unit-norm ogni colonna ad ogni step, quindi non esistono colonne a norma zero post-training).
-  - *Activation dead* (mai attiva sul test, in stability): **~44%**.
+- **~41–46% of the 4096 features never activate** on the test set (dict utilization ~54–59%).
+- ~1800 "dead" features → dictionary (4096) oversized for ~7400 images.
+- ⚠️ **Two diverging definitions of "dead"** (as per CLAUDE.md) — important not to confuse them:
+  - *Naming dead* (zero-norm decoder, in `concept_names.json`): **0** (none — the `dictionary_learning` library normalizes each column to unit-norm at every step, so zero-norm columns do not exist post-training).
+  - *Activation dead* (never active on the test set, in stability): **~44%**.
 
-### 2.4 Stabilità cross-seed — ❌ LA CRITICA PRINCIPALE
+### 2.4 Cross-seed stability — ❌ THE MAIN CRITICAL ISSUE
 
-Questa è la metrica più importante per la fidatezza dei concetti. Addestrando 5 volte lo stesso modello (cambiando solo il seed, cioè il punto di partenza casuale), i 5 risultati trovano gli stessi concetti? La risposta è quasi per niente: condividono <0.4% delle feature attive. In pratica i "concetti" estratti dipendono fortemente da quale delle 5 run si sceglie. Il seed primario 42 è arbitrario; cambiandolo, naming ed explanations cambiano. Questo è il limite strutturale del progetto, dichiarato apertamente.
+This is the most important metric for the trustworthiness of the concepts. By training the same model 5 times (changing only the seed, i.e. the random starting point), do the 5 results find the same concepts? The answer is almost not at all: they share <0.4% of the active features. In practice, the extracted "concepts" depend heavily on which of the 5 runs is chosen. The primary seed 42 is arbitrary; changing it, naming and explanations change. This is the structural limitation of the project, openly declared.
 
-**Mean Jaccard = 0.0039** (matrice 5×5, off-diagonal ~0.002–0.009). **Gap-indipendente.**
+**Mean Jaccard = 0.0039** (5×5 matrix, off-diagonal ~0.002–0.009). **Gap-independent.**
 
 | | 0 | 42 | 123 | 456 | 789 |
 |---|---|---|---|---|---|
@@ -138,28 +138,28 @@ Questa è la metrica più importante per la fidatezza dei concetti. Addestrando 
 | 456 | 0.003 | 0.003 | 0.003 | 1.00 | 0.003 |
 | 789 | 0.003 | 0.004 | 0.002 | 0.003 | 1.00 |
 
-- I 5 SAE ricostruiscono ugualmente bene ma con feature quasi completamente diverse. Condividono <0.4% delle feature attive.
-- → I "concetti" scoperti non sono robusti/riproducibili: dipendono fortemente dal seed.
-- Questo è il problema aperto "scarsa robustezza dei concetti" che il progetto cita esplicitamente — risultato atteso ma significativo da discutere.
-- Le ablation 00–05 investigano se questo 0.004 sia un vero fallimento o il "pavimento del caso" matematico. **Spoiler: è sul pavimento del caso** (Ablation 03: Random@4096 = 0.0037 ≈ SAE), e i concetti esistenti sono comunque clinicamente fedeli (Ablation 05). Vedi `../ablation/REPORT.md`.
+- The 5 SAEs reconstruct equally well but with almost completely different features. They share <0.4% of the active features.
+- → The discovered "concepts" are not robust/reproducible: they depend heavily on the seed.
+- This is the open problem "poor concept robustness" that the project explicitly cites — an expected but significant result to discuss.
+- Ablations 00–05 investigate whether this 0.004 is a real failure or the mathematical "chance floor". **Spoiler: it is on the chance floor** (Ablation 03: Random@4096 = 0.0037 ≈ SAE), and the existing concepts are nonetheless clinically faithful (Ablation 05). See `../ablation/REPORT.md`.
 
-### 2.5 Concept naming — ✅ MIGLIORATO (gap-corrected)
+### 2.5 Concept naming — ✅ IMPROVED (gap-corrected)
 
-Il naming assegna a ogni feature il termine medico RadLex più simile (coseno tra la direzione della feature e l'embedding del termine). Score alto = concetto ancorato a un termine reale → interpretabile. Prima del fix era ~0.12 (debolissimo, i nomi erano quasi casuali); dopo il fix ~0.40 medio con picchi a 0.55. I concetti top sono clinicamente plausibili: tubi/devices endocavitari, anatomia vertebrale, vie spinale.
+Naming assigns each feature the most similar RadLex medical term (cosine between the feature direction and the term embedding). High score = concept anchored to a real term → interpretable. Before the fix it was ~0.12 (very weak, names were almost random); after the fix ~0.40 average with peaks at 0.55. The top concepts are clinically plausible: endocavitary tubes/devices, vertebral anatomy, spinal pathways.
 
-Headline di questa run: la correzione del **modality gap** ha risolto il principale limite del naming.
+Headline of this run: the **modality gap** correction solved the main limitation of naming.
 
-| Metrica | Pre-fix (stale) | **Post-fix (questa run)** | Δ |
+| Metric | Pre-fix (stale) | **Post-fix (this run)** | Δ |
 |---|---|---|---|
 | Mean score | 0.117 | **0.3949** | ×3.4 |
 | Max score | 0.291 | **0.5457** | ×1.9 |
 | Min score | −0.063 | **0.2815** | — |
 
-- 4096 feature nominate, **0 marcate `DEAD_FEATURE`**.
-- **Score medio 0.395, max 0.55** → allineamento decoder↔vocabolario ora solido (prima 0.29 era weakly-grounded). La correzione `W_dec -= gap` porta le colonne del decoder nello spazio testuale prima del coseno.
-- **Top-8 per score (clinicamente plausibili e ora fortemente ancorati):**
+- 4096 features named, **0 marked `DEAD_FEATURE`**.
+- **Mean score 0.395, max 0.55** → decoder↔vocabulary alignment is now solid (before, 0.29 was weakly-grounded). The correction `W_dec -= gap` brings the decoder columns into the text space before the cosine.
+- **Top-8 by score (clinically plausible and now strongly anchored):**
 
-  | Feat | Nome | Score |
+  | Feat | Name | Score |
   |---|---|---|
   | 690 | cricothyroid tube | 0.5457 |
   | 1090 | ligamentum flavum | 0.5230 |
@@ -170,73 +170,73 @@ Headline di questa run: la correzione del **modality gap** ha risolto il princip
   | 2977 | Foramina vertebralia | 0.5114 |
   | 1172 | brachytherapy catheter | 0.5114 |
 
-- I concetti top sono coerenti tra loro (tubi/devices endocavitari, anatomia vertebrale, vie spinale) → il dizionario cattura pattern reali dello spazio di embedding.
-- **Come è implementato:** `train_sae.compute_and_save_modality_gap()` precomputa `gap = train_emb.mean(0) − vocab_emb.mean(0)` → `models/modality_gap.pt`; `sae_module.name_concepts(..., modality_gap=gap)` fa `W_dec = W_dec − gap` poi `F.normalize` + coseno. Corrisponde a *Soluzione 1* di `docs/suggestions/concept_naming_analysis.md`.
-- **Fix collaterale di questa run:** `name_concepts` ora coerce i label dict → stringa (`_vocab_term`), così i consumer che caricano `vocabulary.json` come lista di dict (notebook baseline) ottengono comunque `name` stringa invece di far crashare `generate_explanation`.
-- **Cross-check con la fedeltà (Ablation 05):** il naming RadLex è *off-distribution* e talvolta rumoroso. L'Ablation 05 mostra che una feature può essere fedele a "implanted medical device" pur portando il nome RadLex "anterior segment of upper lobe" — il comportamento è più informativo del nome. Vedi `../ablation/REPORT.md` §Ablation 05.
+- The top concepts are mutually coherent (endocavitary tubes/devices, vertebral anatomy, spinal pathways) → the dictionary captures real patterns of the embedding space.
+- **How it is implemented:** `train_sae.compute_and_save_modality_gap()` precomputes `gap = train_emb.mean(0) − vocab_emb.mean(0)` → `models/modality_gap.pt`; `sae_module.name_concepts(..., modality_gap=gap)` does `W_dec = W_dec − gap` then `F.normalize` + cosine. Corresponds to *Solution 1* of `docs/suggestions/concept_naming_analysis.md`.
+- **Collateral fix of this run:** `name_concepts` now coerces the label dict → string (`_vocab_term`), so consumers that load `vocabulary.json` as a list of dicts (baseline notebook) still get a string `name` instead of crashing `generate_explanation`.
+- **Cross-check with faithfulness (Ablation 05):** RadLex naming is *off-distribution* and sometimes noisy. Ablation 05 shows that a feature can be faithful to "implanted medical device" while carrying the RadLex name "anterior segment of upper lobe" — the behavior is more informative than the name. See `../ablation/REPORT.md` §Ablation 05.
 
-### 2.6 Explanations — ✅ STRUTTURALMENTE CORRETTE, ✅ image_id RIPRISTINATI
+### 2.6 Explanations — ✅ STRUCTURALLY CORRECT, ✅ image_id RESTORED
 
-Per ogni immagine di test si prendono i suoi top-k concetti attivi e li si assemblano in uno pseudo-report (una descrizione testuale generata dai concetti). È l'output finale che il giudice LLM (MedGemma) valuterà: "questo pseudo-report è allineato col referto clinico reale dell'immagine?". Ora pronti: 1494 record, schema corretto, image_id reali (niente più placeholder), referti joinati.
+For each test image, its active top-k concepts are taken and assembled into a pseudo-report (a textual description generated from the concepts). It is the final output that the LLM judge (MedGemma) will evaluate: "is this pseudo-report aligned with the real clinical report of the image?". Now ready: 1494 records, correct schema, real image_id (no more placeholders), joined reports.
 
-- **1494 record** (uno per immagine di test). Schema del contract judge verificato: `{image_id, top_k_concepts[].{feature_id,name,activation}, pseudo_report}`.
-- Attivazioni: mean 0.1423, max 0.3865 (coerenti col naming gap-corrected).
-- **`image_id`: 1494/1494 basename reali** (e.s. `3222_IM-1522-2001.dcm.png`) — sidecar `embeddings/{visual,train,test}_image_ids.json` ricostruiti (vedi §5). Prima erano tutti fallback `sample_N` (sidecar mancanti dalla run 06-05); ora joinabili via `indiana_projections.csv` (filename→uid) → `indiana_reports.csv` (uid→findings).
-  - ✅ **Judge-ready:** `data/iu_xray/reports.csv` generato (7466 righe, colonne `image_id`+`combined_text`, join filename→uid→findings). Lookup end-to-end verificato: **1493/1494** test image_id hanno report non-vuoto (1 PNG orfano senza voce in `indiana_projections.csv` → judge lo salta).
-- Esempio (`3222_IM-1522-2001.dcm.png`): `intervertebral foramen`, `progressive massive fibrosis`, `left coronary artery`, `ligamentum flavum`… — pseudo-report template-based.
+- **1494 records** (one per test image). Judge contract schema verified: `{image_id, top_k_concepts[].{feature_id,name,activation}, pseudo_report}`.
+- Activations: mean 0.1423, max 0.3865 (consistent with the gap-corrected naming).
+- **`image_id`: 1494/1494 real basenames** (e.g. `3222_IM-1522-2001.dcm.png`) — sidecar `embeddings/{visual,train,test}_image_ids.json` rebuilt (see §5). Previously they were all fallback `sample_N` (sidecars missing from the 06-05 run); now joinable via `indiana_projections.csv` (filename→uid) → `indiana_reports.csv` (uid→findings).
+  - ✅ **Judge-ready:** `data/iu_xray/reports.csv` generated (7466 rows, columns `image_id`+`combined_text`, join filename→uid→findings). End-to-end lookup verified: **1493/1494** test image_id have a non-empty report (1 orphan PNG with no entry in `indiana_projections.csv` → the judge skips it).
+- Example (`3222_IM-1522-2001.dcm.png`): `intervertebral foramen`, `progressive massive fibrosis`, `left coronary artery`, `ligamentum flavum`… — template-based pseudo-report.
 
 ---
 
-## 3. Giudizio d'insieme
+## 3. Overall assessment
 
-Risultato sensato, e nettamente migliorato rispetto alla run pre-fix per il naming.
+A sensible result, and clearly improved over the pre-fix run for naming.
 
-| Obiettivo | Esito |
+| Objective | Outcome |
 |---|---|
-| Il SAE impara a decomporre gli embedding? | ✅ Sì, ricostruisce a cosine ~0.988 con k=32 |
-| I concetti sono *sparsi e monosemantici*? | ✅ Sparsi (L0=32); la monosemantia è ora più plausibile (naming mean 0.395) |
-| I concetti sono *robusti*? | ❌ No — Jaccard 0.004, dipendono dal seed (non risolto dal gap fix; ma è il pavimento del caso, vedi Ablation 03) |
-| I concetti sono *clinicamente ancorati*? | ✅ Migliorato — allineamento RadLex da max 0.29 a max 0.55 (mean 0.117→0.395) |
-| La pipeline produce output judge-ready? | ✅ Schema corretto + image_id reali + reports.csv generato (1493/1494 coperti) |
+| Does the SAE learn to decompose the embeddings? | ✅ Yes, reconstructs at cosine ~0.988 with k=32 |
+| Are the concepts *sparse and monosemantic*? | ✅ Sparse (L0=32); monosemanticity is now more plausible (naming mean 0.395) |
+| Are the concepts *robust*? | ❌ No — Jaccard 0.004, they depend on the seed (not resolved by the gap fix; but it is the chance floor, see Ablation 03) |
+| Are the concepts *clinically anchored*? | ✅ Improved — RadLex alignment from max 0.29 to max 0.55 (mean 0.117→0.395) |
+| Does the pipeline produce judge-ready output? | ✅ Correct schema + real image_id + reports.csv generated (1493/1494 covered) |
 
-Punti chiave per la discussione:
-1. Il **modality gap era il colpevole** del naming debole: corretto, +3.4× medio.
-2. Il SAE *funziona tecnicamente* ma la scoperta dei concetti non è stabile cross-seed (Jaccard 0.004) — materiale per "failure cases / limiti", non un bug. Il programma di ablation ha poi chiarito che è il pavimento del caso (03) e che i concetti esistenti sono clinicamente fedeli (05).
-3. **Bloccante operativo:** ripristinare i sidecar image-id prima di rilanciare il judge.
+Key points for discussion:
+1. The **modality gap was the culprit** behind weak naming: corrected, +3.4× on average.
+2. The SAE *works technically* but concept discovery is not stable cross-seed (Jaccard 0.004) — material for "failure cases / limitations", not a bug. The ablation program has since clarified that it is the chance floor (03) and that the existing concepts are clinically faithful (05).
+3. **Operational blocker:** restore the image-id sidecars before relaunching the judge.
 
-### 3.1 Rapporto con MedConcept (deviazioni dichiarate)
+### 3.1 Relationship to MedConcept (declared deviations)
 
-La pipeline è un'istanza **MedConcept-ispirata**, non una replica fedele (Haque et al., arXiv:2604.11868). Lo scheletro è fedele — SAE su un VLM medico → attivazioni sparse → grounding in vocabolario clinico → pseudo-report → giudice LLM Aligned/Unaligned/Uncertain — ma con tre deviazioni materiali sul metodo, dichiarate per onestà:
+The pipeline is a **MedConcept-inspired** instance, not a faithful replica (Haque et al., arXiv:2604.11868). The skeleton is faithful — SAE on a medical VLM → sparse activations → grounding in a clinical vocabulary → pseudo-report → Aligned/Unaligned/Uncertain LLM judge — but with three material deviations on the method, declared for honesty:
 
-- **D1 — SAE TopK invece di ReLU+L1.** MedConcept (Eq. 2) impone la sparsità con penalità L1 (λ₁=2e-3); la pipeline usa TopK (selezione hard top-k nell'encoder, niente L1, auxk per i dead). Meccanismo di sparsità diverso (k fisso vs data-dependent), stessa idea di decomposizione sparse.
-- **D2 — `dict_size` scollegato dal vocabolario.** MedConcept lega `k = |vocabolario|` (un neurone = un concetto); la pipeline usa `dict_size=4096` contro un vocabolario RadLex di 508 termini → naming many-to-one, ~44% di neuroni mai attivi. Il vincolo 1:1 di MedConcept è assente.
-- **D3 — correzione del modality gap.** MedConcept (Eq. 3) usa cosine puro e accetta il vision-text gap come limitazione; la pipeline sottrae un vettore di modality gap (visual_centroid − text_centroid) dalle decoder rows prima del cosine (Mind the Gap, Liang et al.) — passo extra che alza il naming mean da 0.117 a 0.395.
+- **D1 — TopK SAE instead of ReLU+L1.** MedConcept (Eq. 2) imposes sparsity with an L1 penalty (λ₁=2e-3); the pipeline uses TopK (hard top-k selection in the encoder, no L1, auxk for the dead). Different sparsity mechanism (fixed k vs data-dependent), same idea of sparse decomposition.
+- **D2 — `dict_size` decoupled from the vocabulary.** MedConcept ties `k = |vocabulary|` (one neuron = one concept); the pipeline uses `dict_size=4096` against a 508-term RadLex vocabulary → many-to-one naming, ~44% of neurons never active. MedConcept's 1:1 constraint is absent.
+- **D3 — modality gap correction.** MedConcept (Eq. 3) uses pure cosine and accepts the vision-text gap as a limitation; the pipeline subtracts a modality gap vector (visual_centroid − text_centroid) from the decoder rows before the cosine (Mind the Gap, Liang et al.) — an extra step that raises the naming mean from 0.117 to 0.395.
 
-> **Nuance di reporting:** il "mean naming score" (0.395) è mediato su tutti i 4096 feature, inclusi i ~44% *dead-by-activation* (mai attivi sul test), che ricevono etichette poco significative e abbassano la media. Non corrompe le spiegazioni (il judge filtra `activation>0`) ma va dichiarato quando si cita il mean score.
-
----
-
-## 4. Direzioni successive (gia' coperte dalle ablation)
-
-Le ipotesi di miglioramento elencate qui sotto sono state **verificate dal programma di ablation** (`../ablation/REPORT.md`). Si riportano i verdetti per chiusura.
-
-- **Ridurre `dict_size`** (4096 → 2048/1024): Ablation 01 → riduce i dead (40.9 → 30.7%) ma **NON** aumenta la stabilità cross-seed (ratio non monotonico).
-- **Aggregazione cross-seed / consensus**: Ablation 00 → il consensus nello spazio delle direzioni è ~0 (nessuna direzione condivisa tra ≥4 seed su 5); l'aggregazione richiede validazione su τ molto più bassi.
-- **LR più basso (`5e-5`)**: rimane non testato come singolo lever; le ablation usano lr pinned per controllare i confound.
-- **Variazione di `k`**: Ablation 02 → debole sweet spot a k=16 (ratio 1.30, l'unico sopra null), ma l'accordo assoluto resta minuscolo; k=32 (baseline) è sul pavimento del caso.
-- **Famiglia di attivazione alternativa**: Ablation 04 → BatchTopK riduce i dead (4.8%) ma consensus 0 per tutte e tre le famiglie (TopK/BatchTopK/JumpReLU).
-- **Naming oltre il coseno (SPLiCE)** e **vocab più ampio/curato**: future work (`docs/suggestions/VOCAB_BUILDING_ALTERNATIVES.md`).
-- **Validazione qualitativa / faithfulness**: Ablation 05 → ~10% delle feature live è fedele a etichette cliniche reali oltre il null (impianti, versamento, enfisema).
-
-L'instabilità è un **limite strutturale** del metodo su questo dataset (pochi campioni + non-unicità della decomposizione sparsa su embedding CLIP proiettati). La diagnosi causale completa è in `docs/suggestions/CONCEPT_INSTABILITY_DIAGNOSIS.md`.
+> **Reporting nuance:** the "mean naming score" (0.395) is averaged over all 4096 features, including the ~44% *dead-by-activation* (never active on the test set), which receive poorly meaningful labels and drag down the average. It does not corrupt the explanations (the judge filters `activation>0`) but should be declared when citing the mean score.
 
 ---
 
-## 5. Note di riproducibilità & stato
+## 4. Next directions (already covered by the ablations)
 
-- **CUDA (RTX 5070)**: metriche di questa run (cosine 0.988, dead ~44%) coerenti con la run MPS di riferimento (06-15) → il cambio device non ha alterato i risultati (cross-device riproducibile).
-- **Modality gap è cached** (`models/modality_gap.pt`): `compute_and_save_modality_gap()` ha guardia skip-if-exists senza check di contenuto. Se gli embedding vengono rigenerati con split diverso, il gap va **cancellato a mano** (`rm models/modality_gap.pt`) prima di rilanciare, altrimenti resta stale.
-- **`vocabulary.json` = 508 dict** `{"term","similarity_score","source"}` (output del builder multi-centroid). I consumer (CLI `concept_naming.py` e notebook) normalizzano a `term`-stringa; `name_concepts` inoltre coerce via `_vocab_term` come safety net. Il vecchio "schema #7 aperto" è risolto.
-- **Sidecar image-id ricostruiti** (18:12): `visual/train/test_image_ids.json` rigenerati da `sorted(glob("*.png"))` dei 7470 PNG reali (`chest-xrays-indiana-university/images/images_normalized/`) + split `sklearn(random_state=42, ratio=0.8)`; allineamento righe verificato via `torch.equal` contro i tensor esistenti (match esatto su train + test). `sample_explanations.json` ora ha 1494/1494 basename reali. Niente re-extraction né riaddestramento.
-- **`data/iu_xray/reports.csv` generato**: join `indiana_projections`(filename→uid) + `indiana_reports`(uid→findings+impression), colonne `image_id`+`combined_text` (schema richiesto da `evaluate_llm_judge.py`: `zip(image_id, combined_text)`). Lookup judge verificato: **1493/1494** test coperti (1 PNG orfano senza voce in projections). Il judge è ora eseguibile end-to-end.
-- **5 SAE non riaddestrati**: la correzione del modality gap è uno shift locale su `W_dec` in `name_concepts`, non persistito nei pesi. I modelli 06-05 restano validi.
+The improvement hypotheses listed below have been **verified by the ablation program** (`../ablation/REPORT.md`). The verdicts are reported for closure.
+
+- **Reduce `dict_size`** (4096 → 2048/1024): Ablation 01 → reduces the dead (40.9 → 30.7%) but does **NOT** increase cross-seed stability (non-monotonic ratio).
+- **Cross-seed aggregation / consensus**: Ablation 00 → consensus in the direction space is ~0 (no shared direction across ≥4 seeds out of 5); aggregation requires validation on much lower τ values.
+- **Lower LR (`5e-5`)**: remains untested as a single lever; the ablations use a pinned lr to control confounds.
+- **Variation of `k`**: Ablation 02 → weak sweet spot at k=16 (ratio 1.30, the only one above the null), but absolute agreement remains tiny; k=32 (baseline) is on the chance floor.
+- **Alternative activation family**: Ablation 04 → BatchTopK reduces the dead (4.8%) but consensus 0 for all three families (TopK/BatchTopK/JumpReLU).
+- **Naming beyond cosine (SPLiCE)** and **larger/curated vocab**: future work (`docs/suggestions/VOCAB_BUILDING_ALTERNATIVES.md`).
+- **Qualitative validation / faithfulness**: Ablation 05 → ~10% of live features are faithful to real clinical labels above the null (implants, effusion, emphysema).
+
+The instability is a **structural limitation** of the method on this dataset (few samples + non-uniqueness of the sparse decomposition on projected CLIP embeddings). The full causal diagnosis is in `docs/suggestions/CONCEPT_INSTABILITY_DIAGNOSIS.md`.
+
+---
+
+## 5. Reproducibility notes & status
+
+- **CUDA (RTX 5070)**: the metrics of this run (cosine 0.988, dead ~44%) are consistent with the reference MPS run (06-15) → the device change did not alter the results (cross-device reproducible).
+- **Modality gap is cached** (`models/modality_gap.pt`): `compute_and_save_modality_gap()` has a skip-if-exists guard without a content check. If the embeddings are regenerated with a different split, the gap must be **deleted manually** (`rm models/modality_gap.pt`) before relaunching, otherwise it stays stale.
+- **`vocabulary.json` = 508 dicts** `{"term","similarity_score","source"}` (output of the multi-centroid builder). The consumers (CLI `concept_naming.py` and notebook) normalize to a `term`-string; `name_concepts` additionally coerces via `_vocab_term` as a safety net. The old "open issue #7" is resolved.
+- **Image-id sidecars rebuilt** (18:12): `visual/train/test_image_ids.json` regenerated from `sorted(glob("*.png"))` of the 7470 real PNGs (`chest-xrays-indiana-university/images/images_normalized/`) + split `sklearn(random_state=42, ratio=0.8)`; row alignment verified via `torch.equal` against the existing tensors (exact match on train + test). `sample_explanations.json` now has 1494/1494 real basenames. No re-extraction nor retraining.
+- **`data/iu_xray/reports.csv` generated**: join `indiana_projections`(filename→uid) + `indiana_reports`(uid→findings+impression), columns `image_id`+`combined_text` (schema required by `evaluate_llm_judge.py`: `zip(image_id, combined_text)`). Judge lookup verified: **1493/1494** test covered (1 orphan PNG with no entry in projections). The judge is now executable end-to-end.
+- **5 SAEs not retrained**: the modality gap correction is a local shift on `W_dec` in `name_concepts`, not persisted in the weights. The 06-05 models remain valid.

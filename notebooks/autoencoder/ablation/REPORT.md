@@ -456,9 +456,9 @@ Si costruiscono 3 dizionari banali senza addestramento: **Random** (direzioni ca
 | Within-group index-Jaccard | Random@256 e Random@4096 (3 seed → null empirico) | ✅ |
 | Null analitico cross-check | `E[J] ≈ k/(2D−k)` ipergeometrico | ✅ ratio 1.00 / 0.95 |
 | Tabelle + figure | comparison table + jaccard-floor bar | ✅ |
-| Persist | `results/ablation/a6_baselines.json` + `a6_cache/` (fit PCA/KMeans) | ✅ |
+| Persist | `results/ablation/a3_baselines.json` + `a3_cache/` (fit PCA/KMeans) | ✅ |
 
-> Rubric ≥3 baselines soddisfatta: Random / Dense-PCA / Freq-KMeans, ciascuno costruito da train embedding e scored su test con le metriche standalone del SAE. (L'artefatto su disco si chiama `a6_baselines.json` — residuo di un renumbering interno; la numeratura logica del REPORT è `Ablation 03`.)
+> Rubric ≥3 baselines soddisfatta: Random / Dense-PCA / Freq-KMeans, ciascuno costruito da train embedding e scored su test con le metriche standalone del SAE.
 
 ---
 
@@ -517,7 +517,7 @@ Più atomi casuali = più probabilità che qualcuno allinei con `x` → ricostru
 ---
 
 ## 5. Note di riproducibilità
-- **Run IDE (2026-06-21 19:35):** 13/13 celle, zero training. Artefatti: `a6_baselines.json` (6.1 KB), `a6_cache/` (PCA + KMeans fit per seed, `.npz`), 2 figure.
+- **Run IDE (2026-06-21 19:35):** 13/13 celle, zero training. Artefatti: `a3_baselines.json` (6.1 KB), `a3_cache/` (PCA + KMeans fit per seed, `.npz`), 2 figure.
 - **Zero training / no model writes:** `SAEManager.train` mai chiamato. PCA/KMeans fit su train, metriche scored su test (test-set discipline).
 - **Metriche standalone:** `compute_stability`/`name_concepts`/`compute_cosine_reconstruction` richiedono un `AutoEncoderTopK` su disco → riscritte come funzioni libere, verificate contro `sae_module.py`.
 - **Naming gap-corrected per tutti:** `modality_gap = train_emb.mean(0) − vocab_emb.mean(0)` applicato a ogni `W_dec` → confronto naming apples-to-apples.
@@ -556,10 +556,8 @@ Si addestrano le 3 famiglie a configurazione identica (stesso lr, stesso diziona
 | Consensus reappearance | cluster direction-space τ=0.90, within-family (stesso algo 00/01) |
 | **Cross-activation consensus** | pool 9 modelli, cluster τ=0.90, conta cluster che spannano ≥2 famiglie |
 | Naming | seed 42, gap-corrected, per famiglia |
-| Figures | 4 (`a2_effective_l0_distribution`, `a2_jumprelu_threshold_hist`, `a2_activation_comparison`, `a2_cross_activation_consensus`) |
-| Persist | `results/ablation/a2_activation.json` |
-
-> Gli artefatti su disco per 02/03/04 portano nomi "scrambled" (`a2_activation`, `a4_k_sweep`, `a6_baselines`) residuo di un renumbering interno non propagato; la numeratura logica del REPORT è `02 = k_sweep`, `03 = baselines`, `04 = activation`.
+| Figures | 4 (`a4_effective_l0_distribution`, `a4_jumprelu_threshold_hist`, `a4_activation_comparison`, `a4_cross_activation_consensus`) |
+| Persist | `results/ablation/a4_activation.json` |
 
 ---
 
@@ -662,7 +660,7 @@ La differenza visibile tra le famiglie è il profilo L0: TopK è un picco puntif
 ---
 
 ## 5. Note di riproducibilità
-- **Run IDE (2026-06-21 20:06):** 29 celle, 9 SAE (3 famiglie × 3 seed, 12k step). Artefatti: `a2_activation.json` (6.1 KB), 4 figure, modelli in `models/ablation_a4/{topk,batchtopk,jumprelu}_2048/sae_seed{N}/`.
+- **Run IDE (2026-06-21 20:06):** 29 celle, 9 SAE (3 famiglie × 3 seed, 12k step). Artefatti: `a4_activation.json` (6.1 KB), 4 figure, modelli in `models/ablation_a4/{topk,batchtopk,jumprelu}_2048/sae_seed{N}/`.
 - **lr pinned 5e-5 matched:** elimina il confound lr (TopK/BatchTopK auto-scale ~2.8e-4 a dict2048; JumpReLU default 7e-5). Conservativo ma valido cross-famiglia.
 - **3 famiglie via `trainSAE` diretto** (non `SAEManager.train`, che hardcoda TopKTrainer). Loader bespoke per-famiglia (`AutoEncoderTopK`/`BatchTopKSAE`/`JumpReluAutoEncoder`); decoder-row extraction differisce (TopK/BatchTopK: `decoder.weight.T`; JumpReLU: `W_dec` già `(dict,act)`).
 - **`compute_stability` non usato:** hardcoda `AutoEncoderTopK` → crash su BatchTopK/JumpReLU. Jaccard riscritto standalone, renormalizzato a n=20 comune.

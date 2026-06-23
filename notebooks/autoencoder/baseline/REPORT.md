@@ -204,6 +204,16 @@ Punti chiave per la discussione:
 2. Il SAE *funziona tecnicamente* ma la scoperta dei concetti non è stabile cross-seed (Jaccard 0.004) — materiale per "failure cases / limiti", non un bug. Il programma di ablation ha poi chiarito che è il pavimento del caso (03) e che i concetti esistenti sono clinicamente fedeli (05).
 3. **Bloccante operativo:** ripristinare i sidecar image-id prima di rilanciare il judge.
 
+### 3.1 Rapporto con MedConcept (deviazioni dichiarate)
+
+La pipeline è un'istanza **MedConcept-ispirata**, non una replica fedele (Haque et al., arXiv:2604.11868). Lo scheletro è fedele — SAE su un VLM medico → attivazioni sparse → grounding in vocabolario clinico → pseudo-report → giudice LLM Aligned/Unaligned/Uncertain — ma con tre deviazioni materiali sul metodo, dichiarate per onestà:
+
+- **D1 — SAE TopK invece di ReLU+L1.** MedConcept (Eq. 2) impone la sparsità con penalità L1 (λ₁=2e-3); la pipeline usa TopK (selezione hard top-k nell'encoder, niente L1, auxk per i dead). Meccanismo di sparsità diverso (k fisso vs data-dependent), stessa idea di decomposizione sparse.
+- **D2 — `dict_size` scollegato dal vocabolario.** MedConcept lega `k = |vocabolario|` (un neurone = un concetto); la pipeline usa `dict_size=4096` contro un vocabolario RadLex di 508 termini → naming many-to-one, ~44% di neuroni mai attivi. Il vincolo 1:1 di MedConcept è assente.
+- **D3 — correzione del modality gap.** MedConcept (Eq. 3) usa cosine puro e accetta il vision-text gap come limitazione; la pipeline sottrae un vettore di modality gap (visual_centroid − text_centroid) dalle decoder rows prima del cosine (Mind the Gap, Liang et al.) — passo extra che alza il naming mean da 0.117 a 0.395.
+
+> **Nuance di reporting:** il "mean naming score" (0.395) è mediato su tutti i 4096 feature, inclusi i ~44% *dead-by-activation* (mai attivi sul test), che ricevono etichette poco significative e abbassano la media. Non corrompe le spiegazioni (il judge filtra `activation>0`) ma va dichiarato quando si cita il mean score.
+
 ---
 
 ## 4. Direzioni successive (gia' coperte dalle ablation)

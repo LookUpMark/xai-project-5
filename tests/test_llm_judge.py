@@ -22,7 +22,8 @@ from unittest.mock import patch, MagicMock
 # ---------------------------------------------------------------------------
 # Mock heavy optional dependencies BEFORE importing the module under test.
 # This allows the tests to run even if torch / transformers are not installed
-# in the current Python environment.
+# in the current Python environment, and avoids the ormsgpack DLL issue
+# with langgraph on Python 3.14.
 # ---------------------------------------------------------------------------
 _mock_modules = {}
 for mod_name in ["torch", "transformers"]:
@@ -37,6 +38,93 @@ if "torch" in _mock_modules:
 # Make `from transformers import pipeline` return a MagicMock
 if "transformers" in _mock_modules:
     sys.modules["transformers"].pipeline = MagicMock()
+
+# Mock langgraph to avoid ormsgpack DLL import failure.
+# We need real-enough StateGraph / END objects for the graph builder to work,
+# so we import langgraph and only intercept if the import itself fails.
+try:
+    from langgraph.graph import StateGraph, END  # noqa: F401
+except (ImportError, OSError):
+    _lg_mock = MagicMock()
+    for sub in [
+        "langgraph",
+        "langgraph.graph",
+        "langgraph.graph.state",
+        "langgraph.graph.message",
+        "langgraph.cache",
+        "langgraph.cache.base",
+        "langgraph.checkpoint",
+        "langgraph.checkpoint.serde",
+        "langgraph.checkpoint.serde.jsonplus",
+    ]:
+        sys.modules.setdefault(sub, _lg_mock)
+
+    # Provide minimal stubs for StateGraph and END so the graph builder
+    # creates a functional (albeit no-op) compiled graph.
+    class _StubEND:
+        """Sentinel for the END node."""
+        pass
+
+    class _StubStateGraph:
+        """Minimal StateGraph stand-in that records nodes/edges and returns
+        a compiled graph whose .invoke() runs the nodes sequentially."""
+
+        def __init__(self, state_schema):
+            self._schema = state_schema
+            self._nodes = {}
+            self._entry = None
+            self._edges = {}
+            self._conditional_edges = {}
+
+        def add_node(self, name, fn):
+            self._nodes[name] = fn
+
+        def set_entry_point(self, name):
+            self._entry = name
+
+        def add_edge(self, src, dst):
+            self._edges[src] = dst
+
+        def add_conditional_edges(self, src, router_fn, mapping):
+            self._conditional_edges[src] = (router_fn, mapping)
+
+        def compile(self):
+            return _CompiledGraph(self)
+
+    class _CompiledGraph:
+        def __init__(self, graph):
+            self._g = graph
+
+        def invoke(self, state):
+            current = self._g._entry
+            while current is not None and not isinstance(current, type) and current is not _StubEND:
+                if current == "__end__":
+                    break
+                fn = self._g._nodes.get(current)
+                if fn:
+                    updates = fn(state)
+                    if updates:
+                        state.update(updates)
+                # Check conditional edges first
+                if current in self._g._conditional_edges:
+                    router_fn, mapping = self._g._conditional_edges[current]
+                    route = router_fn(state)
+                    target = mapping.get(route)
+                    if target is _StubEND or target == "__end__" or target is None:
+                        break
+                    current = target
+                elif current in self._g._edges:
+                    target = self._g._edges[current]
+                    if target is _StubEND or target == "__end__":
+                        break
+                    current = target
+                else:
+                    break
+            return state
+
+    # Patch the mock module to expose our stubs
+    sys.modules["langgraph.graph"].StateGraph = _StubStateGraph
+    sys.modules["langgraph.graph"].END = "__end__"
 
 # ---------------------------------------------------------------------------
 # Mock config and utils modules that evaluate_llm_judge now imports.
@@ -58,6 +146,21 @@ class _FakePathsConfig:
         self.data_dir = PROJECT_ROOT / "data"
 
 _mock_config.paths = _FakePathsConfig()
+
+# Mock judge and training configs that evaluate_llm_judge now imports (F-007)
+class _FakeJudgeConfig:
+    model_name = "unsloth/medgemma-4b-it"
+    max_new_tokens = 10
+    max_retries = 2
+    batch_save_every = 25
+    seed = 42
+
+class _FakeTrainingConfig:
+    primary_seed = 42
+
+_mock_config.judge = _FakeJudgeConfig()
+_mock_config.training = _FakeTrainingConfig()
+
 sys.modules.setdefault("config", _mock_config)
 
 _mock_utils = types.ModuleType("utils")
@@ -72,7 +175,12 @@ def _setup_logging(name: str = __name__) -> logging.Logger:
         logger.setLevel(logging.INFO)
     return logger
 
+def _noop_seed(seed: int) -> None:
+    """No-op replacement for utils.set_global_seed in tests."""
+    pass
+
 _mock_utils.setup_logging = _setup_logging
+_mock_utils.set_global_seed = _noop_seed
 sys.modules.setdefault("utils", _mock_utils)
 
 # ---------------------------------------------------------------------------
@@ -121,6 +229,29 @@ class TestExtractVerdict(unittest.TestCase):
 
     def test_garbage_returns_none(self):
         self.assertIsNone(judge_module._extract_verdict("asdf1234!@#"))
+
+    # --- F-001: verb→label alias mapping ---
+    def test_verb_supports_maps_to_aligned(self):
+        self.assertEqual(judge_module._extract_verdict("Supports"), "Aligned")
+
+    def test_verb_support_maps_to_aligned(self):
+        self.assertEqual(judge_module._extract_verdict("Support"), "Aligned")
+
+    def test_verb_contradicts_maps_to_unaligned(self):
+        self.assertEqual(judge_module._extract_verdict("Contradicts"), "Unaligned")
+
+    def test_verb_ambiguous_maps_to_uncertain(self):
+        self.assertEqual(judge_module._extract_verdict("Ambiguous"), "Uncertain")
+
+    def test_verb_unclear_maps_to_uncertain(self):
+        self.assertEqual(judge_module._extract_verdict("Unclear"), "Uncertain")
+
+    def test_verb_embedded_in_sentence(self):
+        result = judge_module._extract_verdict("The report clearly supports this concept")
+        self.assertEqual(result, "Aligned")
+
+    def test_verb_denies_maps_to_unaligned(self):
+        self.assertEqual(judge_module._extract_verdict("Denies"), "Unaligned")
 
 
 # ============================================================================
@@ -176,6 +307,30 @@ class TestCheckpointHelpers(unittest.TestCase):
         loaded = judge_module.load_checkpoint_records()
         self.assertEqual(len(loaded), 1)
         self.assertEqual(loaded[0]["image_id"], "x")
+
+    def test_resume_retries_errored_pair(self):
+        """F-002: errored records (raw_response starts with ERROR:) must NOT
+        appear in done_keys so that --resume retries them."""
+        records = [
+            {
+                "image_id": "img_001",
+                "concept": "cardiomegaly",
+                "verdict": "Aligned",
+                "raw_response": "Aligned",
+            },
+            {
+                "image_id": "img_002",
+                "concept": "pleural effusion",
+                "verdict": "Uncertain",
+                "raw_response": "ERROR: CUDA out of memory",
+            },
+        ]
+        judge_module.save_checkpoint(records)
+        keys = judge_module.load_checkpoint()
+        # The successful record should be in done_keys
+        self.assertIn(("img_001", "cardiomegaly"), keys)
+        # The errored record should NOT be in done_keys
+        self.assertNotIn(("img_002", "pleural effusion"), keys)
 
 
 # ============================================================================
@@ -256,6 +411,14 @@ class TestJudgeGraph(unittest.TestCase):
         self.assertIn("pleural effusion", result["prompt"])
         self.assertIn("Bilateral effusions noted.", result["prompt"])
 
+    def test_verb_response_maps_correctly(self):
+        """F-001: if the LLM responds with a verb like 'Supports', the graph
+        should parse it to 'Aligned' on the first try (no retries needed)."""
+        result = self._invoke_graph("Supports")
+        self.assertEqual(result["result"], "Aligned")
+        # No retries should have been needed
+        self.assertEqual(result["retries"], 0)
+
 
 # ============================================================================
 # 4. End-to-end test with mock data files
@@ -268,7 +431,7 @@ class TestEndToEnd(unittest.TestCase):
         self.tmp_dir = tempfile.mkdtemp()
         self.results_dir = Path(self.tmp_dir) / "results"
         self.results_dir.mkdir()
-        self.data_dir = Path(self.tmp_dir) / "data" / "iu_xray"
+        self.data_dir = Path(self.tmp_dir) / "data" / "iu_xray" / "reports"
         self.data_dir.mkdir(parents=True)
 
         # Create mock sample_explanations.json
@@ -292,34 +455,54 @@ class TestEndToEnd(unittest.TestCase):
         with open(self.results_dir / "sample_explanations.json", "w") as f:
             json.dump(explanations, f)
 
-        # Create mock reports.csv
+        # Create mock indiana_reports.csv  (uid + findings + impression)
         import pandas as pd
         reports_df = pd.DataFrame({
-            "image_id": ["img_001", "img_002"],
-            "combined_text": [
+            "uid": ["1001", "1002"],
+            "findings": [
                 "The heart is enlarged. Bilateral pleural effusions.",
                 "No acute cardiopulmonary abnormality.",
             ],
+            "impression": [
+                "Cardiomegaly with effusions.",
+                "Normal.",
+            ],
         })
-        reports_df.to_csv(self.data_dir / "reports.csv", index=False)
+        reports_df.to_csv(self.data_dir / "indiana_reports.csv", index=False)
+
+        # Create mock indiana_projections.csv  (filename → uid)
+        projections_df = pd.DataFrame({
+            "filename": ["img_001", "img_002"],
+            "uid": ["1001", "1002"],
+        })
+        projections_df.to_csv(self.data_dir / "indiana_projections.csv", index=False)
 
         # Patch module-level paths
         self._orig_explanations = judge_module.EXPLANATIONS_PATH
         self._orig_reports = judge_module.REPORTS_CSV_PATH
+        self._orig_projections = judge_module.PROJECTIONS_CSV_PATH
         self._orig_output = judge_module.OUTPUT_CSV_PATH
         self._orig_checkpoint = judge_module.CHECKPOINT_PATH
+        self._orig_scores = judge_module.SCORES_JSON_PATH
+        self._orig_coverage = judge_module.COVERAGE_JSON_PATH
 
         judge_module.EXPLANATIONS_PATH = self.results_dir / "sample_explanations.json"
-        judge_module.REPORTS_CSV_PATH = self.data_dir / "reports.csv"
+        judge_module.REPORTS_CSV_PATH = self.data_dir / "indiana_reports.csv"
+        judge_module.PROJECTIONS_CSV_PATH = self.data_dir / "indiana_projections.csv"
         judge_module.OUTPUT_CSV_PATH = self.results_dir / "aligned_scores.csv"
         judge_module.CHECKPOINT_PATH = self.results_dir / ".judge_checkpoint.json"
+        judge_module.SCORES_JSON_PATH = self.results_dir / "judge_scores.json"
+        judge_module.COVERAGE_JSON_PATH = self.results_dir / "judge_coverage.json"
 
     def tearDown(self):
         # Restore original paths
         judge_module.EXPLANATIONS_PATH = self._orig_explanations
         judge_module.REPORTS_CSV_PATH = self._orig_reports
+        judge_module.PROJECTIONS_CSV_PATH = self._orig_projections
         judge_module.OUTPUT_CSV_PATH = self._orig_output
         judge_module.CHECKPOINT_PATH = self._orig_checkpoint
+        judge_module.SCORES_JSON_PATH = self._orig_scores
+        judge_module.COVERAGE_JSON_PATH = self._orig_coverage
 
         # Clean up temp dir
         import shutil
@@ -343,7 +526,7 @@ class TestEndToEnd(unittest.TestCase):
         self.assertEqual(len(df), 3)
         self.assertListEqual(
             sorted(df.columns.tolist()),
-            sorted(["image_id", "feature_id", "concept", "activation", "verdict"]),
+            sorted(["image_id", "feature_id", "concept", "activation", "verdict", "raw_response"]),
         )
         # All verdicts should be "Aligned" since our mock always returns that
         self.assertTrue((df["verdict"] == "Aligned").all())

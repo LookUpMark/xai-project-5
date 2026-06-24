@@ -330,6 +330,21 @@ class ExplanationConfig:
 
 
 @dataclass(frozen=True)
+class JudgeConfig:
+    """LLM Judge evaluation settings.
+
+    Controls the MedGemma-based concept judge: model identity, generation
+    parameters, retry budget, checkpoint frequency, and reproducibility seed.
+    """
+
+    model_name: str = "unsloth/medgemma-4b-it"
+    max_new_tokens: int = 10
+    max_retries: int = 2
+    batch_save_every: int = 25
+    seed: int = 42
+
+
+@dataclass(frozen=True)
 class WandbConfig:
     """Weights & Biases experiment tracking."""
 
@@ -358,6 +373,7 @@ vlm = VLMConfig()
 sae = SAEConfig()
 training = TrainingConfig()
 explanation = ExplanationConfig()
+judge = JudgeConfig()
 wandb_cfg = WandbConfig()
 hardware = HardwareConfig()
 

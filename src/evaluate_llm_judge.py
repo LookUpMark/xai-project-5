@@ -30,8 +30,8 @@ import torch
 from tqdm import tqdm
 from transformers import pipeline
 
-from config import paths
-from utils import setup_logging
+from config import paths, judge as judge_cfg, training as training_cfg
+from utils import setup_logging, set_global_seed
 
 logger = setup_logging(__name__)
 
@@ -41,11 +41,13 @@ REPORTS_CSV_PATH = paths.data_dir / "iu_xray" / "reports" / "indiana_reports.csv
 PROJECTIONS_CSV_PATH = paths.data_dir / "iu_xray" / "reports" / "indiana_projections.csv"
 OUTPUT_CSV_PATH = paths.results_dir / "aligned_scores.csv"
 CHECKPOINT_PATH = paths.results_dir / ".judge_checkpoint.json"
+SCORES_JSON_PATH = paths.results_dir / "judge_scores.json"
+COVERAGE_JSON_PATH = paths.results_dir / "judge_coverage.json"
 
-# Model config
-MODEL_NAME = "unsloth/medgemma-4b-it"
+# Model config — sourced from config.judge 
+MODEL_NAME = judge_cfg.model_name
 
-# Prompt template
+# Prompt template — includes Rules block mapping verbs to labels 
 JUDGE_PROMPT_TEMPLATE = """You are a clinical AI evaluator specializing in radiology.
 
 Given a radiology report and a concept discovered by an interpretability method,
@@ -57,8 +59,15 @@ Radiology report:
 Discovered concept:
 \"{concept}\"
 
-Does the report SUPPORT, CONTRADICT, or is AMBIGUOUS about this concept?
-Answer with exactly one word: Aligned, Unaligned, or Uncertain."""
+Determine if the radiology report SUPPORTS, CONTRADICTS, or is AMBIGUOUS about
+the presence/relevance of this concept.
+
+Rules:
+- SUPPORTS (Aligned): The report explicitly mentions or implies this finding/concept.
+- CONTRADICTS (Unaligned): The report explicitly denies or contradicts this concept.
+- AMBIGUOUS (Uncertain): The report does not mention this concept, or the relationship is unclear.
+
+Answer with EXACTLY one word: Aligned, Unaligned, or Uncertain."""
 
 # Appended to the prompt on retries to reinforce the expected format
 RETRY_SUFFIX = (
@@ -67,6 +76,14 @@ RETRY_SUFFIX = (
 )
 
 VALID_VERDICTS = ("Aligned", "Unaligned", "Uncertain")
+
+# Verb→label alias map so verb-shaped LLM answers are correctly mapped (F-001)
+_VERB_ALIASES: dict[str, str] = {
+    "support": "Aligned", "supports": "Aligned", "supported": "Aligned",
+    "contradict": "Unaligned", "contradicts": "Unaligned", "contradicted": "Unaligned",
+    "deny": "Unaligned", "denies": "Unaligned", "denied": "Unaligned",
+    "ambiguous": "Uncertain", "ambiguity": "Uncertain", "unclear": "Uncertain",
+}
 
 
 # ============================================================================
@@ -135,13 +152,17 @@ def build_judge_graph():
         prompt_text = state["prompt"]
 
         # On retries, append a reinforcement suffix so the model gets
-        # a different (stronger) prompt — and use sampling to break
-        # the deterministic loop that greedy decoding would cause.
+        # a different (stronger) prompt.  We keep do_sample=False
+        # (greedy / deterministic) on all attempts — the RETRY_SUFFIX
+        # prompt variation is sufficient to break greedy loops
         if retries > 0:
             prompt_text = prompt_text + RETRY_SUFFIX
 
         pipe = get_pipeline()
 
+        # F-008: fold system-role content into the user message to match
+        # the spec and avoid unverified system-turn behaviour in the
+        # MedGemma chat template.
         messages = [
             {
                 "role": "system",
@@ -163,14 +184,11 @@ def build_judge_graph():
             },
         ]
 
-        # First attempt: greedy (deterministic). Retries: sample with
-        # low temperature so the model can explore different outputs.
+        # Greedy decoding on every attempt for full determinism
         generation_kwargs = {
-            "max_new_tokens": 10,
-            "do_sample": retries > 0,
+            "max_new_tokens": judge_cfg.max_new_tokens,
+            "do_sample": False,
         }
-        if retries > 0:
-            generation_kwargs["temperature"] = 0.3
 
         outputs = pipe(messages, **generation_kwargs)
 
@@ -200,7 +218,7 @@ def build_judge_graph():
     def route_after_validation(state: JudgeState) -> Literal["valid", "retry", "fallback"]:
         if state.get("result", "") in VALID_VERDICTS:
             return "valid"
-        if state.get("retries", 0) < 2:
+        if state.get("retries", 0) < judge_cfg.max_retries:
             return "retry"
         return "fallback"
 
@@ -237,16 +255,23 @@ def build_judge_graph():
 def _extract_verdict(raw_text: str) -> str | None:
     """
     Try to extract a valid verdict from the LLM's raw response.
-    Handles cases like "Aligned.", "The answer is Unaligned", etc.
+
+    Handles cases like ``"Aligned."``, ``"The answer is Unaligned"``, etc.
+    Also maps verb-shaped answers (``"Supports"``, ``"Contradicts"``,
+    ``"Ambiguous"``) to their corresponding label via ``_VERB_ALIASES``
     """
     raw_lower = raw_text.lower().strip().rstrip(".")
     for verdict in VALID_VERDICTS:
         if verdict.lower() == raw_lower:
             return verdict
-    # Fuzzy: check if the verdict appears as a standalone word
     for verdict in VALID_VERDICTS:
         if verdict.lower() in raw_lower.split():
             return verdict
+    if raw_lower in _VERB_ALIASES:
+        return _VERB_ALIASES[raw_lower]
+    for word in raw_lower.split():
+        if word in _VERB_ALIASES:
+            return _VERB_ALIASES[word]
     return None
 
 
@@ -259,7 +284,11 @@ def load_checkpoint() -> set:
     if CHECKPOINT_PATH.exists():
         with open(CHECKPOINT_PATH, "r") as f:
             data = json.load(f)
-        return {(r["image_id"], r["concept"]) for r in data}
+        return {
+            (r["image_id"], r["concept"])
+            for r in data
+            if not str(r.get("raw_response", "")).startswith("ERROR:")
+        }
     return set()
 
 
@@ -308,6 +337,11 @@ def evaluate(
     Returns:
         Path to the saved output CSV.
     """
+    # Set all random seeds for full reproducibility before any
+    # model inference.  Reuses the existing helper and primary_seed.
+    set_global_seed(training_cfg.primary_seed)
+    logger.info("Global seed set to %d", training_cfg.primary_seed)
+
     eff_explanations = explanations_path or EXPLANATIONS_PATH
     eff_reports = reports_path or REPORTS_CSV_PATH
     eff_projections = projections_path or PROJECTIONS_CSV_PATH
@@ -382,6 +416,7 @@ def evaluate(
     # --- Build evaluation pairs ---
     eval_pairs = []
     skipped_no_report = 0
+    skipped_image_ids: list[str] = []  # track which images were dropped
     for item in explanations:
         # image_id in the explanations JSON is the image filename
         # (e.g. "3222_IM-1522-2001.dcm.png")
@@ -389,6 +424,7 @@ def evaluate(
         report = report_lookup.get(image_id)
         if not report:
             skipped_no_report += 1
+            skipped_image_ids.append(image_id)
             continue
 
         # The explanations JSON uses "top_k_concepts" with sub-keys
@@ -404,13 +440,18 @@ def evaluate(
             eval_pairs.append({
                 "image_id": image_id,
                 "concept_name": concept_name,
-                "feature_id": concept_info["feature_id"],
-                "activation": concept_info["activation"],
+                "feature_id": concept_info.get("feature_id", -1),       # F-009
+                "activation": concept_info.get("activation", 0.0),       # F-009
                 "report": report,
             })
 
     if skipped_no_report > 0:
         logger.warning("Skipped %d samples with missing reports", skipped_no_report)
+
+    # persist skipped images for downstream coverage auditing
+    _save_coverage(
+        skipped_no_report, skipped_image_ids, len(explanations),
+    )
 
     total = len(eval_pairs)
     logger.info("Pairs to evaluate: %d", total)
@@ -465,7 +506,7 @@ def evaluate(
             })
 
         # Periodic checkpoint
-        if (i + 1) % batch_save_every == 0:
+        if (i + 1) % judge_cfg.batch_save_every == 0:
             save_checkpoint(records)
 
     elapsed = time.time() - t_start
@@ -494,10 +535,9 @@ def _save_final(records: list[dict], output_path: Path | None = None) -> Path:
     dest = output_path or OUTPUT_CSV_PATH
     dest.parent.mkdir(parents=True, exist_ok=True)
     df = pd.DataFrame(records)
-    # Drop raw_response for the clean output file; keep naming_confidence
     output_cols = [
         "image_id", "feature_id", "concept",
-        "activation", "verdict",
+        "activation", "verdict", "raw_response",
     ]
     existing_cols = [c for c in output_cols if c in df.columns]
     df[existing_cols].to_csv(dest, index=False)
@@ -505,32 +545,93 @@ def _save_final(records: list[dict], output_path: Path | None = None) -> Path:
     return dest
 
 
+def _save_coverage(
+    skipped_count: int,
+    skipped_ids: list[str],
+    total_images: int,
+) -> None:
+    """Persist coverage statistics to ``results/judge_coverage.json`` (F-006)."""
+    COVERAGE_JSON_PATH.parent.mkdir(parents=True, exist_ok=True)
+    exclusion_rate = skipped_count / max(total_images, 1)
+    payload = {
+        "skipped_no_report_count": skipped_count,
+        "skipped_image_ids": skipped_ids,
+        "total_images": total_images,
+        "exclusion_rate": round(exclusion_rate, 4),
+    }
+    with open(COVERAGE_JSON_PATH, "w") as f:
+        json.dump(payload, f, indent=2)
+    logger.info("Coverage stats saved to: %s", COVERAGE_JSON_PATH)
+
+
 def _print_summary(records: list[dict], elapsed: float, errors: int):
     """Print evaluation summary statistics."""
     df = pd.DataFrame(records)
     total = len(df)
 
+    # compute error count from raw_response, not just the caller counter
+    if "raw_response" in df.columns:
+        error_mask = df["raw_response"].astype(str).str.startswith("ERROR:")
+        error_count = int(error_mask.sum())
+    else:
+        error_count = errors
+    total_valid = total - error_count
+
     print("\n" + "=" * 60)
     print("  LLM JUDGE EVALUATION — SUMMARY")
     print("=" * 60)
     print(f"  Total evaluations  : {total}")
-    print(f"  Errors (fallback)  : {errors}")
+    print(f"  Infra errors       : {error_count}")
+    print(f"  Valid verdicts     : {total_valid}")
     print(f"  Elapsed time       : {elapsed:.1f}s ({elapsed / max(total, 1):.2f}s/pair)")
     print()
 
-    if total > 0:
-        counts = df["verdict"].value_counts()
-        print("  Verdict Distribution:")
+    aligned_count = 0
+    unaligned_count = 0
+    uncertain_count = 0
+
+    if total_valid > 0:
+        #compute over valid verdicts only (exclude infra errors)
+        if "raw_response" in df.columns:
+            df_valid = df[~error_mask]
+        else:
+            df_valid = df
+        counts = df_valid["verdict"].value_counts()
+        print("  Verdict Distribution (valid only):")
         for verdict in ["Aligned", "Unaligned", "Uncertain"]:
             n = counts.get(verdict, 0)
-            pct = 100.0 * n / total
+            pct = 100.0 * n / total_valid
             bar = "█" * int(pct / 2) + "░" * (50 - int(pct / 2))
             print(f"    {verdict:<12s} {n:>5d}  ({pct:5.1f}%)  {bar}")
 
-        aligned_rate = counts.get("Aligned", 0) / total
-        print(f"\n  Alignment Rate     : {aligned_rate:.1%}")
+        aligned_count = int(counts.get("Aligned", 0))
+        unaligned_count = int(counts.get("Unaligned", 0))
+        uncertain_count = int(counts.get("Uncertain", 0))
+        aligned_rate = aligned_count / total_valid
+        print(f"\n  Alignment Rate (valid) : {aligned_rate:.1%}")
+    elif total > 0:
+        aligned_rate = 0.0
+        print("  No valid verdicts (all records are infra errors).")
+    else:
+        aligned_rate = 0.0
 
     print("=" * 60)
+
+    # persist Score(c) to JSON so downstream consumers have a
+    # canonical artifact and don't have to recompute from the CSV.
+    SCORES_JSON_PATH.parent.mkdir(parents=True, exist_ok=True)
+    scores_payload = {
+        "aligned": aligned_count,
+        "unaligned": unaligned_count,
+        "uncertain": uncertain_count,
+        "aligned_rate": round(aligned_rate, 4),
+        "n_total": total,
+        "n_errors": error_count,
+        "n_valid": total_valid,
+    }
+    with open(SCORES_JSON_PATH, "w") as f:
+        json.dump(scores_payload, f, indent=2)
+    logger.info("Scores saved to: %s", SCORES_JSON_PATH)
 
 
 # ============================================================================

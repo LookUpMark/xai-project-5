@@ -153,7 +153,7 @@ def run() -> Path:
 
         per_seed_metrics[seed] = {
             "mse": mse,
-            "cosine_sim": cosine,
+            "cosine": cosine,
             **sparsity,
             "feature_frequency_mean": freq.mean().item(),
             "feature_frequency_std": freq.std().item(),

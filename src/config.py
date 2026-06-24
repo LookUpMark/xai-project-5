@@ -237,7 +237,7 @@ class AugmentationConfig:
     embeddings/standard/ with augmentation off. Enable explicitly when
     generating/running the augmented ablation.
     """
-    enabled: bool = False
+    enabled: bool = True
     num_augmentations: int = 2
     rotation_degrees: int = 5
     crop_scale: tuple[float, float] = (0.95, 1.0)

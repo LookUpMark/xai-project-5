@@ -51,7 +51,7 @@
   },
   {
     "term": "pulmonary alveolar proteinosis",
-    "similarity_score": 0.900333,
+    "similarity_score": 0.900332,
     "source": "input_filtered"
   },
   {
@@ -171,7 +171,7 @@
   },
   {
     "term": "sail sign of chest",
-    "similarity_score": 0.870398,
+    "similarity_score": 0.870399,
     "source": "input_filtered"
   },
   {
@@ -381,7 +381,7 @@
   },
   {
     "term": "parenchymal opacification",
-    "similarity_score": 0.852195,
+    "similarity_score": 0.852194,
     "source": "input_filtered"
   },
   {
@@ -531,7 +531,7 @@
   },
   {
     "term": "interstitial fibrosis",
-    "similarity_score": 0.840292,
+    "similarity_score": 0.840291,
     "source": "input_filtered"
   },
   {
@@ -581,7 +581,7 @@
   },
   {
     "term": "costal cartilage sign",
-    "similarity_score": 0.838468,
+    "similarity_score": 0.838467,
     "source": "input_filtered"
   },
   {
@@ -646,7 +646,7 @@
   },
   {
     "term": "drug delivery catheter",
-    "similarity_score": 0.83463,
+    "similarity_score": 0.834629,
     "source": "input_filtered"
   },
   {
@@ -751,7 +751,7 @@
   },
   {
     "term": "tissue embolism",
-    "similarity_score": 0.830152,
+    "similarity_score": 0.830153,
     "source": "input_filtered"
   },
   {
@@ -791,7 +791,7 @@
   },
   {
     "term": "suprapubic catheter",
-    "similarity_score": 0.82906,
+    "similarity_score": 0.829061,
     "source": "input_filtered"
   },
   {
@@ -851,7 +851,7 @@
   },
   {
     "term": "check tube",
-    "similarity_score": 0.826516,
+    "similarity_score": 0.826515,
     "source": "input_filtered"
   },
   {
@@ -926,7 +926,7 @@
   },
   {
     "term": "Shmoo-shaped heart (EN)",
-    "similarity_score": 0.822667,
+    "similarity_score": 0.822668,
     "source": "input_filtered"
   },
   {
@@ -966,7 +966,7 @@
   },
   {
     "term": "vertebral body",
-    "similarity_score": 0.822091,
+    "similarity_score": 0.82209,
     "source": "input_filtered"
   },
   {
@@ -1271,7 +1271,7 @@
   },
   {
     "term": "shotgun sign",
-    "similarity_score": 0.813079,
+    "similarity_score": 0.813078,
     "source": "input_filtered"
   },
   {
@@ -1391,7 +1391,7 @@
   },
   {
     "term": "viral pneumonia",
-    "similarity_score": 0.810669,
+    "similarity_score": 0.810668,
     "source": "input_filtered"
   },
   {
@@ -1461,7 +1461,7 @@
   },
   {
     "term": "tracheoesophageal fistula",
-    "similarity_score": 0.808168,
+    "similarity_score": 0.808167,
     "source": "input_filtered"
   },
   {
@@ -1491,7 +1491,7 @@
   },
   {
     "term": "first mediastinal artery",
-    "similarity_score": 0.807504,
+    "similarity_score": 0.807503,
     "source": "input_filtered"
   },
   {
@@ -1681,7 +1681,7 @@
   },
   {
     "term": "posterior ends of lower ribs",
-    "similarity_score": 0.804082,
+    "similarity_score": 0.804083,
     "source": "input_filtered"
   },
   {
@@ -1716,7 +1716,7 @@
   },
   {
     "term": "endovascular device",
-    "similarity_score": 0.80363,
+    "similarity_score": 0.803629,
     "source": "input_filtered"
   },
   {
@@ -1741,7 +1741,7 @@
   },
   {
     "term": "right middle lobe bronchus",
-    "similarity_score": 0.802836,
+    "similarity_score": 0.802837,
     "source": "input_filtered"
   },
   {
@@ -1776,7 +1776,7 @@
   },
   {
     "term": "mucosal stripe sign",
-    "similarity_score": 0.802498,
+    "similarity_score": 0.802497,
     "source": "input_filtered"
   },
   {
@@ -1976,7 +1976,7 @@
   },
   {
     "term": "pseudo-osteoarthritis",
-    "similarity_score": 0.799365,
+    "similarity_score": 0.799366,
     "source": "input_filtered"
   },
   {
@@ -1986,7 +1986,7 @@
   },
   {
     "term": "body of scapula",
-    "similarity_score": 0.799204,
+    "similarity_score": 0.799205,
     "source": "input_filtered"
   },
   {
@@ -2191,7 +2191,7 @@
   },
   {
     "term": "spine proper of left scapula",
-    "similarity_score": 0.796439,
+    "similarity_score": 0.79644,
     "source": "input_filtered"
   },
   {
@@ -2266,7 +2266,7 @@
   },
   {
     "term": "subpleural curvilinear line",
-    "similarity_score": 0.795688,
+    "similarity_score": 0.795689,
     "source": "input_filtered"
   },
   {
@@ -2426,7 +2426,7 @@
   },
   {
     "term": "T11 vertebral body",
-    "similarity_score": 0.793752,
+    "similarity_score": 0.793751,
     "source": "input_filtered"
   },
   {
@@ -2501,12 +2501,12 @@
   },
   {
     "term": "Sternum",
-    "similarity_score": 0.792732,
+    "similarity_score": 0.792733,
     "source": "input_filtered"
   },
   {
     "term": "proximal right coronary artery",
-    "similarity_score": 0.792671,
+    "similarity_score": 0.79267,
     "source": "input_filtered"
   },
   {

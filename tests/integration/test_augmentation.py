@@ -78,17 +78,15 @@ class TestIntegrationAugmentationPipeline:
 
         dataset = SingleImageDataset()
 
-        with patch("embedding_extraction.extract_embeddings.augmentation", aug_config):
+        with patch("embedding_extraction.extract_embeddings.augmentation", aug_config), \
+             patch("config.augmentation", aug_config):
             extract_visual_embeddings(
                 model, processor, dataset, vlm_config, embedding_config
             )
+            visual_emb_path = embedding_config.visual_output_path
 
-        # -- Verify Output Files -----------------------------------------
-        # Path resolution from EmbeddingConfig
-        output_dir = embedding_config.visual_output_path.parent
-        assert output_dir.name == "augmented", "It should have saved into the 'augmented' folder!"
+        assert visual_emb_path.parent.name == "augmented", "It should have saved into the 'augmented' folder!"
         
-        visual_emb_path = embedding_config.visual_output_path
         assert visual_emb_path.exists()
         visual_emb = torch.load(visual_emb_path, weights_only=True)
 

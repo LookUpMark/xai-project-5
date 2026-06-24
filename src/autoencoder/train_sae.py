@@ -33,16 +33,12 @@ logger = utils.setup_logging(__name__)
 
 
 def prepare_split() -> None:
-    """Create train/test split from visual_embeddings.pt if not on disk."""
-    train_path = config.paths.train_embeddings_path
-    test_path = config.paths.test_embeddings_path
+    """Create the train/test split from visual_embeddings.pt.
 
-    if train_path.exists() and test_path.exists():
-        logger.info("Train/test splits already exist — skipping.")
-        return
-
-    from sklearn.model_selection import train_test_split
-
+    Delegates to :func:`utils.split_embeddings`, which groups by radiograph
+    study (derived from the image-id basename) so no study straddles train and
+    test, and recomputes the partition deterministically on every call.
+    """
     source = config.paths.visual_embeddings_path
     if not source.exists():
         raise FileNotFoundError(
@@ -50,52 +46,29 @@ def prepare_split() -> None:
             f"Run first: python src/embedding_extraction/extract_embeddings.py"
         )
 
-    embeddings = utils.load_tensor(source)
     logger.info(
         f"Creating {config.training.train_split_ratio:.0%} / "
         f"{1 - config.training.train_split_ratio:.0%} split "
-        f"from {embeddings.shape[0]} embeddings"
+        f"from {source.name}"
     )
-
-    indices = np.arange(len(embeddings))
-    train_idx, test_idx = train_test_split(
-        indices,
-        train_size=config.training.train_split_ratio,
-        random_state=config.training.split_seed,
+    utils.split_embeddings(
+        source_path=source,
+        train_path=config.paths.train_embeddings_path,
+        test_path=config.paths.test_embeddings_path,
+        train_ratio=config.training.train_split_ratio,
+        seed=config.training.split_seed,
+        source_ids_path=config.paths.visual_image_ids_path,
+        train_ids_path=config.paths.train_image_ids_path,
+        test_ids_path=config.paths.test_image_ids_path,
     )
-
-    train_emb = embeddings[train_idx]
-    test_emb = embeddings[test_idx]
-
-    train_path.parent.mkdir(parents=True, exist_ok=True)
-    torch.save(train_emb, train_path)
-    torch.save(test_emb, test_path)
-
-    # Split the sidecar image-id list with the SAME permutation so the ids stay
-    # row-aligned with the tensors (needed downstream by generate_explanations
-    # to emit image_id for the LLM judge).
-    if config.paths.visual_image_ids_path.exists():
-        utils._split_ids(
-            train_idx,
-            test_idx,
-            config.paths.visual_image_ids_path,
-            config.paths.train_image_ids_path,
-            config.paths.test_image_ids_path,
-        )
-        logger.info("Image-id sidecar split alongside the embeddings.")
-
-    logger.info(f"Train: {train_emb.shape[0]} samples → {train_path}")
-    logger.info(f"Test:  {test_emb.shape[0]} samples → {test_path}")
 
 
 def compute_and_save_modality_gap() -> None:
     """Compute and save the modality gap between visual and text centroids."""
+    
     gap_path = config.paths.models_dir / "modality_gap.pt"
-    if gap_path.exists():
-        logger.info("Modality gap already computed — skipping.")
-        return
-
     logger.info("Computing modality gap...")
+
     train_emb = utils.load_tensor(config.paths.train_embeddings_path)
     vocab_emb = utils.load_tensor(config.paths.vocab_embeddings_path)
     

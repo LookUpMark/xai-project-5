@@ -32,9 +32,9 @@ def load_vlm(config: VLMConfig):
         config.processor_name,
         trust_remote_code=True,
     )
-    
+
     model.eval().to(config.device)
-    
+
     return model, processor
 
 
@@ -96,6 +96,9 @@ def setup_logging(name: str = __name__) -> logging.Logger:
     return logging.getLogger(name)
 
 
+logger = setup_logging(__name__)
+
+
 def dataclass_to_dict(obj) -> dict:
     """Convert a frozen/regular dataclass to a plain dict.
 
@@ -151,6 +154,33 @@ def _split_ids(
         json.dump(test_ids, f)
 
 
+def study_key_from_basename(name: str) -> str:
+    """Derive the radiograph-study group key from an image-id basename.
+
+    IU X-Ray filenames follow ``{patient}_IM-{study}-{view}.dcm.png``, where the
+    same study (patient + exam) is captured across multiple views (frontal /
+    lateral). Grouping the train/test split on the study key keeps every view of
+    one exam in a single partition, preventing patient/study leakage.
+
+    Unrecognised names (no ``_IM-`` marker) are returned unchanged so they become
+    singleton groups rather than crashing the split.
+
+    Args:
+        name: Image id as stored in the sidecar (a PNG basename).
+
+    Returns:
+        ``"{patient}_IM-{study}"`` for well-formed names, else ``name`` verbatim.
+    """
+    marker = "_IM-"
+    idx = name.find(marker)
+    if idx < 0:
+        return name
+    patient = name[:idx]
+    rest = name[idx + len(marker):]
+    study = rest.split("-", 1)[0]
+    return f"{patient}_IM-{study}"
+
+
 def split_embeddings(
     source_path: Path,
     train_path: Path,
@@ -161,37 +191,29 @@ def split_embeddings(
     train_ids_path: Path | None = None,
     test_ids_path: Path | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Create and save a train/test split from a embeddings tensor.
-
-    If both output files already exist, loads and returns them without
-    recomputing the split.
-
-    Optionally splits the sidecar image-id list (``source_ids_path``) in
-    lockstep with the tensors, using the same permutation, writing
-    ``train_ids_path``/``test_ids_path``. All three id paths must be provided
-    together; they are only written during a fresh split (the skip-if-exists
-    guard for the tensors also short-circuits id splitting — delete the split
-    ``.pt`` files to regenerate ids).
+    """Create and save a train/test split from an embeddings tensor.
 
     Args:
         source_path: Path to the source embeddings .pt file (N x D).
         train_path: Destination path for train embeddings.
         test_path: Destination path for test embeddings.
-        train_ratio: Fraction of samples for the train set. Defaults to 0.8.
+        train_ratio: Fraction of *groups* (with a sidecar) or *samples* (without)
+            assigned to train. Defaults to 0.8.
         seed: Random seed for reproducible splitting. Defaults to 42.
-        source_ids_path: Optional source sidecar JSON of image ids.
+        source_ids_path: Optional source sidecar JSON of image ids. Treated as
+            absent when the file does not exist.
         train_ids_path: Optional destination for the train split of ids.
         test_ids_path: Optional destination for the test split of ids.
 
     Returns:
         Tuple of (train_embeddings, test_embeddings) tensors.
     """
-    if train_path.exists() and test_path.exists():
-        train_emb = load_tensor(train_path)
-        test_emb = load_tensor(test_path)
-        return train_emb, test_emb
-
     from sklearn.model_selection import train_test_split as _sklearn_split
+
+    # A missing sidecar file is equivalent to "no grouping" so callers can pass
+    # the path unconditionally and still degrade gracefully (e.g. mock runs).
+    if source_ids_path is not None and not Path(source_ids_path).exists():
+        source_ids_path = None
 
     embeddings = load_tensor(source_path)
     if embeddings.dim() != 2:
@@ -199,32 +221,48 @@ def split_embeddings(
             f"Expected 2D embeddings tensor, got shape {embeddings.shape}"
         )
 
-    # Group by base ID to prevent data leakage of augmented images
     if source_ids_path is not None:
-        import json
         with open(source_ids_path, "r", encoding="utf-8") as f:
             image_ids = json.load(f)
-            
+
         if len(image_ids) != len(embeddings):
             raise ValueError("ID sidecar length does not match embeddings length")
-            
-        unique_ids = list(set(image_ids))
-        train_unique, test_unique = _sklearn_split(
-            unique_ids,
+
+        # Group by study key
+        study_keys = [study_key_from_basename(img_id) for img_id in image_ids]
+        unique_groups = sorted(set(study_keys))
+        train_groups, test_groups = _sklearn_split(
+            unique_groups,
             train_size=train_ratio,
             random_state=seed,
         )
-        
-        train_set = set(train_unique)
-        train_idx = [i for i, img_id in enumerate(image_ids) if img_id in train_set]
-        test_idx = [i for i, img_id in enumerate(image_ids) if img_id not in train_set]
-        
+
+        train_set = set(train_groups)
+        train_idx = [i for i, key in enumerate(study_keys) if key in train_set]
+        test_idx = [i for i, key in enumerate(study_keys) if key not in train_set]
+
+        # Safety net: no study may straddle both partitions.
+        train_keys = {study_keys[i] for i in train_idx}
+        test_keys = {study_keys[i] for i in test_idx}
+        assert not (train_keys & test_keys), "study leakage across train/test"
+
+        n_total = len(embeddings)
+        logger.info(
+            f"Group-aware split: {len(train_idx)}/{len(test_idx)} samples "
+            f"({len(train_idx) / n_total:.1%}/{len(test_idx) / n_total:.1%}) "
+            f"across {len(train_groups)}/{len(test_groups)} of {len(unique_groups)} "
+            f"studies (group overlap = 0)."
+        )
     else:
         indices = np.arange(len(embeddings))
         train_idx, test_idx = _sklearn_split(
             indices,
             train_size=train_ratio,
             random_state=seed,
+        )
+        logger.info(
+            f"Random split (no image-id sidecar): {len(train_idx)}/{len(test_idx)} "
+            f"samples."
         )
 
     train_emb = embeddings[train_idx]
@@ -242,7 +280,7 @@ def split_embeddings(
 
 def load_radlex_terms(csv_path: str) -> list[str]:
     """
-    Load RadLex CSV and return a deduplicated list of non-obsolete 
+    Load RadLex CSV and return a deduplicated list of non-obsolete
     preferred labels.
 
     Args:
@@ -252,7 +290,7 @@ def load_radlex_terms(csv_path: str) -> list[str]:
         List[str]: cleaned RadLex terms.
     """
     import csv
-    
+
     terms = []
     with open(csv_path, "r", encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
@@ -260,7 +298,7 @@ def load_radlex_terms(csv_path: str) -> list[str]:
             # Skip obsolete
             if row.get("Obsolete", "").strip().upper() == "TRUE":
                 continue
-            
+
             label = row.get("Preferred Label")
             if label and label.strip():
                 terms.append(label.strip())

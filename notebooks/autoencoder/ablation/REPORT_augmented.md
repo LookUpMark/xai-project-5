@@ -1,12 +1,11 @@
-# REPORT — SAE Ablations on AUGMENTED data (`{00,01,02}_*.augmented_exec.ipynb`)
+# REPORT — SAE Ablations on AUGMENTED data (`{00,01,02,03,04}_*.augmented_exec.ipynb`)
 
-**Run date:** 2026-06-24
+**Run date:** 2026-06-24 (ablations 00–02), 2026-06-25 (ablations 03–05)
 **Machine:** Linux / NVIDIA RTX 5070 Laptop, **CUDA** (`torch 2.12.0+cu130`)
 **Path:** `embeddings/augmented/` (`config.augmentation.enabled = True`)
-**Input:** BiomedCLIP embeddings (512-d) of IU X-Ray with on-the-fly augmentation (`num_augmentations=2`, `rotation=5°`, `crop=0.95–1.0`) → `visual_embeddings.pt` (22410 = 7470 × 3). RadLex vocabulary 508 terms.
+**Input:** BiomedCLIP embeddings (512-d) of IU X-Ray with on-the-fly augmentation (`num_augmentations=2`, `rotation=5°`, `crop=0.95–1.0`) → `visual_embeddings.pt` (22410 = 7470 × 3). RadLex vocabulary 508 terms. MeSH/Problems clinical labels (69 prevalent terms, prevalence ≥10).
 **Split:** group-aware by radiograph study (`study_key_from_basename`) — audit 06-23 F-001/F-002/F-003 fix. **17865 train / 4545 test**, **3081 / 771** of 3852 studies, **group overlap = 0** (leak-free).
-**Ablations covered:** 00_consensus, 01_dict_size, 02_k_sweep — all retrained clean on the augmented split.
-**Ablations pending:** 03_baselines, 04_activation_bakeoff (not run this session); 05_faithfulness **blocked** (see §6).
+**Ablations covered:** 00_consensus, 01_dict_size, 02_k_sweep, 03_baselines, 04_activation_bakeoff, 05_faithfulness — all executed clean on the augmented split.
 
 > Companion to [`REPORT.md`](REPORT.md) (standard path, contaminated split) and to [`../baseline/REPORT_augmented.md`](../baseline/REPORT_augmented.md) (augmented baseline). All ablation models here were retrained from scratch on the **augmented** embeddings after backing the standard-trained checkpoints aside (`models/_standard_backup_ablations/`) — the notebooks' skip-if-exists guards would otherwise have silently reused the standard (different-hash) models and produced false "augmented" results.
 
@@ -16,6 +15,9 @@
 - [Ablation 00 — Cross-Seed Consensus (direction-space)](#ablation-00--cross-seed-consensus-direction-space)
 - [Ablation 01 — Dictionary-Size Ladder](#ablation-01--dictionary-size-ladder)
 - [Ablation 02 — k (Sparsity) Sweep, null-calibrated](#ablation-02--k-sparsity-sweep-null-calibrated)
+- [Ablation 03 — Concept Baselines (Random / PCA / KMeans)](#ablation-03--concept-baselines-random--pca--kmeans)
+- [Ablation 04 — Activation Function Bakeoff (TopK / BatchTopK / JumpReLU)](#ablation-04--activation-function-bakeoff-topk--batchtopk--jumprelu)
+- [Ablation 05 — Faithfulness (Clinical Label Correlation)](#ablation-05--faithfulness-clinical-label-correlation)
 - [Are these results normal?](#are-these-results-normal)
 - [Reproducibility notes](#reproducibility-notes)
 - [6. Pending ablations](#6-pending-ablations)
@@ -31,10 +33,11 @@ Three ablations, each probing a different axis of the SAE, all on the **leak-fre
 | **00 — representation** | Do seeds agree in *direction* space (cosine), not just index? | ❌ p = 0.19 vs shuffle null — no consensus in any space |
 | **01 — dict size** | Does a smaller/larger dictionary stabilize features? | ❌ Jaccard tracks `k/(2D−k)` at every D (ratio 0.88–1.14) |
 | **02 — sparsity** | Does k control cross-seed reproducibility? | ❌ ratio 0.75–1.19 across k = {8,16,32,64}, all ≈ floor |
+| **05 — faithfulness** | Do live features correlate with clinical labels? | ⚠️ 47.1% live features beat |r|>0.10; strongest |r|=0.545 (heart failure); 42.7% beat shuffle null p95 |
 
 **The central result.** No lever available to the experimenter — dictionary width, sparsity budget, or the space in which agreement is measured — moves the discovered concepts off the chance floor. Two random `k`-subsets of a `D`-dictionary overlap by `k/(2D−k)` by pure combinatorics; the SAE ensembles reproduce that quantity almost exactly at every operating point. This is the non-uniqueness of sparse decomposition on projected CLIP embeddings, and it is **not** a function of the data contamination that the 06-23 audit flagged — it reproduces identically on the clean augmented split.
 
-Reconstruction quality and naming grounding remain healthy everywhere (cosine 0.984–0.995, RadLex alignment ≈ 0.385), so the SAEs are not failing — they are simply not unique.
+Reconstruction quality and naming grounding remain healthy everywhere (cosine 0.984–0.995, RadLex alignment ≈ 0.385), so the SAEs are not failing — they are simply not unique. Ablation 05 adds a complementary faithfulness lens: while cross-seed stability sits at the chance floor, nearly half of live features carry statistically detectable clinical signal — suggesting the representation is semantically grounded even if the specific basis vectors are not reproducible across seeds.
 
 ---
 
@@ -161,6 +164,128 @@ Same coherent clinical families as the augmented baseline (tubes/devices, verteb
 
 ---
 
+## Ablation 03 — Concept Baselines (Random / PCA / KMeans)
+
+**Setup.** No SAE training. Three alternative dictionaries, all `D=256`, `k=32`, 3 seeds `{0, 42, 123}` each, evaluated on the augmented test split (`N=4545`). PCA/KMeans fit on train only; cached per seed in `results/ablation/a3_cache/`. Additionally, an oversized `random_big` baseline (`D=4096`, same k/seeds) measures the empirical Jaccard floor at the SAE's native dict size.
+
+**Primary-seed (seed=42) metrics:**
+
+| Baseline | Cosine | Dead % | Naming mean | Naming max |
+|---|---|---|---|---|
+| **SAE TopK (ref, D=4096)** | 0.988 | 44.0 | 0.3949 | 0.5457 |
+| Random (D=256) | 0.451 | 0.0 | 0.3717 | 0.4429 |
+| Dense-PCA (D=256) | 0.9957 | 0.0 | 0.3786 | 0.5158 |
+| Freq-KMeans (D=256) | 0.9609 | 0.0 | **0.833** | **0.879** |
+| Random-big (D=4096) | 0.597 | 0.0 | 0.3712 | 0.454 |
+
+**Empirical Jaccard floors (3-seed cross-seed Jaccard, k=32):**
+
+| Baseline | Dict size | Jaccard mean | Std |
+|---|---|---|---|
+| Random | 256 | 0.0670 | 0.0053 |
+| Random-big | 4096 | **0.0036** | 0.0020 |
+| SAE TopK augmented baseline (5 seeds) | 4096 | 0.0039 | — |
+
+**Result.** Three findings:
+
+1. **SAE reconstruction is earned.** Random (D=256) cosine = 0.44 — far below SAE 0.988. Dense-PCA achieves near-ceiling (0.9957) with only 256 directions, confirming the augmented embedding manifold is effectively low-rank (≤256 dimensions), as expected from 512-d L2-normalised BiomedCLIP projections.
+
+2. **SAE naming is not emergent.** Random naming ≈ 0.37 (≈ SAE 0.385). PCA naming ≈ 0.379. KMeans naming = **0.833** — dramatically higher because K-Means centroids cluster by visual similarity (chest X-ray population modes) which aligns with RadLex vocabulary by construction. This dissociates naming score from interpretability: KMeans is more "nameable" but captures population statistics, not individual concept detectors.
+
+3. **Empirical Jaccard floor confirms the analytical null.** `random_big` (D=4096, k=32): empirical Jaccard = **0.0036** ≈ analytical `k/(2D−k) = 32/8160 = 0.00392`. The SAE augmented baseline Jaccard of 0.0039 sits on this empirical floor. **The SAE is no more stable than a random basis at the same dict size.**
+
+→ **Ablation 03 directly confirms the master conclusion.** Cross-seed Jaccard = chance floor. The K=32 active directions drawn from D=4096 are essentially random subsets of an overcomplete basis, reproducing the analytical floor empirically.
+
+---
+
+## Ablation 04 — Activation Function Bakeoff (TopK / BatchTopK / JumpReLU)
+
+**Setup.** Train three SAE variants with different activation functions, all at `dict_size=2048`, `k=32` (or equivalent target L0), `steps=12000`, `lr=5e-5`, 3 seeds `{0, 42, 123}`. All evaluated on the augmented test split (`N=4545`). Jaccard measured using `n_active_jaccard=20`; random floor `= n_active/dict_size = 20/2048 = 0.00977`.
+
+**Seed-averaged metrics:**
+
+| Variant | Cosine | Dead % | L0 mean | Jaccard | Signal/Null | Naming mean |
+|---|---|---|---|---|---|---|
+| **TopK** | 0.9927 | 15.1 | 32.0 | 0.00359 | **0.368** | 0.396 |
+| **BatchTopK** | 0.9934 | **7.0** | 34.4 | 0.00210 | **0.215** | 0.391 |
+| **JumpReLU** | 0.9917 | 49.8 | 33.1 | **0.00003** | **0.003** | 0.388 |
+
+Random floor (analytical): 0.00977. All variants: Signal/Null < 1.0 → all below chance floor.
+
+**Within-family consensus (direction-space, τ=0.9):**
+
+| Variant | Pooled rows | Clusters | Multi-seed consensus rate |
+|---|---|---|---|
+| TopK | 6144 | 6143 | 0.00016 (1 cluster) |
+| BatchTopK | 6144 | 6144 | 0.0 (no consensus) |
+| JumpReLU | 6144 | 6144 | 0.0 (no consensus) |
+
+**Cross-activation consensus (all 18432 rows pooled):** 5.5% of rows span ≥2 activation families; 0% span all 3.
+
+**Result.** Four findings:
+
+1. **Activation function does not rescue stability.** All three variants have Signal/Null < 0.37 — all sit below the random floor. JumpReLU Jaccard (0.000028) is essentially zero: nearly no index overlap across seeds.
+
+2. **BatchTopK has fewest dead features (7%).** Flexible per-sample sparsity budget allows the dictionary to stay utilised even when some directions are less active. TopK's rigid k=32 per sample leaves 15% dead; JumpReLU's learned threshold fails to activate ~50% of the dictionary.
+
+3. **Naming is invariant to activation function (~0.39 across all).** RadLex grounding is a property of the embedding space and vocabulary, not of how the SAE sparsifies activations.
+
+4. **No cross-activation shared directions.** 5.5% spanning-2-families rate is likely due to near-duplicate embeddings in augmented data (3× repeated images), not genuine shared concept structure. 0% spans all three activation families.
+
+→ **Activation function choice does not change the fundamental non-uniqueness.** The sparse decomposition of BiomedCLIP-projected embeddings is on the chance floor regardless of TopK, BatchTopK, or JumpReLU. BatchTopK is operationally best (lowest dead%), but this is a training quality difference, not a stability difference.
+
+---
+
+## Ablation 05 — Faithfulness (Clinical Label Correlation)
+
+**Setup.** Load the augmented baseline SAE (`sae_seed42`, dict=4096, k=32) and evaluate on the augmented test split (`N=4545`). Clinical labels derived from IU X-Ray reports (`indiana_reports.csv`) via MeSH union Problems fields, excluding "normal". Prevalence filter: ≥10 test images → **69/118 labels kept** (median prevalence=60, max=654). Live features: 1404/4096 (34.3%). Pearson correlation computed between each (feature, label) pair; significance via shuffle-null p95 (per-feature) and BH-FDR 0.05 globally.
+
+**Headline metrics:**
+
+| Metric | Value |
+|---|---|
+| Live features | 1404 / 4096 (34.3%) |
+| Prevalent labels | 69 / 118 |
+| % live features \|r\|>0.10 | **47.1%** (661/1404) |
+| % live features \|r\|>0.15 | 23.7% (333/1404) |
+| % live features \|r\|>0.20 | 12.0% (168/1404) |
+| % live features \|r\|>0.30 | 2.4% (34/1404) |
+| Live features beating shuffle null p95 | **42.7%** (600/1404) |
+| BH-FDR 0.05 significant (feature, label) pairs | 5023 / 96876 \|r\| threshold ≈ 0.045 |
+| Analytic null SE(r) | 0.0148 (\|r\|>0.10 ~ 6.7σ) |
+| **Strongest correlation** | **\|r\|=0.545** (feat 1113 → 'heart failure', prev=18) |
+
+**Top per-label best features:**
+
+| Label (prevalence) | Best \|r\| | Feature |
+|---|---|---|
+| heart failure (18) | **0.545** | feat 1113 |
+| hydropneumothorax (12) | 0.498 | feat 2696 |
+| volume loss (12) | 0.487 | feat 1754 |
+| pulmonary fibrosis (15) | 0.431 | feat 2548 |
+| implanted medical device (69) | 0.391 | feat 2765 |
+| pneumoperitoneum (21) | 0.375 | feat 1468 |
+| lung diseases, interstitial (21) | 0.363 | feat 3104 |
+| consolidation (24) | 0.353 | feat 2030 |
+| lucency (27) | 0.332 | feat 2696 |
+
+**Note on SAE names.** Gap-corrected naming (RadLex) assigns anatomy-like labels to most features (e.g. 'posterior root of spinal nerve', 'dental device'); this dissociation from the clinical correlation is expected — RadLex is a radiology anatomy vocabulary, not a pathology vocabulary. The correlation is measured directly against clinical report labels, bypassing naming.
+
+**Result.** Three findings:
+
+1. **A large fraction of live features carry statistically detectable clinical signal.** 47.1% of live features exceed |r|>0.10 vs a prevalent label; 42.7% beat their per-feature shuffle null at p95. This is well above what would be expected from random correlations at this sample size (analytic SE(r)=0.0148, so |r|>0.10 is 6.7σ).
+
+2. **Individual features can reach clinically meaningful correlation magnitudes.** 34 features (2.4% live) exceed |r|>0.30; the strongest is 0.545 for heart failure. These are not negligible signals — a single SAE feature accounts for ~30% of variance in a clinical label presence.
+
+3. **Faithfulness and stability are orthogonal properties.** Cross-seed Jaccard sits at the chance floor (0.0039), yet nearly half the live features correlate with clinical labels. This means the SAE discovers *some* clinically relevant structure — but the specific features that do so are not reproducible across seeds. Two independently trained SAEs may each have features correlated with heart failure, but not the *same* features.
+
+**Figure:** `results/figures/ablation/a5_faithfulness_headline.png`.
+**Artifact:** `results/ablation/a5_faithfulness.json`.
+
+→ **Ablation 05 conclusion.** The augmented SAE is clinically faithful but not stable. Features are semantically grounded (47% carry label signal, |r| up to 0.545) while cross-seed overlap remains at the analytical chance floor. Faithfulness and uniqueness are independent axes of SAE quality; the baseline SAE scores well on the former and near-zero on the latter.
+
+---
+
 ## Reproducibility notes
 
 - **Clean group split (audit 06-23 F-001/002/003).** `utils.split_embeddings` groups by `study_key_from_basename`; `sorted(set())` deterministic; `group_overlap == 0` asserted. All ablations read the augmented split via `config.paths.*_embeddings_path` (routed by `augmentation.enabled = True`).
@@ -176,8 +301,8 @@ Same coherent clinical families as the augmented baseline (tubes/devices, verteb
 
 ## 6. Pending ablations
 
-- **03_baselines** — concept baselines (random / PCA / KMeans dictionary) + empirical Jaccard floor. Not run this session. Expected to confirm the SAE is no more stable than a random basis.
-- **04_activation_bakeoff** — TopK vs BatchTopK vs JumpReLU. Not run this session. Tests whether the activation function changes stability.
-- **05_faithfulness** — **blocked.** Requires `data/iu_xray/reports/indiana_reports.csv` (and `indiana_projections.csv`); `data/iu_xray/` is empty locally. Unblock by downloading via `xai_datasets/download_iu_xray.py` (needs `pip install kagglehub` + Kaggle credentials) or by dropping the two CSVs into `data/iu_xray/reports/`.
+- ~~**03_baselines**~~ — ✅ **Completato 2026-06-25.** Risultati in [§Ablation 03](#ablation-03--concept-baselines-random--pca--kmeans) e `results/ablation/a3_baselines.json`.
+- ~~**04_activation_bakeoff**~~ — ✅ **Completato 2026-06-25.** Risultati in [§Ablation 04](#ablation-04--activation-function-bakeoff-topk--batchtopk--jumprelu) e `results/ablation/a4_activation.json`.
+- ~~**05_faithfulness**~~ — ✅ **Completato 2026-06-25.** Risultati in [§Ablation 05](#ablation-05--faithfulness-clinical-label-correlation) e `results/ablation/a5_faithfulness.json`. 47.1% live features |r|>0.10; strongest |r|=0.545 (heart failure). SAE clinically faithful ma non stabile.
 
-These three are independent of 00–02 (each trains its own models under its own dir) and can be run later without affecting the results above.
+**Tutte le ablazioni 00–05 completate.** Sweep augmented concluso.

@@ -53,9 +53,9 @@ def _vocab_term(label) -> str:
 # is constructed without a config (e.g. in tests).
 _DEFAULTS = {
     "activation_dim": 512,
-    "dict_size": 4096,
+    "dict_size": 1024,
     "k": 32,
-    "lr": None,
+    "lr": 5e-5, # in sync with SAEConfig
     "steps": 50_000,
     "warmup_steps": 1_000,
     "batch_size": 256,

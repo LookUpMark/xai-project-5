@@ -118,7 +118,7 @@ class VocabularyConfig:
         return f"embeddings/{subfolder}/text_vocab_embeddings.pt"
 
     # Filtering parameters
-    top_k: int = 500
+    top_k: int = 1024
 
     # NIH ChestX-ray14 seed terms (always included in the final vocabulary)
     nih_seed_terms: List[str] = field(default_factory=lambda: [
@@ -258,9 +258,9 @@ class SAEConfig:
     """
 
     activation_dim: int = 512
-    dict_size: int = 4096  # matches committed models (sae_seed*), _DEFAULTS, ablation notebooks
+    dict_size: int = 1024
     k: int = 32
-    lr: Optional[float] = None  # None = auto-scale from library
+    lr: Optional[float] = 5e-5  # None = library auto-scale (~4e-4)
     steps: int = 50_000
     warmup_steps: int = 1_000
     batch_size: int = 256

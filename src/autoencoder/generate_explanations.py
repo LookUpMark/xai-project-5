@@ -23,7 +23,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import config
 import utils
 from autoencoder.sae_module import SAEManager
-from autoencoder.tracking import init_tracking, log_artifact, finish_tracking
 
 logger = utils.setup_logging(__name__)
 
@@ -154,21 +153,6 @@ def run() -> Path:
 
     if explanations:
         logger.info(f"\nExample (sample 0):\n  {explanations[0]['pseudo_report']}")
-
-    # Tracking
-    if config.wandb_cfg.enabled:
-        init_tracking(
-            "generate_explanations",
-            {
-                "project": config.wandb_cfg.project,
-                "seed": SEED,
-                "n_samples": len(explanations),
-            },
-        )
-        try:
-            log_artifact(OUTPUT_PATH, "sample_explanations", "results")
-        finally:
-            finish_tracking()
 
     return OUTPUT_PATH
 

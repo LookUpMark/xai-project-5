@@ -23,7 +23,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import config
 import utils
 from autoencoder.sae_module import SAEManager
-from autoencoder.tracking import init_tracking, log_artifact, finish_tracking
 from autoencoder.visualization import plot_jaccard_heatmap, plot_per_seed_metrics
 
 logger = utils.setup_logging(__name__)
@@ -207,21 +206,6 @@ def run() -> Path:
         json.dump(results, f, indent=2)
 
     logger.info(f"\nResults saved to: {OUTPUT_PATH}")
-
-    # Tracking
-    if config.wandb_cfg.enabled:
-        init_tracking(
-            "stability_analysis",
-            {
-                "project": config.wandb_cfg.project,
-                "mean_jaccard": stability["mean_jaccard"],
-                "std_jaccard": stability["std_jaccard"],
-            },
-        )
-        try:
-            log_artifact(OUTPUT_PATH, "stability_analysis", "results")
-        finally:
-            finish_tracking()
 
     return OUTPUT_PATH
 

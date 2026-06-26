@@ -9,6 +9,7 @@ Run:
 """
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -81,6 +82,13 @@ def run() -> list[Path]:
     )
 
     results = [train_single(seed) for seed in config.training.seeds]
+
+    # Persist per-seed metrics for downstream consumers (ablation harness, run report).
+    metrics_path = config.paths.hidden_results_dir / "train_metrics.json"
+    metrics_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(metrics_path, "w") as f:
+        json.dump(results, f, indent=2)
+    log.info(f"Train metrics: {metrics_path}")
 
     # Report
     report_path = config.paths.hidden_results_dir / "REPORT_training.md"

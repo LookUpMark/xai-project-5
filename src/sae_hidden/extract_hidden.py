@@ -29,6 +29,7 @@ sys.path.insert(0, str(_HERE.parent.parent))  # repo root -> xai_datasets
 
 import config
 import utils
+from augmentation.transforms import get_safe_cxr_transforms
 from config import EmbeddingConfig
 from sae_hidden.reports import md_table, write_report
 from xai_datasets.iu_xray import IUXrayImageDataset
@@ -41,8 +42,15 @@ def _collate(batch):
     return tuple(zip(*batch))
 
 
-def extract_hidden_embeddings(model, processor, dataset, vlm_config):
+def extract_hidden_embeddings(model, processor, dataset, vlm_config, augmented: bool = False):
     """Extract raw 768-d CLS tokens pre-projection.
+
+    Args:
+        augmented: when True, encode ``config.augmentation.num_augmentations``
+            augmented views per image (rotation + light crop, see
+            ``augmentation.transforms``). Every view keeps the ORIGINAL image's
+            basename as its id, so ``utils.split_embeddings`` still groups all
+            views of a radiograph study into one partition (no train/test leakage).
 
     Returns:
         (Tensor(N, 768), list[str]) — embeddings and row-aligned PNG basenames.
@@ -55,18 +63,28 @@ def extract_hidden_embeddings(model, processor, dataset, vlm_config):
         collate_fn=_collate,
     )
 
+    # standard: one view (the originals); augmented: n_views random augmentations.
+    aug_transform = get_safe_cxr_transforms(config.augmentation) if augmented else None
+    n_views = config.augmentation.num_augmentations if augmented else 1
+
     all_embeddings, all_ids = [], []
     model.eval()
     with torch.no_grad():
         for batch_images, batch_paths in loader:
-            inputs = processor.image_processor(
-                images=list(batch_images), return_tensors="pt"
-            ).to(vlm_config.device)
-            # CLS token of the last hidden state: (B, 197, 768) -> (B, 768), RAW.
-            out = model.vision_model(pixel_values=inputs["pixel_values"])
-            cls = out.last_hidden_state[:, 0, :]
-            all_embeddings.append(cls.cpu())
-            all_ids.extend(Path(p).name for p in batch_paths)
+            view_groups = (
+                [[aug_transform(img) for img in batch_images] for _ in range(n_views)]
+                if augmented else [list(batch_images)]
+            )
+            for group in view_groups:
+                inputs = processor.image_processor(
+                    images=group, return_tensors="pt"
+                ).to(vlm_config.device)
+                # CLS token of the last hidden state: (B, 197, 768) -> (B, 768), RAW.
+                out = model.vision_model(pixel_values=inputs["pixel_values"])
+                cls = out.last_hidden_state[:, 0, :]
+                all_embeddings.append(cls.cpu())
+                # Original basename -> augmented views share the study key (no leakage).
+                all_ids.extend(Path(p).name for p in batch_paths)
 
     embeddings = torch.cat(all_embeddings)
     if embeddings.shape[1] != config.sae_hidden.activation_dim:
@@ -77,8 +95,12 @@ def extract_hidden_embeddings(model, processor, dataset, vlm_config):
     return embeddings, all_ids
 
 
-def run() -> Path:
-    """Extract + split + report. Returns the visual embeddings path."""
+def run(augmented: bool = False) -> Path:
+    """Extract + split + report. Returns the visual embeddings path.
+
+    Args:
+        augmented: extract augmented views (see :func:`extract_hidden_embeddings`).
+    """
     out_path = config.paths.hidden_visual_embeddings_path
     ids_path = config.paths.hidden_visual_image_ids_path
     report_path = config.paths.hidden_results_dir / "REPORT_extraction.md"
@@ -92,12 +114,13 @@ def run() -> Path:
         model, processor = utils.load_vlm(config.vlm)
         image_dir = config.paths.project_root / EmbeddingConfig().image_dir
         dataset = IUXrayImageDataset(image_dir)
-        log.info(f"Extracting 768-d CLS hidden state for {len(dataset)} images...")
+        mode = f"augmented (x{config.augmentation.num_augmentations})" if augmented else "standard"
+        log.info(f"Extracting 768-d CLS hidden state for {len(dataset)} images [{mode}]...")
         # num_workers=0: forking workers with the loaded VLM in RAM spikes memory
         # (the prior run was OOM-killed, exit 137). batch_size tuned for MPS headroom.
         vlm_cfg = dataclasses.replace(config.vlm, num_workers=0, batch_size=32)
         embeddings, all_ids = extract_hidden_embeddings(
-            model, processor, dataset, vlm_cfg
+            model, processor, dataset, vlm_cfg, augmented=augmented
         )
         out_path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(embeddings, out_path)
@@ -122,8 +145,9 @@ def run() -> Path:
     )
 
     norms = embeddings.norm(dim=1)
+    mode = f"augmented (x{config.augmentation.num_augmentations})" if augmented else "standard"
     summary = (
-        f"Extracted {embeddings.shape[0]} raw 768-d CLS tokens (pre-projection) "
+        f"Extracted {embeddings.shape[0]} raw 768-d CLS tokens (pre-projection, {mode}) "
         f"and split them at the radiograph-study level. CLS dim = {embeddings.shape[1]} "
         f"(confirms pre-projection path)."
     )
@@ -134,6 +158,7 @@ def run() -> Path:
                 ["property", "value"],
                 [
                     ["shape", str(tuple(embeddings.shape))],
+                    ["mode", mode],
                     ["dtype", str(embeddings.dtype)],
                     ["activation_dim (config)", str(config.sae_hidden.activation_dim)],
                     ["L2-norm mean / std", f"{norms.mean():.4f} / {norms.std():.4f}"],

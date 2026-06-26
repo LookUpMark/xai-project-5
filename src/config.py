@@ -427,15 +427,6 @@ class JudgeConfig:
 
 
 @dataclass(frozen=True)
-class WandbConfig:
-    """Weights & Biases experiment tracking."""
-
-    enabled: bool = False
-    project: str = "sae-concept-discovery"
-    entity: Optional[str] = None
-
-
-@dataclass(frozen=True)
 class HardwareConfig:
     """Device and compute settings."""
 
@@ -457,7 +448,6 @@ sae_hidden = SAEHiddenConfig()
 training = TrainingConfig()
 explanation = ExplanationConfig()
 judge = JudgeConfig()
-wandb_cfg = WandbConfig()
 hardware = HardwareConfig()
 
 # Backward compatibility alias

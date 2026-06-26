@@ -13,6 +13,7 @@ import pytest
 import torch
 from torch.utils.data import Dataset
 
+import config
 from config import SAEConfig, VLMConfig, EmbeddingConfig, AugmentationConfig
 from autoencoder.sae_module import SAEManager
 from embedding_extraction import extract_embeddings
@@ -216,7 +217,7 @@ class TestEmbeddingsToSAE:
         mgr.load(tmp_model_dir)
 
         sparse = mgr.encode(embeddings)
-        assert sparse.shape == (5, 4096)
+        assert sparse.shape == (5, config.sae.dict_size)
 
     def test_sae_reconstruction_from_vlm_embeddings(
         self, mock_vlm, mock_processor, vlm_config, embedding_config, tmp_model_dir
@@ -254,7 +255,7 @@ class TestEmbeddingsToSAE:
         for sample in top_concepts:
             assert len(sample) <= 5
             for feat_id, activation in sample:
-                assert 0 <= feat_id < 4096
+                assert 0 <= feat_id < config.sae.dict_size
                 assert activation >= 0
 
 
@@ -294,7 +295,7 @@ class TestFullVLMSAEPipeline:
 
         # Step 3: Name concepts using text embeddings
         concept_names = mgr.name_concepts(fake_vocab_embeddings, fake_vocab_labels)
-        assert len(concept_names) == 4096
+        assert len(concept_names) == config.sae.dict_size
 
         # Step 4: Get top concepts for each sample
         top_concepts = mgr.get_top_concepts(embeddings, n=5)
@@ -334,7 +335,7 @@ class TestFullVLMSAEPipeline:
         mgr.load(tmp_model_dir)
         concept_names = mgr.name_concepts(vocab_emb, vocab_labels)
 
-        assert len(concept_names) == 4096
+        assert len(concept_names) == config.sae.dict_size
         all_names = {info["name"] for info in concept_names.values()}
         assert all_names.issubset(set(vocab_labels))
 

@@ -5,6 +5,7 @@ Verifies Jaccard computation and stability metrics using real
 AutoEncoderTopK with random weights.
 """
 
+import config
 import pytest
 import torch
 
@@ -58,9 +59,9 @@ class TestComputeStability:
         dir_a.mkdir()
         torch.manual_seed(0)
         state_a = {
-            "encoder.weight": torch.randn(4096, 512),
-            "encoder.bias": torch.zeros(4096),
-            "decoder.weight": torch.randn(512, 4096),
+            "encoder.weight": torch.randn(config.sae.dict_size, 512),
+            "encoder.bias": torch.zeros(config.sae.dict_size),
+            "decoder.weight": torch.randn(512, config.sae.dict_size),
             "b_dec": torch.zeros(512),
             "k": torch.tensor(32),
             "threshold": torch.tensor(-1.0),
@@ -72,9 +73,9 @@ class TestComputeStability:
         dir_b.mkdir()
         torch.manual_seed(999)
         state_b = {
-            "encoder.weight": torch.randn(4096, 512),
-            "encoder.bias": torch.zeros(4096),
-            "decoder.weight": torch.randn(512, 4096),
+            "encoder.weight": torch.randn(config.sae.dict_size, 512),
+            "encoder.bias": torch.zeros(config.sae.dict_size),
+            "decoder.weight": torch.randn(512, config.sae.dict_size),
             "b_dec": torch.zeros(512),
             "k": torch.tensor(32),
             "threshold": torch.tensor(-1.0),
@@ -96,7 +97,7 @@ class TestComputeStability:
         assert mgr.is_loaded
 
         sparse = mgr.encode(fake_embeddings[:5])
-        assert sparse.shape == (5, 4096)
+        assert sparse.shape == (5, config.sae.dict_size)
 
     def test_n_parameter_limits_comparison(self, tmp_model_dir, fake_embeddings):
         """n parameter should limit which features are compared."""

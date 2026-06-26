@@ -287,11 +287,11 @@ class SAEConfig:
 
     Ablation presets for small datasets (N ~ 7400):
         Conservative:  k=16, dict_size=2048, lr=None, steps=30_000
-        Default:       k=32, dict_size=4096, lr=None, steps=50_000
+        Default:       k=32, dict_size=1024, lr=None, steps=50_000
         Aggressive:    k=64, dict_size=4096, lr=None, steps=80_000
 
     lr=None triggers the library's auto-scaling: 2e-4 / sqrt(dict_size / 16384).
-    For dict_size=4096 this gives ~4e-4. For small datasets, consider overriding
+    For dict_size=1024 this gives ~8e-4. For small datasets, consider overriding
     to a lower value (e.g. 5e-5) to avoid overfitting.
     """
 

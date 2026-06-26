@@ -34,6 +34,20 @@ class PathsConfig:
     vocab_embeddings_path: Path = field(init=False)
     vocab_labels_path: Path = field(init=False)
 
+    # ── Path A: SAE on 768-d pre-projection hidden state (additive, baseline-agnostic) ──
+    # Lives under embeddings/standard_hidden/ + models/sae_hidden/ + results/sae_hidden/
+    # so the 512-d baseline dirs are never touched. train() appends sae_seed{N}, so
+    # hidden_models_dir is the *base* dir (one model per seed sits under it).
+    hidden_embeddings_dir: Path = field(init=False)
+    hidden_visual_embeddings_path: Path = field(init=False)
+    hidden_train_embeddings_path: Path = field(init=False)
+    hidden_test_embeddings_path: Path = field(init=False)
+    hidden_visual_image_ids_path: Path = field(init=False)
+    hidden_train_image_ids_path: Path = field(init=False)
+    hidden_test_image_ids_path: Path = field(init=False)
+    hidden_models_dir: Path = field(init=False)
+    hidden_results_dir: Path = field(init=False)
+
     def __post_init__(self):
         self.data_dir = self.project_root / "data"
         subfolder = "augmented" if augmentation.enabled else "standard"
@@ -52,6 +66,30 @@ class PathsConfig:
         self.test_image_ids_path = self.embeddings_dir / "test_image_ids.json"
         self.vocab_embeddings_path = self.embeddings_dir / "text_vocab_embeddings.pt"
         self.vocab_labels_path = self.data_dir / "vocabulary.json"
+
+        # Path A (768-d pre-projection hidden state). Raw CLS tokens, no per-sample
+        # L2 norm (SAE-on-residual-stream literature trains on raw activations).
+        self.hidden_embeddings_dir = self.project_root / "embeddings" / "standard_hidden"
+        self.hidden_visual_embeddings_path = (
+            self.hidden_embeddings_dir / "visual_embeddings_768.pt"
+        )
+        self.hidden_train_embeddings_path = (
+            self.hidden_embeddings_dir / "train_embeddings_768.pt"
+        )
+        self.hidden_test_embeddings_path = (
+            self.hidden_embeddings_dir / "test_embeddings_768.pt"
+        )
+        self.hidden_visual_image_ids_path = (
+            self.hidden_embeddings_dir / "visual_image_ids.json"
+        )
+        self.hidden_train_image_ids_path = (
+            self.hidden_embeddings_dir / "train_image_ids.json"
+        )
+        self.hidden_test_image_ids_path = (
+            self.hidden_embeddings_dir / "test_image_ids.json"
+        )
+        self.hidden_models_dir = self.project_root / "models" / "sae_hidden"
+        self.hidden_results_dir = self.project_root / "results" / "sae_hidden"
 
 
 @dataclass(frozen=True)
@@ -298,6 +336,47 @@ class SAEConfig:
 
 
 @dataclass(frozen=True)
+class SAEHiddenConfig:
+    """Sparse Autoencoder (Top-K) hyperparameters for Path A — SAE on the 768-d
+    pre-projection CLS hidden state.
+
+    Audit-corrected (ML-AUDIT-2026-06-25): M-006 drops steps 50k→8k and pins lr=5e-5
+    (avoid ~2,140-epoch overfit + auto-scaled 4e-4); M-002 lowers dict_size from the
+    baseline's 4096 (1.5 samples/feat) to 2048 (2.9 samples/feat, 2.7x overcomplete of 768).
+    Input is RAW (no per-sample L2 norm) per SAE-on-residual-stream literature.
+    """
+
+    activation_dim: int = 768
+    dict_size: int = 2048
+    k: int = 32
+    lr: Optional[float] = 5e-5
+    steps: int = 8_000
+    warmup_steps: int = 1_000
+    batch_size: int = 256
+    log_steps: int = 1_000
+    decay_start_frac: float = 0.8
+    dead_threshold: float = 1e-8
+
+    def __post_init__(self):
+        if self.activation_dim != 768:
+            raise ValueError(
+                f"Path A activation_dim must be 768, got {self.activation_dim}"
+            )
+        if self.dict_size <= self.activation_dim:
+            raise ValueError(
+                f"dict_size ({self.dict_size}) must exceed activation_dim (768)"
+            )
+        if self.k >= self.dict_size:
+            raise ValueError(
+                f"k ({self.k}) must be less than dict_size ({self.dict_size})"
+            )
+        if self.warmup_steps >= self.steps:
+            raise ValueError(
+                f"warmup_steps ({self.warmup_steps}) must be < steps ({self.steps})"
+            )
+
+
+@dataclass(frozen=True)
 class TrainingConfig:
     """Multi-seed training and stability analysis settings."""
 
@@ -371,6 +450,7 @@ paths = PathsConfig()
 backbone = BackboneConfig()
 vlm = VLMConfig()
 sae = SAEConfig()
+sae_hidden = SAEHiddenConfig()
 training = TrainingConfig()
 explanation = ExplanationConfig()
 judge = JudgeConfig()

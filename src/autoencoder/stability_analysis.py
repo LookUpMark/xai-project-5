@@ -138,6 +138,23 @@ def run() -> Path:
     logger.info(f"  Mean Jaccard: {stability['mean_jaccard']:.4f}")
     logger.info(f"  Std Jaccard:  {stability['std_jaccard']:.4f}")
 
+    # 1b. Permutation-invariant matched stability (decoder best-match cosine).
+    # The slot-wise Jaccard above is ~0 by construction for SAEs with no canonical
+    # feature ordering and cannot establish non-identifiability (ML-AUDIT-2026-06-26
+    # F-001). This matched metric is the sound cross-seed signal.
+    logger.info("Computing permutation-invariant matched stability...")
+    matched = SAEManager.compute_stability_matched(
+        model_dirs, config={"device": config.hardware.device}
+    )
+    matched_path = config.paths.results_dir / "stability_matched.json"
+    with open(matched_path, "w") as f:
+        json.dump(matched, f, indent=2)
+    _mc, _nc = matched["mean_best_match_cosine"], matched["null_mean"]
+    logger.info(
+        f"  Best-match cosine: {_mc:.4f} vs null {_nc:.4f} "
+        f"({_mc / _nc:.2f}x), frac>=0.9: {matched['mean_frac_matched_0.9']:.4f}"
+    )
+
     # 2. Per-seed metrics
     logger.info("\nPer-seed metrics:")
     per_seed_metrics = {}

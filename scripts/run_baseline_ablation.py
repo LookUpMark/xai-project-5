@@ -60,17 +60,22 @@ def _f(v, p=3):
 
 
 def harvest(results_dir: Path) -> dict:
-    """dead%/recon/L0 from per-seed stability metrics; naming from concept_names."""
+    """dead%/recon/L0 from per-seed stability; match/null from matched stability."""
     m: dict = {}
     sm = results_dir / "stability_analysis.json"
     if sm.exists():
         d = json.load(open(sm))
-        m["mean_jaccard"] = d.get("stability", {}).get("mean_jaccard")
         psm = list(d.get("per_seed_metrics", {}).values())
         if psm:
             m["dead_pct"] = float(np.mean([r["dead_features_pct"] for r in psm]))
             m["recon_cos"] = float(np.mean([r["cosine"] for r in psm]))
             m["l0"] = float(np.mean([r["l0_mean"] for r in psm]))
+    sml = results_dir / "stability_matched.json"
+    if sml.exists():
+        d = json.load(open(sml))
+        m["match_cos"] = d.get("mean_best_match_cosine")
+        m["null_cos"] = d.get("null_mean")
+        m["frac_0.9"] = d.get("mean_frac_matched_0.9")
     cn = results_dir / "concept_names.json"
     if cn.exists():
         d = json.load(open(cn))
@@ -95,15 +100,23 @@ def _write_comparison(abl_dir: Path, per: dict[str, dict]) -> None:
     rows = []
     for tag, ov in PRESETS.items():
         m = per.get(tag, {})
+        mc, nc = m.get("match_cos"), m.get("null_cos")
+        ratio = (
+            f"{mc / nc:.2f}x"
+            if (isinstance(mc, (int, float)) and isinstance(nc, (int, float)) and nc)
+            else "—"
+        )
         rows.append([
             tag, ov["dict_size"], ov["k"],
             _f(m.get("dead_pct"), 1), _f(m.get("recon_cos")), _f(m.get("l0"), 1),
-            _f(m.get("naming_mean"), 4), _f(m.get("mean_jaccard"), 4),
+            _f(m.get("naming_mean"), 4), _f(mc), _f(nc), ratio,
         ])
     summary = (
         f"Baseline (512-d) dict_size x k sweep (steps={STEPS}, seeds={list(config.training.seeds)}), "
         f"reusing cached standard embeddings. dead%/recon/L0 are per-seed means over the test set; "
-        f"mean_jaccard is cross-seed feature overlap (the documented failure case: ~0.004 = chance floor)."
+        f"match/null is the permutation-invariant decoder best-match cosine over the isotropic null "
+        f"(>1x = shared subspace above chance). Slot-wise Jaccard is omitted — degenerate by construction "
+        f"(ML-AUDIT-2026-06-26 F-001)."
     )
     sections = [
         (
@@ -116,7 +129,8 @@ def _write_comparison(abl_dir: Path, per: dict[str, dict]) -> None:
         (
             "Results",
             md_table(
-                ["preset", "dict_size", "k", "dead%", "recon cos", "L0", "naming mean", "mean jaccard"],
+                ["preset", "dict_size", "k", "dead%", "recon cos", "L0",
+                 "naming mean", "match cos", "null cos", "match/null"],
                 rows,
             ),
         ),
@@ -125,7 +139,10 @@ def _write_comparison(abl_dir: Path, per: dict[str, dict]) -> None:
             "- **dead%**: activation-based, per-seed mean over the test set.\n"
             "- **naming mean**: mean top-1 cosine of live decoder features vs RadLex "
             "(random ~0.372).\n"
-            "- **mean jaccard**: cross-seed feature overlap; ~0.004 is the analytical chance floor.\n"
+            "- **match cos / null cos**: permutation-invariant decoder best-match cosine vs "
+            "isotropic null (>1x = shared subspace above chance). Slot-wise Jaccard is omitted — "
+            "~0 by construction for SAEs with no canonical feature ordering "
+            "(ML-AUDIT-2026-06-26 F-001).\n"
             "- Per-preset artifacts under `results/sae_baseline_ablation/{preset}/`.",
         ),
     ]

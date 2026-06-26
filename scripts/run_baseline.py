@@ -123,7 +123,8 @@ def _write_run_report(args, sae, models_dir, results_dir, stages, total):
                 ["artifact", "path"],
                 [
                     ["concept names", f"{results_dir}/concept_names.json"],
-                    ["stability", f"{results_dir}/stability_analysis.json"],
+                    ["stability (jaccard)", f"{results_dir}/stability_analysis.json"],
+                    ["stability (matched)", f"{results_dir}/stability_matched.json"],
                     ["explanations", f"{results_dir}/sample_explanations.json"],
                 ],
             ),

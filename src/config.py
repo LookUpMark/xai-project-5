@@ -356,6 +356,9 @@ class SAEHiddenConfig:
     log_steps: int = 1_000
     decay_start_frac: float = 0.8
     dead_threshold: float = 1e-8
+    # Permutation-invariant stability (compute_stability_matched, ML-AUDIT-2026-06-26 F-001):
+    n_perm: int = 200  # random-pairing null samples (Lan et al. 2024 use 1000)
+    match_thresholds: tuple[float, ...] = (0.7, 0.9)  # cosine cutoffs for "fraction matched"
 
     def __post_init__(self):
         if self.activation_dim != 768:

@@ -16,7 +16,7 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "src"))
 
 import config  # noqa: E402
-from autoencoder.sae_module import SAEManager  # noqa: E402
+from autoencoder.sae_module import SAEManager, matched_pair_stats  # noqa: E402
 from sae_hidden.naming_hidden import (  # noqa: E402
     bridge_cosine_sims,
     dead_feature_mask,
@@ -151,3 +151,65 @@ def test_sae_manager_trains_and_encodes_768(tmp_path):
     # Top-K: exactly k non-zero entries per row.
     l0 = (sparse != 0).float().sum(dim=1)
     assert torch.all(l0 == 8)
+
+
+# ── Permutation-invariant matched stability (F-001 fix) ────────────────────────
+
+
+def _null_gen() -> torch.Generator:
+    """Fresh deterministic generator for the isotropic null (keeps tests stable)."""
+    return torch.Generator().manual_seed(7)
+
+
+def test_matched_identity_is_one():
+    """A decoder vs itself: every feature matches itself → cosine ~1.0, p≈0."""
+    torch.manual_seed(0)
+    W = torch.randn(40, 64)
+    s = matched_pair_stats(W, W, n_perm=50, generator=_null_gen())
+    assert s["mean_best_match_cosine"] > 0.999
+    assert s["frac_matched_0.9"] == pytest.approx(1.0)
+    assert s["p_value"] < 0.05  # isotropic null cannot reach ~1.0
+
+
+def test_matched_permutation_invariant():
+    """Permuting W_j's rows leaves the best-match distribution unchanged.
+
+    This is the whole point: the observed metric is invariant to the arbitrary
+    per-seed feature ordering — the property slot-wise index Jaccard lacks.
+    """
+    torch.manual_seed(1)
+    W_i = torch.randn(30, 64)
+    W_j = torch.randn(30, 64)
+    perm = torch.randperm(30)
+    base = matched_pair_stats(W_i, W_j, n_perm=20, generator=_null_gen())
+    permuted = matched_pair_stats(W_i, W_j[perm], n_perm=20, generator=_null_gen())
+    assert base["mean_best_match_cosine"] == pytest.approx(
+        permuted["mean_best_match_cosine"], abs=1e-6
+    )
+    assert base["frac_matched_0.7"] == pytest.approx(
+        permuted["frac_matched_0.7"], abs=1e-6
+    )
+
+
+def test_matched_random_is_at_null():
+    """Two independent random decoders → observed ≈ isotropic null, low and not strong."""
+    torch.manual_seed(2)
+    W_i = torch.randn(80, 128)
+    W_j = torch.randn(80, 128)
+    s = matched_pair_stats(W_i, W_j, n_perm=100, generator=_null_gen())
+    assert s["mean_best_match_cosine"] < 0.5  # well below any "matched" threshold
+    assert abs(s["mean_best_match_cosine"] - s["null_mean"]) < 0.15  # consistent w/ null
+    # Under a true null p is ~Uniform(0,1); assert it is not strongly significant.
+    assert s["p_value"] > 0.01
+
+
+def test_matched_dead_row_scores_zero():
+    """A zero (dead) decoder row matches at ~0; only live rows contribute."""
+    torch.manual_seed(3)
+    D = 20
+    W = torch.eye(D)  # orthonormal: each live row matches only itself
+    W[-1] = 0.0       # kill the last row
+    s = matched_pair_stats(W, W, n_perm=20, generator=_null_gen())
+    # 19 live rows match at cosine 1.0; the dead row matches at 0.
+    assert s["mean_best_match_cosine"] == pytest.approx((D - 1) / D, abs=1e-4)
+    assert s["frac_matched_0.9"] == pytest.approx((D - 1) / D, abs=1e-4)

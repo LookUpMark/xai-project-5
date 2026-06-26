@@ -78,6 +78,67 @@ def _extract_sae_config(cfg) -> dict:
     return utils.dataclass_to_dict(cfg)
 
 
+def matched_pair_stats(
+    W_i: torch.Tensor,
+    W_j: torch.Tensor,
+    n_perm: int = 200,
+    thresholds: tuple[float, ...] = (0.7, 0.9),
+    generator: torch.Generator | None = None,
+) -> dict:
+    """Permutation-invariant feature agreement for one seed pair (decoder cosine).
+
+    Pure, model-free core of :meth:`SAEManager.compute_stability_matched` — kept
+    separate so the matching math is unit-testable without loading SAEs. Inputs are
+    decoder weight rows ``(D, d)``; rows need not be pre-normalised (this L2-normalises
+    them). Dead/zero rows are the caller's responsibility — they score ~0 and drag
+    the mean down, so drop them first (as ``compute_stability_matched`` does).
+
+    For each feature *a* in *i*, ``best = max_b cosine(W_i[a], W_j[b])``. The null
+    is the same statistic against *independent random unit vectors* (isotropic): a
+    row-shuffle/permutation null is degenerate here, because max-over-columns is
+    invariant to permuting ``W_j``'s rows. The p-value is ``P(null >= observed)``
+    (one-sided). NB the isotropic null does not control for data-manifold
+    concentration, so treat ``mean_best_match_cosine`` vs the null as a lower bound
+    on evidence; the high-threshold fractions (``frac_matched_0.9``) are the
+    concentration-robust signal (random directions cannot reach 0.9).
+
+    Args:
+        W_i, W_j: decoder rows (D_i, d) and (D_j, d).
+        n_perm: isotropic null samples (random unit-vector draws).
+        thresholds: cosine cutoffs for "fraction matched".
+        generator: optional torch RNG for a deterministic null.
+
+    Returns:
+        Dict with ``mean_best_match_cosine``, ``frac_matched_{t}``,
+        ``frac_mutual_1to1``, ``null_mean``, ``null_std``, ``p_value``, ``n_perm``.
+    """
+    W_i = F.normalize(W_i.to(torch.float32), dim=1)
+    W_j = F.normalize(W_j.to(torch.float32), dim=1)
+    sims = W_i @ W_j.T                              # (D_i, D_j) cosine
+    best = sims.max(dim=1).values                   # best match per i-feature
+    b_for_a = sims.argmax(dim=1)                    # (D_i,) j matched to each i
+    a_for_b = sims.argmax(dim=0)                    # (D_j,) i matched to each j
+    mutual = a_for_b[b_for_a] == torch.arange(W_i.shape[0])
+    obs = best.mean().item()
+
+    # Isotropic null: best-match to n_perm independent random unit-vector sets.
+    nulls = torch.empty(n_perm)
+    for k in range(n_perm):
+        w_null = F.normalize(torch.randn(W_j.shape, generator=generator), dim=1)
+        nulls[k] = (W_i @ w_null.T).max(dim=1).values.mean()
+    p = (nulls >= obs).float().mean().item()
+
+    return {
+        "mean_best_match_cosine": obs,
+        **{f"frac_matched_{t}": (best >= t).float().mean().item() for t in thresholds},
+        "frac_mutual_1to1": mutual.float().mean().item(),
+        "null_mean": nulls.mean().item(),
+        "null_std": nulls.std(correction=0).item() if n_perm > 1 else 0.0,
+        "p_value": p,
+        "n_perm": n_perm,
+    }
+
+
 class SAEManager:
     """
     Unified interface for the SAE lifecycle.
@@ -634,6 +695,97 @@ class SAEManager:
             "std_jaccard": upper_vals.std(correction=0).item()
             if upper_vals.numel() > 1
             else 0.0,
+        }
+
+    @staticmethod
+    def compute_stability_matched(
+        model_dirs: list[str | Path],
+        config: Optional[dict] = None,
+        n_perm: int = 200,
+        thresholds: tuple[float, ...] = (0.7, 0.9),
+        dead_threshold: float = 1e-8,
+        seed: int | None = 0,
+    ) -> dict:
+        """Permutation-invariant cross-seed feature agreement (decoder-cosine matching).
+
+        ``compute_stability`` measures *slot-wise* index Jaccard (feature #342 vs
+        #342), which is ~0 by construction for SAEs that have no canonical feature
+        ordering — so it cannot show identifiability and mis-reports it (see
+        ML-AUDIT-2026-06-26 F-001). This metric instead pairs each feature in seed
+        *i* with its most cosine-similar decoder direction in seed *j*, making the
+        comparison invariant to the arbitrary per-seed permutation.
+
+        Literature: Bricken et al. 2023 (highest-correlation pairing); Lan et al.
+        2024 (arXiv:2410.06981 §3, App. E.2 — the direct same-model-different-seed
+        precedent). The null is best-match against independent random unit vectors
+        (isotropic); see :func:`matched_pair_stats` for why a row-shuffle/permutation
+        null is degenerate for max-cosine. Decoder-cosine (not activation-correlation)
+        is used because on this dataset TopK k=32 over ~1.5k samples makes activation
+        Pearson correlation dominated by shared zeros; Lan et al. App. E.2 validate
+        decoder cosine for this case (avg 0.9, SVCCA 0.92). Frame results as weak vs
+        strong universality (Leask et al. 2025): cross-seed SAEs are *expected* to
+        share at most a subspace, not identical features.
+
+        Loads one model at a time (mirrors ``compute_stability``) to avoid GPU OOM.
+
+        Args:
+            model_dirs: one dir per seed (e.g. models/sae_hidden/sae_seed{N}).
+            config: SAE config override dict.
+            n_perm: isotropic null samples (Lan et al. use 1000; 200 has low variance).
+            thresholds: cosine cutoffs for the "fraction matched" stats.
+            dead_threshold: decoder rows with norm below this are dropped before matching.
+            seed: RNG seed for the permutation null (None = nondeterministic).
+
+        Returns:
+            Aggregated + per-pair stats; key fields: ``mean_best_match_cosine``,
+            ``mean_frac_matched_{t}``, ``mean_frac_mutual_1to1``, ``null_mean``,
+            ``p_value``, ``min_p_value``.
+        """
+        if config is not None and not isinstance(config, dict):
+            config = _extract_sae_config(config)
+        effective_config = {**_DEFAULTS, **(config or {})}
+        gen = None if seed is None else torch.Generator().manual_seed(seed)
+
+        # Load each decoder once, keep only live rows on CPU (D×d ≈ 6 MB each).
+        decoders: list[torch.Tensor] = []
+        for d in model_dirs:
+            mgr = SAEManager(effective_config)
+            mgr.load(d)
+            W = mgr.get_decoder_weights().detach().to(torch.float32).cpu()
+            live = W.norm(dim=1) >= dead_threshold
+            decoders.append(W[live])
+            del mgr._ae
+            mgr._ae = None
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+        n = len(model_dirs)
+        pairs: list[dict] = []
+        for i in range(n):
+            for j in range(i + 1, n):
+                if decoders[i].shape[0] == 0 or decoders[j].shape[0] == 0:
+                    continue  # all-dead SAE — nothing to match
+                rec = matched_pair_stats(
+                    decoders[i], decoders[j], n_perm=n_perm,
+                    thresholds=thresholds, generator=gen,
+                )
+                rec["pair"] = f"{i}-{j}"
+                pairs.append(rec)
+
+        def _agg(key: str) -> float:
+            return float(sum(p[key] for p in pairs) / len(pairs)) if pairs else 0.0
+
+        return {
+            "n_seeds": n,
+            "n_pairs": len(pairs),
+            "thresholds": list(thresholds),
+            "mean_best_match_cosine": _agg("mean_best_match_cosine"),
+            **{f"mean_frac_matched_{t}": _agg(f"frac_matched_{t}") for t in thresholds},
+            "mean_frac_mutual_1to1": _agg("frac_mutual_1to1"),
+            "null_mean": _agg("null_mean"),
+            "p_value": _agg("p_value"),
+            "min_p_value": min((p["p_value"] for p in pairs), default=1.0),
+            "pairs": pairs,
         }
 
     # ── Internals ─────────────────────────────────────────────────────

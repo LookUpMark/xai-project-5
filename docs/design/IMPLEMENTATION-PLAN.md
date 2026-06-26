@@ -1,578 +1,484 @@
-# Piano Implementativo Definitivo v2 — Progetto 5 XAI 2025/26
-## Unsupervised Concept Discovery per Medical VLM
+# Implementation Plan v3.0 — Project 5 XAI 2025/26
+## Unsupervised Concept Discovery for Medical VLMs
 
-**Gruppo**: 3 persone, esperienza DL solida
-**Hardware**: RTX 5070 8GB VRAM + 32GB RAM | Mac Mini M2 8GB RAM
-**Tempo**: 3–4 settimane
-**Stack**: HuggingFace `transformers` + PyTorch + LangGraph + Google AI Studio
+> **Version:** 3.0 (post-audit reframe)
+> **Supersedes:** `docs/archive/IMPLEMENTATION-PLAN-v1-original.md`
+> **Driven by:** `docs/design/PROJECT-STRATEGY.md` v2.0, `docs/design/proposals/PIPELINE-REFRAME-MAIN-VS-BASELINE.md`, `docs/audits/ML-AUDIT-2026-06-25.md`
+> **Status:** Active plan — governs all new implementation work.
 
 ---
 
-## Decisioni Architetturali Definitive
+## Architecture Overview
 
-```mermaid
-block-beta
-    columns 3
-    
-    block:backbone["1. Backbone VLM"]:1
-        A["BiomedCLIP\nchuhac/BiomedCLIP-vit-bert-hf\n512-dim shared space"]
-    end
-    
-    block:sae["2. SAE"]:1
-        B["dictionary-learning\nTop-K (k=32)\n512 → 4096"]
-    end
-    
-    block:judge["3. LLM Judge"]:1
-        C["Gemma 4 E4B\nOllama locale\n~80-150 tok/s"]
-    end
-
-    style backbone fill:#e3f2fd,stroke:#1565C0
-    style sae fill:#fce4ec,stroke:#C62828
-    style judge fill:#f3e5f5,stroke:#6A1B9A
+```
+Methods:
+  Baseline   → SAE TopK on 512-d projected embedding  [done — re-narrated as failure case]
+  Main A     → SAE on 768-d pre-projection hidden state [to implement]
+  Main B     → SPLiCE — sparse decomposition on RadLex  [to implement, start here]
+  Extension  → Structured concept organisation           [to implement]
+  Evaluation → MedGemma LLM judge                        [code done, pending M-007 fixes]
 ```
 
-### 1. Backbone VLM — BiomedCLIP via HuggingFace `transformers`
+**Backbone:** `chuhac/BiomedCLIP-vit-bert-hf` — ViT-B/16, hidden 768-d, projected 512-d.
+**Dataset:** IU X-Ray — 7,470 images; train/test split group-aware.
+**Stack:** PyTorch + HuggingFace Transformers + dictionary-learning + LangGraph + MedGemma.
 
-**Modello**: `chuhac/BiomedCLIP-vit-bert-hf`
-**Perché**: porting HF-native completo di BiomedCLIP Microsoft, zero dipendenze da `open_clip`, API identica a qualunque altro modello HF. Pretrained su 15M coppie figura-caption da PubMed Central, SOTA per chest X-ray.
+---
+
+## Repository Structure
+
+```
+xai-project-5/
+├── data/
+│   └── iu_xray/
+│       ├── images/images_normalized/   # PNG radiographs
+│       └── reports/                    # indiana_reports.csv, indiana_projections.csv
+├── embeddings/
+│   ├── standard/                       # 512-d projected embeddings (baseline)
+│   │   ├── visual_embeddings.pt        # (7470, 512) L2-normalised
+│   │   ├── train_embeddings.pt / test_embeddings.pt
+│   │   ├── visual_image_ids.json       # PNG basenames (row-aligned)
+│   │   └── text_vocab_embeddings.pt   # (508, 512) RadLex text embeddings
+│   └── standard_hidden/               # 768-d hidden state embeddings [Path A]
+│       ├── visual_embeddings_768.pt
+│       ├── train_embeddings_768.pt / test_embeddings_768.pt
+│       └── visual_image_ids.json
+├── models/
+│   ├── modality_gap.pt                 # visual_centroid - text_centroid
+│   ├── sae_seed{0,42,123,456,789}/     # trainer_0/ae.pt (baseline 512-d)
+│   ├── ablation_{a0..a5}/             # ablation models (baseline)
+│   └── sae_hidden_seed{0,42,...}/     # [Path A] 768-d SAE models
+├── results/
+│   ├── concept_names.json              # {feat_id: {name, score}} baseline
+│   ├── sample_explanations.json        # per-sample explanations, baseline
+│   ├── ablation/                       # ablation results (baseline)
+│   ├── spliece/                        # [Path B] SPLiCE outputs
+│   └── sae_hidden/                     # [Path A] SAE-768 outputs
+├── src/
+│   ├── config.py                       # all configs (SAEConfig, EmbeddingConfig, ...)
+│   ├── utils.py                        # load_vlm, set_global_seed, load_tensor, ...
+│   ├── embedding_extraction/
+│   │   └── extract_embeddings.py       # 512-d (existing) + 768-d branch [Path A]
+│   ├── vocabulary_building/
+│   │   └── build_vocabulary.py
+│   ├── autoencoder/
+│   │   ├── sae_module.py               # SAEManager facade
+│   │   ├── train_sae.py                # prepare_split + train_single
+│   │   ├── concept_naming.py           # cosine naming + gap correction
+│   │   ├── generate_explanations.py    # per-sample pseudo-reports
+│   │   ├── stability_analysis.py       # cross-seed Jaccard
+│   │   └── contracts.py / protocols.py / ...
+│   ├── concept_discovery/              # NEW [Paths B + Extension]
+│   │   ├── __init__.py
+│   │   ├── spliece.py                  # [Path B] SPLiCE implementation
+│   │   └── organize.py                 # [Extension] clustering + hierarchy
+│   └── evaluate_llm_judge.py           # LangGraph + MedGemma judge
+├── notebooks/
+│   ├── vlm/
+│   │   └── extract_embeddings.ipynb   # 512-d (existing); add 768-d mode
+│   └── autoencoder/
+│       ├── baseline/pipeline.ipynb
+│       ├── ablation/0{0..5}_*.ipynb
+│       ├── 07_spliece.ipynb            # [Path B]
+│       ├── 06_concept_organization.ipynb # [Extension]
+│       └── 08_sae_hidden.ipynb         # [Path A]
+├── tests/
+│   ├── unit/
+│   └── integration/
+├── docs/
+├── CLAUDE.md
+├── AGENTS.md
+├── HANDOFF.md
+└── requirements.txt
+```
+
+---
+
+## Priority 0 — Judge Fix (M-007) — Independent, parallel
+
+**Files:** `src/evaluate_llm_judge.py`, `src/config.py`
+
+Prerequisite for any faithfulness number. From `ML-AUDIT-2026-06-24.md`:
+
+| Fix | Issue | Change |
+|---|---|---|
+| **F-001** | Verb/label mismatch in prompt | Map prompt verbs (SUPPORTS/CONTRADICTS/AMBIGUOUS) consistently to labels (Aligned/Unaligned/Uncertain) |
+| **F-002** | Frozen on resume | On `--resume`, retry failed/missing pairs, not all pairs |
+| **F-003** | Non-reproducible temperature | Set `temperature=0.0` + `seed` kwarg explicitly |
+| **F-007** | No `JudgeConfig` | Add `JudgeConfig` frozen dataclass to `config.py`; wire into `evaluate_llm_judge.py` |
+
+**Test:** existing `tests/unit/test_llm_judge.py` (currently uncollected due to langgraph).
+
+---
+
+## Priority 1 — Path B: SPLiCE (implement first)
+
+**New file:** `src/concept_discovery/spliece.py`
+**New notebook:** `notebooks/autoencoder/07_spliece.ipynb`
+
+### Algorithm
 
 ```python
-from transformers import AutoModel, AutoProcessor
+# src/concept_discovery/spliece.py
+from __future__ import annotations
+from dataclasses import dataclass
+from pathlib import Path
 
-model = AutoModel.from_pretrained(
-    "chuhac/BiomedCLIP-vit-bert-hf",
-    trust_remote_code=True
-)
-processor = AutoProcessor.from_pretrained(
-    "chuhac/BiomedCLIP-vit-bert-hf",
-    trust_remote_code=True
-)
-model.eval().to("cuda")
+import numpy as np
+import torch
+from sklearn.linear_model import OrthogonalMatchingPursuit
+
+@dataclass(frozen=True)
+class SpliCEConfig:
+    k: int = 32                    # number of concepts per image
+    use_gap_correction: bool = True
+    vocab_path: Path = Path("data/vocabulary.json")
+    vocab_emb_path: Path = Path("embeddings/standard/text_vocab_embeddings.pt")
+    gap_path: Path = Path("models/modality_gap.pt")
+    output_dir: Path = Path("results/spliece")
+
+
+def decompose_image(
+    image_emb: torch.Tensor,      # (512,) L2-normalised
+    vocab_emb: torch.Tensor,      # (508, 512) text embeddings
+    gap: torch.Tensor | None,     # (512,) modality gap vector
+    k: int = 32,
+) -> torch.Tensor:
+    """Return sparse coefficient vector (508,) via OMP."""
+    emb = image_emb.clone()
+    if gap is not None:
+        emb = emb - gap            # modality-gap correction
+    # OMP: solve min ||emb - vocab_emb.T @ c||  s.t. nnz(c) <= k, c >= 0
+    omp = OrthogonalMatchingPursuit(n_nonzero_coefs=k, fit_intercept=False)
+    # Note: OMP from sklearn does not enforce non-negativity; use Lasso(positive=True)
+    # as alternative. See implementation notes below.
+    X = vocab_emb.numpy()          # (508, 512) — dictionary atoms as rows
+    y = emb.numpy()                # (512,) — target
+    omp.fit(X.T, y)                # X.T is (512, 508); solve y = X.T @ c
+    coeffs = torch.from_numpy(omp.coef_).float()  # (508,)
+    coeffs = coeffs.clamp(min=0)   # enforce non-negativity post-hoc
+    return coeffs
+
+
+def run(config: SpliCEConfig, test_embeddings: torch.Tensor,
+        image_ids: list[str], vocab_terms: list[str]) -> list[dict]:
+    """Decompose all test images; return per-image concept lists."""
+    vocab_emb = torch.load(config.vocab_emb_path, weights_only=True)
+    gap = None
+    if config.use_gap_correction:
+        gap = torch.load(config.gap_path, weights_only=True)
+
+    results = []
+    for i, (emb, img_id) in enumerate(zip(test_embeddings, image_ids)):
+        coeffs = decompose_image(emb, vocab_emb, gap, k=config.k)
+        top_k = coeffs.topk(config.k)
+        concepts = [
+            {"term": vocab_terms[idx], "coefficient": float(val)}
+            for idx, val in zip(top_k.indices.tolist(), top_k.values.tolist())
+        ]
+        pseudo_report = "Findings suggest: " + ", ".join(
+            c["term"] for c in concepts[:5]
+        )
+        results.append({
+            "image_id": img_id,
+            "top_k_concepts": concepts,
+            "pseudo_report": pseudo_report,
+        })
+    return results
 ```
 
-- Embedding visivo: `d_model = 512`
-- Embedding testuale: stesso spazio semantico (`d_model = 512`)
-- Usato **frozen** — nessun fine-tuning del backbone (non richiesto dal progetto)
+### Implementation notes
 
-### 2. SAE — `dictionary-learning` (saprmarks), architettura Top-K
+- **OMP vs Lasso:** `OrthogonalMatchingPursuit` gives exact L0 sparsity (exactly k terms)
+  but does not enforce non-negativity natively. Use `clamp(min=0)` post-hoc or switch to
+  `Lasso(positive=True, alpha=...)` for true non-negative L1. The SPLiCE paper uses L1
+  non-negative. Test both; OMP is faster for a fixed k budget.
+- **Modality gap:** use the existing `models/modality_gap.pt` computed in `train_sae.py`.
+- **Vocabulary:** reuse `data/vocabulary.json` + `embeddings/standard/text_vocab_embeddings.pt`.
+  Both already on disk.
+- **Stability:** SPLiCE is deterministic — no seed, no Jaccard instability. Stability
+  analysis is trivially a no-op (document as such).
+
+### Output schema
+
+```jsonc
+// results/spliece/sample_explanations.json — same as SAE producer schema
+{
+  "image_id": "1000_IM-0003-1001.dcm.png",
+  "top_k_concepts": [
+    {"term": "cardiomegaly", "coefficient": 0.234},
+    {"term": "pleural effusion", "coefficient": 0.187}
+  ],
+  "pseudo_report": "Findings suggest: cardiomegaly, pleural effusion, ..."
+}
+```
+
+### Verification checklist
+
+- [ ] Top concepts on sample images are clinically coherent (manual inspection: ≥10 images).
+- [ ] No concept appears with coefficient = 0 in top-k (clamp is effective).
+- [ ] Faithfulness (judge, post M-007): % Aligned ≥ baseline SAE.
+- [ ] Coverage: what fraction of RadLex terms appear in at least one image?
+
+---
+
+## Priority 2 — Extension: Structured Concept Organisation
+
+**New file:** `src/concept_discovery/organize.py`
+**New notebook:** `notebooks/autoencoder/06_concept_organization.ipynb`
+
+### Design
+
+Applied on top of the winning method (prototype on B, adapt to A):
+
+1. **Redundancy detection:** agglomerative clustering of concept term embeddings
+   (from `text_vocab_embeddings.pt`) by cosine similarity. Use
+   `sklearn.cluster.AgglomerativeClustering(metric='cosine', linkage='average')`.
+2. **Hierarchy mapping:** assign each cluster a label by the most frequently activated
+   term in that cluster. If RadLex provides a hierarchy, map clusters to top-level
+   anatomical/category nodes.
+3. **Per-sample structured explanation:** instead of flat top-k, report active clusters
+   and the top term per cluster. Example output:
+   ```
+   CARDIAC: cardiomegaly (0.23), cardiac silhouette (0.11)
+   PULMONARY: pleural effusion (0.19), atelectasis (0.08)
+   ```
+4. **Metric:** compare intra-cluster cosine mean (should be > inter-cluster mean).
+
+```python
+# src/concept_discovery/organize.py (sketch)
+from sklearn.cluster import AgglomerativeClustering
+import torch
+
+def cluster_concepts(
+    vocab_emb: torch.Tensor,   # (V, 512)
+    n_clusters: int = 20,
+) -> list[int]:
+    """Return cluster label per vocabulary term."""
+    X = vocab_emb.numpy()
+    model = AgglomerativeClustering(
+        n_clusters=n_clusters,
+        metric="cosine",
+        linkage="average",
+    )
+    return model.fit_predict(X).tolist()
+```
+
+---
+
+## Priority 3 — Path A: SAE on 768-d hidden state
+
+**Files to modify:** `src/embedding_extraction/extract_embeddings.py`,
+`src/config.py`, `src/autoencoder/concept_naming.py`
+**New notebook:** `notebooks/autoencoder/08_sae_hidden.ipynb`
+
+### Step 1 — New extraction mode
+
+Add a `mode` parameter to `extract_embeddings.py`:
+
+```python
+# src/embedding_extraction/extract_embeddings.py — addition
+def extract_visual_embeddings_hidden(
+    model, processor, image_paths, config
+) -> tuple[torch.Tensor, list[str]]:
+    """Extract 768-d CLS token (pre-projection) from BiomedCLIP."""
+    all_embeddings, all_ids = [], []
+    for batch_paths in batches(image_paths, config.batch_size):
+        images = [Image.open(p).convert("RGB") for p in batch_paths]
+        inputs = processor(images=images, return_tensors="pt").to(config.device)
+        with torch.no_grad():
+            out = model.vision_model(
+                pixel_values=inputs["pixel_values"],
+                output_hidden_states=False,
+            )
+            # CLS token of last hidden state: (B, 197, 768) -> (B, 768)
+            hidden = out.last_hidden_state[:, 0, :]
+            hidden = hidden / hidden.norm(dim=-1, keepdim=True)  # L2-normalise
+        all_embeddings.append(hidden.cpu())
+        all_ids.extend([Path(p).name for p in batch_paths])
+    return torch.cat(all_embeddings), all_ids
+```
+
+> **Verification note:** confirm `model.vision_model` attribute name on
+> `chuhac/BiomedCLIP-vit-bert-hf`. Run `print(type(model.vision_model))` at load.
+> Expected: `transformers.models.vit.modeling_vit.ViTModel`.
+
+Persist to `embeddings/standard_hidden/visual_embeddings_768.pt`.
+
+### Step 2 — Config
+
+Add `EmbeddingMode = Literal["projected_512", "hidden_768"]` to `config.py`:
+
+```python
+@dataclass(frozen=True)
+class EmbeddingConfig:
+    mode: str = "projected_512"        # "projected_512" or "hidden_768"
+    activation_dim: int = 512          # set to 768 for hidden mode
+
+    @property
+    def embeddings_dir(self) -> Path:
+        base = Path("embeddings")
+        return base / ("standard_hidden" if self.mode == "hidden_768" else "standard")
+```
+
+Update `SAEConfig.activation_dim` to read from `EmbeddingConfig` at instantiation.
+
+### Step 3 — Training
+
+Retrain 5 seeds with `activation_dim=768`, same training pipeline:
 
 ```bash
-pip install dictionary-learning
+# After extraction:
+python src/autoencoder/train_sae.py --mode hidden_768 --dict_size 4096 \
+    --steps 8000 --lr 5e-5 --seeds 0 42 123 456 789
 ```
 
-**Iperparametri fissati**:
-| Parametro | Valore | Motivazione |
-|-----------|--------|-------------|
-| `d_in` | 512 | output ViT BiomedCLIP |
-| `d_hidden` | 4096 | espansione 8×, standard letteratura |
-| `k` | 32 | top-k attivazioni per sample |
-| `lr` | 5e-5 | stabile per SAE su embedding CLIP |
-| `batch_size` | 256 | ~1.5GB VRAM, dentro i limiti RTX 5070 |
-| Training steps | 50.000 | ~25 min su RTX 5070 |
+Config changes: `n_training_steps 50000 → 8000`; `lr` auto → `5e-5` explicit;
+`dict_size` 4096 (≈ 5.3× of 768); `batch_size` 256 unchanged.
+Persist models to `models/sae_hidden_seed{seed}/`.
 
-### 3. LLM Judge — Doppio setup (dev + finale)
+### Step 4 — Naming bridge (768-d → 512-d)
 
-| Fase | Modello | Come | Costo |
-|------|---------|------|-------|
-| **Sviluppo / test** | Gemma 4 E4B (`gemma4:4b`) | Ollama locale, ~4GB VRAM | Gratuito |
-| **Valutazione finale** | Gemma 4 26B-A4B | Google AI Studio API (free tier) | Gratuito |
+Use BiomedCLIP's frozen linear projection to map decoder rows into the shared text space:
 
-> **Perché non il 26B locale**: in Q4_K_M richiede ~17GB file GGUF e 20GB VRAM minima.
-> Con partial CPU offload su 8GB VRAM diventa troppo lento per 2.500+ chiamate.
-> La Google AI Studio API è gratuita per uso research e fornisce la qualità piena del modello.
-
-### 4. Pipeline Orchestration — LangGraph (solo modulo LLM-Judge)
-
-LangGraph gestisce il modulo di valutazione semantica. Non è usato per feature extraction o SAE (puro PyTorch).
-
-```mermaid
-stateDiagram-v2
-    [*] --> prepare_prompt
-    prepare_prompt --> call_llm: concept + report
-    call_llm --> parse_output: raw response
-    parse_output --> validate: extracted label
-    validate --> [*]: valid (Aligned/Unaligned/Uncertain)
-    validate --> call_llm: invalid, retry (max 2)
-    
-    note right of call_llm
-        Gemma 4 E4B (dev)
-        temperature=0.0
-        num_predict=5
-    end note
-    
-    note right of validate
-        Fallback: "Uncertain"
-        dopo max_retries
-    end note
-```
-
-**Struttura del grafo LangGraph per il judge**:
-```
-[START]
-  ↓
-[prepare_prompt] → costruisce il prompt con concept + report
-  ↓
-[call_llm] → chiama Gemma 4 E4B (dev) o 26B API (finale)
-  ↓
-[parse_output] → StructuredOutputParser → {Aligned | Unaligned | Uncertain}
-  ↓
-[validate] → se output non valido, retry (max 2)
-  ↓
-[END] → salva risultato
-```
-
-### 5. Dataset — IU X-ray (subito) + MIMIC-CXR (se approvati)
-
-- **IU X-ray**: scaricabile subito, 7.470 immagini + report XML. Usare per tutto lo sviluppo.
-- **MIMIC-CXR**: registrarsi su PhysioNet **oggi** con email `@studenti.polito.it`. Approvazione ~3-7 giorni.
-
-### 6. Concept Vocabulary
-
-- Seed: 14 label NIH ChestX-ray14
-- Espansione: sinonimi medici via `scispacy` + concetti anatomici manuali
-- Totale: ~300-500 termini
-- Naming: cosine similarity tra decoder vector SAE e text embedding BiomedCLIP
-
----
-
-## Struttura del Repository
-
-```
-project-xai-p5/
-├── data/
-│   ├── iu_xray/
-│   │   ├── images/             # PNG delle radiografie
-│   │   └── reports/            # XML con Findings + Impression
-│   └── mimic_cxr/              # se approvati su PhysioNet
-├── embeddings/
-│   ├── visual_embeddings.pt    # tensor (N, 512), frozen BiomedCLIP
-│   └── text_vocab_embeddings.pt # tensor (V, 512), vocabolario medico
-├── models/
-│   ├── sae_seed0.pt
-│   ├── sae_seed42.pt
-│   ├── sae_seed123.pt
-│   ├── sae_seed456.pt
-│   └── sae_seed789.pt
-├── results/
-│   ├── concept_names.json       # {feature_id: {name, similarity_score}}
-│   ├── sample_explanations.json # per-sample pseudo-report + top-k concepts
-│   ├── aligned_scores.csv       # metriche Aligned/Unaligned/Uncertain
-│   └── stability_analysis.csv  # Jaccard similarity tra seed
-├── src/
-│   ├── 01_extract_embeddings.py
-│   ├── 02_train_sae.py
-│   ├── 03_concept_naming.py
-│   ├── 04_generate_explanations.py
-│   ├── 05_evaluate_llm_judge.py   # LangGraph
-│   └── 06_stability_analysis.py   # contributo originale
-├── notebooks/
-│   └── analysis_and_figures.ipynb
-├── requirements.txt
-└── report/
-    ├── recap_document.pdf
-    └── slides.pptx
-```
-
----
-
-## `requirements.txt`
-
-```
-torch>=2.2.0
-transformers>=4.40.0
-dictionary-learning
-langchain-core>=0.2.0
-langgraph>=0.1.0
-langchain-google-genai        # Gemma 4 26B via AI Studio
-google-generativeai
-sentence-transformers
-scikit-learn
-pandas
-numpy
-matplotlib
-seaborn
-tqdm
-Pillow
-lxml
-scispacy
-ollama
-```
-
----
-
-## Piano Settimana per Settimana
-
-```mermaid
-gantt
-    title Piano Implementativo
-    dateFormat X
-    axisFormat Giorno %s
-
-    section Setup
-    Repo + env + download      :s1, 1, 2d
-    Parser dataset              :s2, 2, 1d
-    Feature extraction          :s3, 3, 3d
-
-    section Core Pipeline
-    SAE Training (×5 seeds)     :crit, s4, 6, 4d
-    Concept Naming              :s5, 8, 2d
-    Explanation Generation      :s6, 10, 2d
-    LLM Judge Evaluation        :crit, s7, 12, 3d
-
-    section Extensions
-    Stability Analysis          :s8, 15, 2d
-    Clustering + Layer Comp.    :s9, 15, 3d
-    Bias Analysis               :s10, 17, 2d
-
-    section Deliverables
-    Figures & Notebook          :s11, 19, 2d
-    Report + Slide              :s12, 20, 3d
-    Dry-run                     :milestone, s13, 23, 1d
-```
-
-### Settimana 1 — Setup, Dati, Feature Extraction
-
-#### Giorno 1 (Persona A — DevOps & Setup)
-- [ ] Clonare repo, creare virtualenv, installare `requirements.txt`
-- [ ] Scaricare IU X-ray da Academic Torrents
-- [ ] **Registrarsi su PhysioNet per MIMIC-CXR** (farlo subito)
-- [ ] Ottenere API key Google AI Studio (gratuita)
-- [ ] Installare Ollama + `ollama pull gemma4:4b`
-
-#### Giorno 2 (Persona B — Data)
-- [ ] Parser XML IU X-ray: estrarre `study_id`, `image_path`, `findings`, `impression`
-- [ ] Creare `reports.csv` con colonne `[image_id, findings, impression, combined_text]`
-- [ ] Train/val/test split: 70/10/20 stratificato
-
-#### Giorno 3-5 (Persona A + C — Feature Extraction)
-
-**Script `01_extract_embeddings.py`**:
 ```python
-from transformers import AutoModel, AutoProcessor
-import torch
-from torch.utils.data import DataLoader
-from PIL import Image
-import pandas as pd
-
-model = AutoModel.from_pretrained(
-    "chuhac/BiomedCLIP-vit-bert-hf",
-    trust_remote_code=True
-).eval().to("cuda")
-processor = AutoProcessor.from_pretrained(
-    "chuhac/BiomedCLIP-vit-bert-hf",
-    trust_remote_code=True
-)
-
-# Estrazione embedding visivi
-all_embeddings = []
-for batch in DataLoader(image_dataset, batch_size=128):
-    inputs = processor(images=batch, return_tensors="pt").to("cuda")
-    with torch.no_grad():
-        outputs = model.get_image_features(**inputs)   # (B, 512)
-        outputs = outputs / outputs.norm(dim=-1, keepdim=True)  # L2 norm
-    all_embeddings.append(outputs.cpu())
-
-visual_embeddings = torch.cat(all_embeddings)          # (N, 512)
-torch.save(visual_embeddings, "embeddings/visual_embeddings.pt")
-
-# Estrazione embedding vocabolario medico
-vocab_terms = load_medical_vocabulary()  # lista ~400 termini
-text_inputs = processor(text=vocab_terms, return_tensors="pt",
-                        padding=True, truncation=True).to("cuda")
-with torch.no_grad():
-    text_embeddings = model.get_text_features(**text_inputs)
-    text_embeddings = text_embeddings / text_embeddings.norm(dim=-1, keepdim=True)
-torch.save(text_embeddings, "embeddings/text_vocab_embeddings.pt")
-```
-
-**Tempi stimati su RTX 5070**: ~15 min per ~7.000 immagini IU X-ray, batch 128.
-
----
-
-### Settimana 2 — Training SAE e Concept Naming
-
-#### Giorno 6-7 (Persona A)
-
-**Script `02_train_sae.py`**:
-```python
-from dictionary_learning import BatchTopKTrainer
-import torch
-
-embeddings = torch.load("embeddings/visual_embeddings.pt")  # (N, 512)
-
-trainer = BatchTopKTrainer(
-    d_in=512,
-    d_hidden=4096,
-    k=32,
-    lr=5e-5,
-    device="cuda"
-)
-trainer.fit(
-    embeddings,
-    steps=50_000,
-    batch_size=256,
-    save_path="models/sae_seed0.pt",
-    seed=0
-)
-```
-
-Ripetere con seed `[0, 42, 123, 456, 789]` per la stability analysis (script `06`).
-**Tempo totale**: ~2.5h per tutti e 5 i run.
-
-#### Giorno 7-8 (Persona B)
-
-**Script `03_concept_naming.py`**:
-```python
-import torch
-import json
-from dictionary_learning import load_sae
-
-sae = load_sae("models/sae_seed0.pt")
-W_dec = sae.W_dec   # (4096, 512) — decoder vectors
-
-text_embs = torch.load("embeddings/text_vocab_embeddings.pt")  # (V, 512)
-vocab_terms = load_vocabulary_list()
-
-# Cosine similarity: (4096, 512) × (512, V) → (4096, V)
-similarity = W_dec @ text_embs.T
-
-# Per ogni feature: concept = argmax similarity
-best_match_idx = similarity.argmax(dim=-1)    # (4096,)
-best_match_score = similarity.max(dim=-1).values  # (4096,)
-
-concept_dict = {
-    i: {
-        "name": vocab_terms[best_match_idx[i]],
-        "score": best_match_score[i].item()
+# src/autoencoder/concept_naming.py — add hidden_naming branch
+def name_concepts_hidden(
+    W_dec_768: torch.Tensor,    # (dict_size, 768) SAE decoder
+    text_emb: torch.Tensor,     # (V, 512) RadLex text embeddings
+    model,                       # BiomedCLIP — provides W_proj
+    gap: torch.Tensor | None,
+    vocab_terms: list[str],
+) -> dict:
+    # Access frozen projection weight: (512, 768) — verify attribute at load
+    W_proj = model.visual_projection.weight.detach()  # (512, 768)
+    # Project decoder rows into 512-d shared space
+    dec_512 = W_dec_768 @ W_proj.T                    # (dict_size, 512)
+    dec_512 = dec_512 / dec_512.norm(dim=-1, keepdim=True)
+    # Apply modality-gap correction
+    if gap is not None:
+        dec_512 = dec_512 - gap.unsqueeze(0)
+    # Cosine similarity with RadLex (same as baseline naming)
+    sim = dec_512 @ text_emb.T                        # (dict_size, V)
+    best_idx = sim.argmax(dim=-1)
+    best_score = sim.max(dim=-1).values
+    return {
+        i: {"name": vocab_terms[best_idx[i]], "score": float(best_score[i])}
+        for i in range(len(W_dec_768))
     }
-    for i in range(4096)
-}
-with open("results/concept_names.json", "w") as f:
-    json.dump(concept_dict, f, indent=2)
 ```
 
-#### Giorno 8-9 (Persona C — Analisi qualitativa)
-- Ispezionare manualmente i top-50 concetti per confidenza
-- Identificare concetti duplicati, ambigui, non-clinici
-- Costruire lista `failure_cases_candidates.json` per la sezione failure analysis
+> **Attribute verification:** run at load:
+> ```python
+> print(hasattr(model, "visual_projection"))
+> # If not present, try: model.vision_model.post_layernorm or model.projection
+> ```
+
+### Step 5 — Verification
+
+- [ ] Cross-seed Jaccard for SAE-768 > baseline (0.0038). Target: meaningfully above analytical null.
+- [ ] Dead-feature rate < baseline (40–60%).
+- [ ] Naming mean (SAE-768) > random baseline (0.372) by a clear margin.
+- [ ] Faithfulness (judge) ≥ baseline SAE.
 
 ---
 
-### Settimana 3 — Generazione Spiegazioni e Valutazione LLM-Judge
+## Priority 4 — Path C: Hyperparameter Hygiene (apply to Path A)
 
-#### Giorno 10-11 (Persona A)
+From `ML-AUDIT-2026-06-25.md` M-006:
 
-**Script `04_generate_explanations.py`**:
-```python
-sae = load_sae("models/sae_seed0.pt")
-concept_names = json.load(open("results/concept_names.json"))
+| Parameter | Current (baseline) | Corrected (Path A) |
+|---|---|---|
+| `n_training_steps` | 50,000 | 5,000–10,000 |
+| `lr` | auto ~4e-4 | 5e-5 (explicit) |
+| `dict_size` | 4,096 | 4,096 (≈5.3× of 768) or 2,048 |
+| `batch_size` | 256 | 256 |
 
-explanations = []
-for image_id, embedding in test_embeddings:
-    # SAE encode → sparse activations
-    activations = sae.encode(embedding)         # (4096,)
-    top_k_idx = activations.topk(5).indices
-    top_k_concepts = [
-        {
-            "feature_id": int(idx),
-            "name": concept_names[str(int(idx))]["name"],
-            "activation": float(activations[idx])
-        }
-        for idx in top_k_idx
-    ]
-    pseudo_report = "The model identified: " + ", ".join(
-        f"{c['name']} ({c['activation']:.2f})"
-        for c in top_k_concepts
-    )
-    explanations.append({
-        "image_id": image_id,
-        "top_k_concepts": top_k_concepts,
-        "pseudo_report": pseudo_report
-    })
+**File:** `src/config.py` — update `SAEConfig` defaults or pass as CLI args.
 
-json.dump(explanations, open("results/sample_explanations.json", "w"), indent=2)
+---
+
+## Sequencing Summary
+
+```
+Priority 0: Fix judge M-007         [independent, can be done by one person]
+    ↓
+Priority 1: Implement Path B SPLiCE [start here; guarantees positive result]
+    ↓
+Priority 2: Extension (organise)    [on top of B; low cost, immediate rubric value]
+    ↓
+Priority 3: Path A SAE 768-d        [centerpiece; higher cost; after B stable]
+    ↓
+Priority 4: Path C hygiene          [applied while doing Path A]
+    ↓
+Consolidation: recap, slides, repo
 ```
 
-#### Giorno 11-14 (Persona B + C)
-
-**Script `05_evaluate_llm_judge.py`** con LangGraph:
-```python
-from langgraph.graph import StateGraph, END
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
-from typing import TypedDict, Literal
-import pandas as pd
-
-# Dev: Ollama gemma4:4b locale
-# Finale: Gemma 4 26B-A4B via Google AI Studio
-llm = ChatGoogleGenerativeAI(model="gemma-4-26b-a4b", temperature=0)
-
-PROMPT = ChatPromptTemplate.from_template("""You are a clinical AI evaluator.
-Radiology report: "{report}"
-Discovered concept: "{concept}"
-Does the report SUPPORT, CONTRADICT, or is AMBIGUOUS about this concept?
-Answer with exactly one word: Aligned, Unaligned, or Uncertain.""")
-
-class JudgeState(TypedDict):
-    concept: str
-    report: str
-    result: str
-    retries: int
-
-def call_llm(state: JudgeState) -> JudgeState:
-    chain = PROMPT | llm | StrOutputParser()
-    state["result"] = chain.invoke({
-        "concept": state["concept"],
-        "report": state["report"]
-    }).strip()
-    return state
-
-def validate(state: JudgeState) -> Literal["valid", "retry", "end"]:
-    if state["result"] in {"Aligned", "Unaligned", "Uncertain"}:
-        return "valid"
-    if state["retries"] < 2:
-        state["retries"] += 1
-        return "retry"
-    state["result"] = "Uncertain"  # fallback
-    return "end"
-
-graph = StateGraph(JudgeState)
-graph.add_node("call_llm", call_llm)
-graph.add_conditional_edges("call_llm", validate, {
-    "valid": END, "retry": "call_llm", "end": END
-})
-graph.set_entry_point("call_llm")
-judge = graph.compile()
-
-# Esecuzione su test set
-records = []
-explanations = json.load(open("results/sample_explanations.json"))
-reports_df = pd.read_csv("data/iu_xray/reports.csv")
-
-for item in explanations:
-    report = reports_df.loc[reports_df.image_id == item["image_id"], "combined_text"].iloc[0]
-    for concept in item["top_k_concepts"]:
-        result = judge.invoke({
-            "concept": concept["name"],
-            "report": report,
-            "result": "",
-            "retries": 0
-        })
-        records.append({
-            "image_id": item["image_id"],
-            "concept": concept["name"],
-            "activation": concept["activation"],
-            "verdict": result["result"]
-        })
-
-pd.DataFrame(records).to_csv("results/aligned_scores.csv", index=False)
-```
-
-**Tempo stimato**: ~2-4h per 500 campioni × 5 concetti su Gemma 4 E4B locale; molto più veloce via API 26B.
+Paths A and B can be parallelised across team members (group of 3).
 
 ---
 
-### Settimana 4 — Contributo Originale, Analisi, Scrittura
+## File Ownership
 
-#### Giorno 14-16 (Persona A) — Stability Analysis (contributo originale)
-
-**Script `06_stability_analysis.py`**:
-```python
-from itertools import combinations
-import json, torch
-import pandas as pd
-
-seeds = [0, 42, 123, 456, 789]
-
-def get_top_concepts(sae_path, top_n=500):
-    """Ritorna i nomi dei top_n concetti più frequentemente attivati."""
-    sae = load_sae(sae_path)
-    activations_all = []
-    for emb_batch in embedding_batches:
-        activations_all.append(sae.encode(emb_batch))
-    mean_activation = torch.cat(activations_all).mean(dim=0)   # (4096,)
-    top_idx = mean_activation.topk(top_n).indices.tolist()
-    return set(concept_names[str(i)]["name"] for i in top_idx)
-
-records = []
-for s1, s2 in combinations(seeds, 2):
-    c1 = get_top_concepts(f"models/sae_seed{s1}.pt")
-    c2 = get_top_concepts(f"models/sae_seed{s2}.pt")
-    jaccard = len(c1 & c2) / len(c1 | c2)
-    records.append({"seed_1": s1, "seed_2": s2, "jaccard": jaccard})
-
-df = pd.DataFrame(records)
-df.to_csv("results/stability_analysis.csv", index=False)
-print(f"Mean Jaccard: {df['jaccard'].mean():.3f} ± {df['jaccard'].std():.3f}")
-```
-
-Risultato atteso: valore tipo `0.58 ± 0.07` — primo dato quantitativo sulla stabilità dei concetti nei medical VLM, non presente in letteratura.
-
-#### Giorno 16-18 (Persona C + tutti) — Figure e Scrittura
-
-**Figure da produrre** (tutte nel notebook `analysis_and_figures.ipynb`):
-
-1. **Fig. 1 — Distribuzione metriche semantiche per patologia**: stacked barplot Aligned/Unaligned/Uncertain per classe.
-2. **Fig. 2 — Top-20 Concepts**: barplot activation score + Aligned% per i 20 concetti più frequenti.
-3. **Fig. 3 — Stability Analysis**: boxplot Jaccard similarity tra coppie di seed.
-4. **Fig. 4 — Failure Cases**: 3-5 esempi annotati: immagine, concetto scoperto, report reale, verdetto del judge + analisi.
-5. **Fig. 5 (opzionale) — Layer Comparison**: Aligned% in funzione del layer ViT estratto (se implementato).
+| Person | Responsibility | Files |
+|---|---|---|
+| **A** | Path A (SAE 768-d): extraction + training + naming bridge | `extract_embeddings.py`, `config.py`, `train_sae.py`, `concept_naming.py`, `08_sae_hidden.ipynb` |
+| **B** | Path B (SPLiCE) + Extension: decomposition + clustering | `src/concept_discovery/spliece.py`, `organize.py`, `07_spliece.ipynb`, `06_concept_organization.ipynb` |
+| **C** | Judge M-007 fixes + statistics + figures + writing | `evaluate_llm_judge.py`, `config.py`, result notebooks, recap document, slides |
 
 ---
 
-## Research Gaps da Citare nel Report
+## Deliverable Checklist
 
-Pronti per la sezione "Identification of Research Gaps":
+### Baseline (already done — verify artifacts exist)
+- [ ] `embeddings/standard/visual_embeddings.pt` (7470×512)
+- [ ] `embeddings/standard/train_embeddings.pt` + `test_embeddings.pt`
+- [ ] `models/modality_gap.pt`
+- [ ] `results/concept_names.json` (mean score ≈ 0.3943)
+- [ ] `results/sample_explanations.json` (1494 entries)
+- [ ] `results/ablation/` clean (a0–a5, a1_naming)
+- [ ] Baseline REPORT.md (English, MedConcept deviations declared)
 
-1. **Instabilità dei concetti**: nessun approccio misura la variabilità tra run con seed diversi → la stability analysis risponde direttamente a questo.
-2. **Dipendenza da risorse esterne**: MedConcept richiede UMLS; la proposta usa il text encoder del VLM stesso come vocabolario implicito.
-3. **Bias del LLM giudice**: position bias, verbosity bias, allucinazione medica non risolti in MedConcept.
-4. **Report clinici incompleti**: Aligned/Unaligned/Uncertain assume copertura totale del report, ma i radiologi documentano solo anomalie salienti.
-5. **Indipendenza dei concetti**: nessun approccio modella co-occorrenze, gerarchie anatomiche o relazioni causali tra concetti.
-6. **Layer-specific semantics non studiati su VLM medici**: SAE-for-VLM (NeurIPS 2025) analizza layer su modelli general-purpose, non su VLM specializzati come BiomedCLIP.
+### Path B (SPLiCE)
+- [ ] `src/concept_discovery/spliece.py`
+- [ ] `results/spliece/sample_explanations.json`
+- [ ] `results/spliece/concept_coverage.json`
+- [ ] Faithfulness numbers (post M-007 judge)
+- [ ] `notebooks/autoencoder/07_spliece.ipynb` (executed, clean)
+
+### Extension
+- [ ] `src/concept_discovery/organize.py`
+- [ ] `results/concept_clusters.json`
+- [ ] `notebooks/autoencoder/06_concept_organization.ipynb`
+
+### Path A (SAE 768-d)
+- [ ] `embeddings/standard_hidden/*.pt` (768-d, all splits)
+- [ ] `models/sae_hidden_seed{0,42,...}/` (5 trained models)
+- [ ] `results/sae_hidden/concept_names.json`
+- [ ] `results/sae_hidden/sample_explanations.json`
+- [ ] Cross-seed Jaccard + dead-feature rate measured
+- [ ] Naming mean > random baseline
+- [ ] `notebooks/autoencoder/08_sae_hidden.ipynb` (executed)
+
+### Evaluation
+- [ ] `results/aligned_scores.csv` (Aligned/Unaligned/Uncertain per method)
+- [ ] Judge run on: baseline, SPLiCE, SAE-768
+
+### Final deliverables
+- [ ] Recap document 2–3 pages (6-section structure)
+- [ ] Slides (15 min presentation)
+- [ ] GitHub repo public with updated README
+- [ ] ZIP for Portale della Didattica (slides + doc + repo link)
 
 ---
 
-## Gestione Hardware
+## References
 
-| Task | Device | VRAM/RAM | Tempo stimato |
-|------|--------|----------|---------------|
-| Feature extraction BiomedCLIP | RTX 5070 | ~2 GB VRAM | ~15 min |
-| SAE training (1 run) | RTX 5070 | ~2.5 GB VRAM | ~25 min |
-| SAE training (5 run totali) | RTX 5070 | ~2.5 GB VRAM | ~2h |
-| Concept naming (similarity) | RTX 5070 o CPU | <1 GB | ~2 min |
-| LLM Judge dev (Gemma 4 E4B) | RTX 5070 | ~4 GB VRAM | ~2-4h |
-| LLM Judge finale (Gemma 4 26B) | Google AI Studio API | — | ~30 min |
-| Stability analysis | RTX 5070 | ~2.5 GB VRAM | ~2h |
-| Figure e analisi | Qualsiasi | — | — |
-
-> ⚠️ SAE training e LLM Judge **non girano in contemporanea** sulla stessa GPU.
-> Eseguirli in sequenza: prima estrazione + training, poi liberare VRAM per Ollama.
-
----
-
-## Divisione del Lavoro
-
-| Persona | Responsabilità | Script |
-|---------|---------------|--------|
-| **A** | Setup, feature extraction, SAE training, stability analysis | `01`, `02`, `06` |
-| **B** | Data parsing, concept naming, analisi qualitativa | `03`, `04`, XML parser |
-| **C** | LLM Judge (LangGraph), statistiche, figure, scrittura | `05`, notebook, report |
-
----
-
-## Check-list Finale pre-Submission
-
-- [ ] `visual_embeddings.pt` estratto da tutto il dataset
-- [ ] SAE addestrato con 5 seed, tutti i checkpoint salvati
-- [ ] `concept_names.json` completo per tutte le 4096 feature
-- [ ] `sample_explanations.json` per ≥ 300 campioni test
-- [ ] `aligned_scores.csv` con metriche Aligned/Unaligned/Uncertain
-- [ ] `stability_analysis.csv` con Jaccard tra seed
-- [ ] Almeno 3 failure cases documentati con analisi
-- [ ] Tutte le 4-5 figure prodotte
-- [ ] Recap document 2-3 pagine (template docenti)
-- [ ] Slide pronte (15 min + 15 min discussione)
-- [ ] Repository GitHub **pubblico** con `README.md` + `requirements.txt`
-- [ ] ZIP su Portale della Didattica (slide + doc + repo link + dati IU X-ray subset)
+- `docs/design/PROJECT-STRATEGY.md` v2.0
+- `docs/design/proposals/PIPELINE-REFRAME-MAIN-VS-BASELINE.md`
+- `docs/audits/ML-AUDIT-2026-06-25.md` (M-001..M-008)
+- `docs/audits/ML-AUDIT-2026-06-24.md` (F-001..F-007 judge bugs)
+- `docs/design/proposals/CONCEPT-INSTABILITY-DIAGNOSIS.md`
+- `docs/design/proposals/VOCAB-BUILDING-ALTERNATIVES.md`
+- `docs/design/proposals/SAE-SMALL-DATASET-MITIGATION.md`
+- `HANDOFF.md` (session handoff notes)

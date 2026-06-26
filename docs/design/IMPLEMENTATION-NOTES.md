@@ -1,11 +1,29 @@
+> [!WARNING]
+> **DOCUMENT STATUS: HISTORICAL REFERENCE — SUPERSEDED**
+>
+> This document contains implementation notes written during the original project phase,
+> when the SAE on the 512-d projected embedding was the intended primary method.
+> Following methodological audit `ML-AUDIT-2026-06-25.md` (finding M-001), the project
+> strategy has been reframed. **Do not use this document to plan new work.**
+>
+> **Active documents:**
+> - `docs/design/PROJECT-STRATEGY.md` — revised strategy v2.0
+> - `docs/design/IMPLEMENTATION-PLAN.md` — implementation plan v3.0
+> - `docs/design/proposals/PIPELINE-REFRAME-MAIN-VS-BASELINE.md` — reframe rationale
+>
+> This file is kept for historical traceability. The implementation notes below remain
+> useful as reference for the **baseline** (512-d SAE) code, which is fully implemented.
+
+---
+
 # Piano Implementativo Definitivo — Progetto 5 XAI 2025/26
 ## Unsupervised Concept Discovery and Evaluation for Medical Vision–Language Models
 
-**Versione**: 2.0 — allineato con knowledge base (LaTeX report)  
-**Gruppo**: 3 persone  
-**Hardware principale**: RTX 5070 8GB VRAM + 32GB RAM  
-**Hardware secondario**: Mac Mini M2 8GB RAM  
-**Tempo stimato**: 4–5 settimane  
+**Versione**: 2.0 — allineato con knowledge base (LaTeX report)
+**Gruppo**: 3 persone
+**Hardware principale**: RTX 5070 8GB VRAM + 32GB RAM
+**Hardware secondario**: Mac Mini M2 8GB RAM
+**Tempo stimato**: 4–5 settimane
 **Branch di sviluppo**: `dev`
 
 ---

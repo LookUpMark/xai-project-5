@@ -12,7 +12,7 @@ non come bug. Da leggersi insieme al
 > (a0–a4) la ha *confermata* — l'instabilita' e' strutturale e il 0.004 e' il
 > pavimento del caso (vedi `ablation/REPORT.md`). Due aggiornamenti fatti dal
 > programma: (1) il vocab e' ora **508 termini** (non 310); (2) la "causa 2"
-> (naming debole) e' **ridefinita** in `concept_naming_analysis.md` — con la
+> (naming debole) e' **ridefinita** in `CONCEPT-NAMING-ANALYSIS.md` — con la
 > correzione del modality gap il naming sale a ~0.4 e la letteratura lo considera
 > *normale* per SAE-su-CLIP. Inoltre l'asse della *fedelta'* (i concetti
 > esistenti sono significativi?) e' ora coperto da **a5**
@@ -27,7 +27,7 @@ non come bug. Da leggersi insieme al
 - Ricostruzione: cosine **0.988**, varianza spiegata **99.3%**, L0 = 32.0 esatto.
 - Dead features (activation-based): **~44%**.
 - Stabilita' cross-seed: mean Jaccard **0.0038** (matrice 5x5 off-diagonal ~0.003-0.010).
-- Concept naming: score mean **0.117**, max **0.291** senza correzione del gap (vocab RadLex, ora 508 termini); con la gap-correction (vedi `concept_naming_analysis.md`) sale a mean ~0.395 / max ~0.547.
+- Concept naming: score mean **0.117**, max **0.291** senza correzione del gap (vocab RadLex, ora 508 termini); con la gap-correction (vedi `CONCEPT-NAMING-ANALYSIS.md`) sale a mean ~0.395 / max ~0.547.
 - Ablation a0 (consensus sulle direzioni del decoder, index-agnostic):
   consensus@4 = **0.0**, Hungarian direction-Jaccard = **0.0**, shuffle-null p = **1.0**
   (solo 3 cluster multi-membro a tau=0.80 su 20480 righe).
@@ -96,7 +96,7 @@ Fenomeno piu' "ingegneristico" e separabile dall'instabilita'.
 **Dizionario oversized.** `dict_size=4096` su embedding 512-d x 7470 sample ->
 expansion ratio 8x su uno spazio gia' piccolo -> enorme ridondanza ->
 ~1800 feature non hanno nulla da rappresentare -> muoiono (44%). Gia' discusso
-in `SAE_TRAINING_SMALL_DATASET.md`.
+in `SAE-TRAINING-SMALL-DATASET.md`.
 
 **Vocab RadLex (508) + naming greedy per coseno.** Due debolezze combinate:
 508 termini clinici sono pochi per coprire la geometria di 4096 feature
@@ -160,7 +160,7 @@ a4 activation bakeoff, a5 faithfulness). Ordinati per rapporto impatto/costo.
 2. **Augmentation pre-embedding** (flip orizzontale, crop 90-95%, rotazione
    +/-5 gradi; evitare color jitter/cutout). 3-5x -> 22k-37k embedding.
    Attacca la causa 1a (dataset tiny). Gia' suggerito in
-   `SAE_TRAINING_SMALL_DATASET.md`. **Costo alto**: nuova estrazione.
+   `SAE-TRAINING-SMALL-DATASET.md`. **Costo alto**: nuova estrazione.
 3. **Shared init / model soup cross-seed.** Inizializzare i 5 seed dallo stesso
    init (o pesarli in un model soup) per forzare feature comuni. Testa
    l'ipotesi "l'instabilita' nasce dall'init randomico". **Costo basso**:

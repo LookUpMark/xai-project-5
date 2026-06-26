@@ -34,7 +34,7 @@ The first five ablations (00–04) investigate the **cause** of the instability 
 | **04** | activation family | Is it TopK's fault? (BatchTopK, JumpReLU) | ❌ dead% yes, stability **no** |
 | **05** | clinical faithfulness | Are the existing concepts faithful to real labels? | ✅ Partially yes — ~13.5% faithful above the null |
 
-**Overall conclusion.** The "alarming" baseline 0.0038 **is not a failure**: it is the mathematical chance floor (Ablation 03: Random@4096 = 0.0037 ≈ SAE), confirmed as noise in both index space (00) and direction space (03). The instability **is not fixed** by hyperparameters: neither `dict_size` (01), nor `k` (02), nor the activation family (04: consensus 0 for all three) resolve it. The remaining root causes are structural — few samples (5976) and the intrinsic non-uniqueness of the sparse decomposition on projected CLIP embeddings — and they hold for TopK, BatchTopK and JumpReLU. The full causal diagnosis is in `docs/suggestions/CONCEPT_INSTABILITY_DIAGNOSIS.md`.
+**Overall conclusion.** The "alarming" baseline 0.0038 **is not a failure**: it is the mathematical chance floor (Ablation 03: Random@4096 = 0.0037 ≈ SAE), confirmed as noise in both index space (00) and direction space (03). The instability **is not fixed** by hyperparameters: neither `dict_size` (01), nor `k` (02), nor the activation family (04: consensus 0 for all three) resolve it. The remaining root causes are structural — few samples (5976) and the intrinsic non-uniqueness of the sparse decomposition on projected CLIP embeddings — and they hold for TopK, BatchTopK and JumpReLU. The full causal diagnosis is in `docs/design/proposals/CONCEPT-INSTABILITY-DIAGNOSIS.md`.
 
 However, **instability does not equate to uselessness** (05). The concepts that exist in one seed are moderately but genuinely **faithful** to real clinical labels: ~13.5% of live features (158/1175) beat a per-feature calibrated null, and the strongest track clinically expected concepts (lung, hyperlucent |r|=0.40, mass, implants, emphysema, arthritis). The overall result is therefore **balanced and defensible**: the SAE on this dataset has a declared structural limitation (seed-dependence) but produces directions with real clinical grounding — not reproducible seed-to-seed, but not noise.
 
@@ -729,7 +729,7 @@ For each "live" feature (activating at least once on test: 1175/4096 = 28.7%, co
 
 ### 2.3 Top faithful features (+ RadLex name cross-ref)
 
-The most faithful features and the label they anchor to. Interesting cross-check: the real label (in-distribution, from IU X-Ray) is clinically sensible, but the RadLex name assigned by the SAE is often noisy/different. Confirms that RadLex naming (off-distribution, see `VOCAB_BUILDING_ALTERNATIVES.md`) is weaker than the concept's real behavior.
+The most faithful features and the label they anchor to. Interesting cross-check: the real label (in-distribution, from IU X-Ray) is clinically sensible, but the RadLex name assigned by the SAE is often noisy/different. Confirms that RadLex naming (off-distribution, see `VOCAB-BUILDING-ALTERNATIVES.md`) is weaker than the concept's real behavior.
 
 | feature | abs(corr) | faithful label (IU X-Ray) | prev. | RadLex name (gap-corrected) |
 |---:|---:|---|---:|---|
@@ -768,7 +768,7 @@ The strongest features track medical lung hyperlucency, masses, medical implants
 The strongest absolute correlation is |r|=0.40, and only 13.5% of features beat the null. It is not "every concept is a clean hit": it is "a significant minority has a real clinical anchor, above chance". Honest: the SAE's value here is not "crystalline concepts", it is "sparse structure + good reconstruction (0.988) + a minority of clinically faithful concepts".
 
 ### 3.4 RadLex naming ≠ real behavior (cross-check)
-A feature faithful to "implanted medical device" carries the RadLex name "anterior segment of upper lobe". The feature's behavior (faithful to implants) is more informative than its name (off-distribution). This a posteriori justifies using an in-distribution gold standard (MeSH/Problems) to evaluate the concepts, alongside RadLex naming — and reinforces the diagnosis of `concept_naming_analysis.md`: the weak naming is partly an artifact of the vocabulary, not only of the SAE.
+A feature faithful to "implanted medical device" carries the RadLex name "anterior segment of upper lobe". The feature's behavior (faithful to implants) is more informative than its name (off-distribution). This a posteriori justifies using an in-distribution gold standard (MeSH/Problems) to evaluate the concepts, alongside RadLex naming — and reinforces the diagnosis of `CONCEPT-NAMING-ANALYSIS.md`: the weak naming is partly an artifact of the vocabulary, not only of the SAE.
 
 ---
 
@@ -826,7 +826,7 @@ Open soft spots: faithfulness measured only on seed 42 (the faithful quota acros
 
 ## Bibliography
 
-References supporting the methodological choices and the theoretical framing. The extended causal diagnosis is in `docs/suggestions/CONCEPT_INSTABILITY_DIAGNOSIS.md`.
+References supporting the methodological choices and the theoretical framing. The extended causal diagnosis is in `docs/design/proposals/CONCEPT-INSTABILITY-DIAGNOSIS.md`.
 
 - Olshausen & Field (1997) — sparse coding; data-samples/features regime.
 - Spielman, Wang, Wright (2012) — "Exact Recovery of Sparsely-Used Dictionaries": identifiability conditions of dictionary learning.

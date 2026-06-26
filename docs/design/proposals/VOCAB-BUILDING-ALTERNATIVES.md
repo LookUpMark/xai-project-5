@@ -2,7 +2,7 @@
 
 > **Stato (aggiornato 2026-06-22).** Il vocab RadLex e' stato rebuildato a **508
 > termini** (issue #7 risolta). Il naming debole e' stato **ridefinito** in
-> `concept_naming_analysis.md`: con la correzione del modality gap (Soluzione 1)
+> `CONCEPT-NAMING-ANALYSIS.md`: con la correzione del modality gap (Soluzione 1)
 > il naming sale a mean 0.395 / max 0.547 (~3×), e la letteratura considera
 > 0.3-0.4 *normale e significativo* per SAE-su-CLIP — non un fallimento.
 > **L'ablation #2 (faithfulness concept↔etichetta MeSH/Problems) e' STATO
@@ -17,8 +17,8 @@ perche' il vocabolario RadLex (508 termini, ontologia radiologica generale) e'
 *off-distribution* rispetto al dominio CXR di IU X-Ray. Questo doc sistematizza
 le alternative di costruzione e gli **ablation aggiuntivi** che ne derivano
 (naming comparison, faithfulness concept<->etichetta, SPLiCE). Da leggersi con
-`CONCEPT_INSTABILITY_DIAGNOSIS.md` (causa 2: naming) e
-`ADDITIONAL_ABLATION_STUDIES.md`.
+`CONCEPT-INSTABILITY-DIAGNOSIS.md` (causa 2: naming) e
+`ADDITIONAL-ABLATION-STUDIES.md`.
 
 ## Contesto
 

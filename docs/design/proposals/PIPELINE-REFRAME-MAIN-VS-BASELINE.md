@@ -5,9 +5,9 @@ narrativa e i ruoli dei componenti della pipeline, **senza** modificare la
 correttezza tecnica di quanto gia' implementato. Da leggersi insieme a:
 
 - `docs/audits/ML-AUDIT-2026-06-25.md` (audit metodologico — finding M-001..M-008),
-- `docs/requirements/progetto_5_descrizione_completa.md` (rubric e attivita' richieste),
-- `docs/requirements/indicazioni_progetto_xai.md` (criteri di valutazione),
-- `CONCEPT_INSTABILITY_DIAGNOSIS.md` e `ADDITIONAL_ABLATION_STUDIES.md` (diagnosi e ablation derivate).
+- `docs/requirements/PROJECT-BRIEF.md` (rubric e attivita' richieste),
+- `docs/requirements/EVALUATION-GUIDELINES.md` (criteri di valutazione),
+- `CONCEPT-INSTABILITY-DIAGNOSIS.md` e `ADDITIONAL-ABLATION-STUDIES.md` (diagnosi e ablation derivate).
 
 > **Stato: proposta (non implementata).** Nessun codice modificato. Il documento
 > definisce ruoli, motivazione sul punteggio, piano implementativo dettagliato,
@@ -181,7 +181,7 @@ SPLiCE vs feature-live del SAE.
 
 **Risk:** assume che RadLex **copra** il manifold delle immagini (se il vocab e'
 incompleto, SPLiCE non puo' esprimere cio' che vede). Mitigazione: confrontare
-copertura e considerare vocab piu' ampio (vedi `VOCAB_BUILDING_ALTERNATIVES.md`).
+copertura e considerare vocab piu' ampio (vedi `VOCAB-BUILDING-ALTERNATIVES.md`).
 
 ### 4.5 Path A — SAE su hidden state 768 (main 1, **centerpiece metodologico**)
 
@@ -249,7 +249,7 @@ mis-sized per il dataset:
 
 - `n_training_steps` 50.000 -> ~5.000-10.000 (50k x batch256 / 5976 ~ 2140 epoche,
   overfit),
-- `lr` auto ~4e-4 -> `5e-5` esplicito (per `SAE_TRAINING_SMALL_DATASET.md`),
+- `lr` auto ~4e-4 -> `5e-5` esplicito (per `SAE-TRAINING-SMALL-DATASET.md`),
 - shared init / model soup across seed (ablation A03),
 - `dict_size` 4096 -> 2048 (riduce dead%, non fissa Jaccard).
 
@@ -285,7 +285,7 @@ mis-sized per il dataset:
 |---|---|---|---|
 | Path A non solleva il Jaccard (7470 img ancora poche) | Media | Alto (perde il centerpiece) | B come safety net garantisce risultato positivo; A riportato come confronto metodologico comunque valido |
 | Bridge di naming 768->512 distorce (proiezione off-manifold) | Media | Medio | (a) prima; fallback (b) probe appreso; riportare entrambi |
-| SPLiCE limitato dalla copertura RadLex | Media | Medio | Confrontare copertura; considerare vocab piu' ampio (`VOCAB_BUILDING_ALTERNATIVES.md`) |
+| SPLiCE limitato dalla copertura RadLex | Media | Medio | Confrontare copertura; considerare vocab piu' ampio (`VOCAB-BUILDING-ALTERNATIVES.md`) |
 | Tempo/compute: nuova estrazione 7470x768 + retrain 5 seed | Alto | Medio | B prima a costo basso; A schedulata; GPU/CPU stimare in anticipo |
 | Judge non fissato in tempo → nessun numero di faithfulness | Media | Alto | M-007 come prerequisito, sequenziato per primo/in parallelo |
 | Cambio narrativa percepito come "post-hoc" dai docenti | Bassa | Medio | Audit datato e cronologico (già esiste 06-01..06-25): la diagnosi *precede* la correzione, narrativa onesta e lineare |
@@ -332,11 +332,11 @@ Output richiesti (`progetto_5_descrizione_completa.md` §"In sintesi operativa" 
 ## 9. Riferimenti
 
 - Interni: `docs/audits/ML-AUDIT-2026-06-25.md` (M-001..M-008),
-  `CONCEPT_INSTABILITY_DIAGNOSIS.md`, `ADDITIONAL_ABLATION_STUDIES.md`,
-  `SAE_TRAINING_SMALL_DATASET.md`, `VOCAB_BUILDING_ALTERNATIVES.md`,
+  `CONCEPT-INSTABILITY-DIAGNOSIS.md`, `ADDITIONAL-ABLATION-STUDIES.md`,
+  `SAE-TRAINING-SMALL-DATASET.md`, `VOCAB-BUILDING-ALTERNATIVES.md`,
   `notebooks/autoencoder/ablation/REPORT*.md`.
-- Requisiti: `docs/requirements/progetto_5_descrizione_completa.md`,
-  `docs/requirements/indicazioni_progetto_xai.md`.
+- Requisiti: `docs/requirements/PROJECT-BRIEF.md`,
+  `docs/requirements/EVALUATION-GUIDELINES.md`.
 - Letteratura verificata: SPLiCE (NeurIPS 2024, arXiv 2402.10376), Steering CLIP
   ViT with SAEs (arXiv 2504.08729), clip-topk-sae (HF lasgroup), Scaling SAEs
   (OpenAI).

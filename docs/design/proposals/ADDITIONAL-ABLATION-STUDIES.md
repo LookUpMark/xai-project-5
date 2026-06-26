@@ -4,7 +4,7 @@ Estensioni del programma di ablation gia' in `notebooks/autoencoder/ablation/`
 (a0 consensus, a1 dict_size, a2 k_sweep, a3 baselines, a4 activation bakeoff, a5 faithfulness).
 Queste non attaccano i *sintomi* (k, dict_size, variante di attivazione - gia'
 coperti) ma le **cause alla radice** identificate in
-`CONCEPT_INSTABILITY_DIAGNOSIS.md`: lo spazio di attivazione sbagliato
+`CONCEPT-INSTABILITY-DIAGNOSIS.md`: lo spazio di attivazione sbagliato
 (embedding CLIP proiettati) e il regime data-starved.
 
 Principio guida: **consolidare prima i 5 notebook esistenti + REPORT**, poi
@@ -31,8 +31,8 @@ pioggia diluisce il finding; aggiungerne selettive lo rafforza.
 | 5 | SPLiCE naming (post-hoc) | Naming debole (causa 2) | Basso | Bassa** |
 | 6 | Vocab dal gold standard / piu' ampio | Naming debole (causa 2) | Basso | Bassa** |
 
-\* Gia' in `SAE_TRAINING_SMALL_DATASET.md`; richiede la stessa nuova estrazione di #1.
-\*\* Vedi `VOCAB_BUILDING_ALTERNATIVES.md` (se scritto): il naming debole e' in
+\* Gia' in `SAE-TRAINING-SMALL-DATASET.md`; richiede la stessa nuova estrazione di #1.
+\*\* Vedi `VOCAB-BUILDING-ALTERNATIVES.md` (se scritto): il naming debole e' in
 parte *conseguenza* dell'instabilita', dunque va affrontato insieme a dict_size/steps.
 
 ## #1 - Spazio di attivazione pre-projection (il "big swing")
@@ -115,4 +115,4 @@ Costo basso (retrain con init condiviso, riusa la meccanica esistente).
   esistono in IU X-Ray. NOTA: esiste pero' un gold standard alternativo
   (colonne `MeSH`/`Problems` di `indiana_reports.csv`) che riapre una valutazione
   di faithfulness concept-attivazione <-> etichetta per-immagine - vedi
-  `VOCAB_BUILDING_ALTERNATIVES.md`.
+  `VOCAB-BUILDING-ALTERNATIVES.md`.

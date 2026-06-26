@@ -29,6 +29,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from dictionary_learning.trainers.top_k import AutoEncoderTopK, TopKTrainer
 from dictionary_learning.training import trainSAE
 
+import config
 import utils
 
 logger = logging.getLogger(__name__)
@@ -48,19 +49,12 @@ def _vocab_term(label) -> str:
     return label
 
 
-# Default config values — kept in sync with config.py's SAEConfig.
-# Change config.py, not here. These are only used when SAEManager
-# is constructed without a config (e.g. in tests).
+# Default config values. SAEConfig hyperparameters are pulled from config.sae so
+# they can never drift from config.py (a manual mirror caused two load-validation
+# bug classes). The runtime-only keys with no SAEConfig equivalent stay literal.
+# Used only when SAEManager is constructed without a config (e.g. in tests).
 _DEFAULTS = {
-    "activation_dim": 512,
-    "dict_size": 1024,
-    "k": 32,
-    "lr": 5e-5, # in sync with SAEConfig
-    "steps": 50_000,
-    "warmup_steps": 1_000,
-    "batch_size": 256,
-    "log_steps": 1_000,
-    "decay_start_frac": 0.8,
+    **utils.dataclass_to_dict(config.sae),
     "lm_name": "BiomedCLIP",
     "layer": 0,
     "chunk_size": 512,  # Encoding chunk size for stability analysis

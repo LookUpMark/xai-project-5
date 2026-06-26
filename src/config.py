@@ -287,16 +287,16 @@ class SAEConfig:
 
     Ablation presets for small datasets (N ~ 7400):
         Conservative:  k=16, dict_size=2048, lr=None, steps=30_000
-        Default:       k=32, dict_size=1024, lr=None, steps=50_000
+        Default:       k=32, dict_size=2048, lr=None, steps=50_000
         Aggressive:    k=64, dict_size=4096, lr=None, steps=80_000
 
     lr=None triggers the library's auto-scaling: 2e-4 / sqrt(dict_size / 16384).
-    For dict_size=1024 this gives ~8e-4. For small datasets, consider overriding
+    For dict_size=2048 this gives ~5.7e-4. For small datasets, consider overriding
     to a lower value (e.g. 5e-5) to avoid overfitting.
     """
 
     activation_dim: int = 512
-    dict_size: int = 1024
+    dict_size: int = 2048  # matches Path A default (config.sae_hidden) for baseline↔Path A comparison
     k: int = 32
     lr: Optional[float] = 5e-5  # None = library auto-scale (~4e-4)
     steps: int = 50_000

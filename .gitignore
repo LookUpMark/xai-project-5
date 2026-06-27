@@ -224,9 +224,7 @@ models/*
 !models/.gitkeep
 !models/mock/
 
-# Results (regenerable)
-results/*
-!results/.gitkeep
+# Results tracked as scientific record (mock fixtures ignored below)
 
 # Literature PDFs (copyrighted)
 docs/literature/*.pdf

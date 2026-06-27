@@ -49,7 +49,7 @@ Historical note: the previous models were **100-step toy models** (dead 97.6%, c
   - *activation dead* = feature never active on the test set. **~44%** here (dictionary oversized for ~7400 images).
 - **Cross-seed Jaccard** — overlap between the active index sets of two SAEs: `|A∩B|/|A∪B|`. 0.004 = almost completely different concepts across seeds. Sensitive to index permutation (Ablation 00 verifies it in the direction space).
 - **Concept naming** — for each feature, the most similar RadLex term (cosine between the feature direction and the term embedding). High score = concept anchored to a real term.
-- **Modality gap** — systematic geometric offset between image space and text space in contrastive models. Corrected post-hoc with `W_dec -= (visual_centroid − text_centroid)`. Full analysis in `docs/suggestions/concept_naming_analysis.md`.
+- **Modality gap** — systematic geometric offset between image space and text space in contrastive models. Corrected post-hoc with `W_dec -= (visual_centroid − text_centroid)`. Full analysis in `docs/design/proposals/CONCEPT-NAMING-ANALYSIS.md`.
 - **Explanations (pseudo-report)** — for each test image, its active top-k concepts assembled into a textual description. It is the input that the LLM judge (MedGemma) will evaluate.
 
 ---
@@ -68,7 +68,7 @@ Historical note: the previous models were **100-step toy models** (dead 97.6%, c
 
 **Cross-seed Jaccard.** `J(A,B) = |A∩B|/|A∪B|` where `A,B` = active index sets of two SAEs on a sample. Mean over the 10 seed pairs. Analytical null `k/(2D−k)` = 0.0039 at D=4096, k=32 → ratio ~1 (on the chance floor).
 
-**Modality gap (naming gap-corrected).** `gap = mean(train_emb, 0) − mean(vocab_emb, 0)`; `W_dec ← W_dec − gap`, then `F.normalize` rows + cosine with `F.normalize(vocab_emb)`. Corresponds to *Solution 1* of `docs/suggestions/concept_naming_analysis.md`.
+**Modality gap (naming gap-corrected).** `gap = mean(train_emb, 0) − mean(vocab_emb, 0)`; `W_dec ← W_dec − gap`, then `F.normalize` rows + cosine with `F.normalize(vocab_emb)`. Corresponds to *Solution 1* of `docs/design/proposals/CONCEPT-NAMING-ANALYSIS.md`.
 
 ---
 
@@ -171,7 +171,7 @@ Headline of this run: the **modality gap** correction solved the main limitation
   | 1172 | brachytherapy catheter | 0.5114 |
 
 - The top concepts are mutually coherent (endocavitary tubes/devices, vertebral anatomy, spinal pathways) → the dictionary captures real patterns of the embedding space.
-- **How it is implemented:** `train_sae.compute_and_save_modality_gap()` precomputes `gap = train_emb.mean(0) − vocab_emb.mean(0)` → `models/modality_gap.pt`; `sae_module.name_concepts(..., modality_gap=gap)` does `W_dec = W_dec − gap` then `F.normalize` + cosine. Corresponds to *Solution 1* of `docs/suggestions/concept_naming_analysis.md`.
+- **How it is implemented:** `train_sae.compute_and_save_modality_gap()` precomputes `gap = train_emb.mean(0) − vocab_emb.mean(0)` → `models/modality_gap.pt`; `sae_module.name_concepts(..., modality_gap=gap)` does `W_dec = W_dec − gap` then `F.normalize` + cosine. Corresponds to *Solution 1* of `docs/design/proposals/CONCEPT-NAMING-ANALYSIS.md`.
 - **Collateral fix of this run:** `name_concepts` now coerces the label dict → string (`_vocab_term`), so consumers that load `vocabulary.json` as a list of dicts (baseline notebook) still get a string `name` instead of crashing `generate_explanation`.
 - **Cross-check with faithfulness (Ablation 05):** RadLex naming is *off-distribution* and sometimes noisy. Ablation 05 shows that a feature can be faithful to "implanted medical device" while carrying the RadLex name "anterior segment of upper lobe" — the behavior is more informative than the name. See `../ablation/REPORT.md` §Ablation 05.
 
@@ -225,10 +225,10 @@ The improvement hypotheses listed below have been **verified by the ablation pro
 - **Lower LR (`5e-5`)**: remains untested as a single lever; the ablations use a pinned lr to control confounds.
 - **Variation of `k`**: Ablation 02 → weak sweet spot at k=16 (ratio 1.30, the only one above the null), but absolute agreement remains tiny; k=32 (baseline) is on the chance floor.
 - **Alternative activation family**: Ablation 04 → BatchTopK reduces the dead (4.8%) but consensus 0 for all three families (TopK/BatchTopK/JumpReLU).
-- **Naming beyond cosine (SPLiCE)** and **larger/curated vocab**: future work (`docs/suggestions/VOCAB_BUILDING_ALTERNATIVES.md`).
+- **Naming beyond cosine (SPLiCE)** and **larger/curated vocab**: future work (`docs/design/proposals/VOCAB-BUILDING-ALTERNATIVES.md`).
 - **Qualitative validation / faithfulness**: Ablation 05 → ~10% of live features are faithful to real clinical labels above the null (implants, effusion, emphysema).
 
-The instability is a **structural limitation** of the method on this dataset (few samples + non-uniqueness of the sparse decomposition on projected CLIP embeddings). The full causal diagnosis is in `docs/suggestions/CONCEPT_INSTABILITY_DIAGNOSIS.md`.
+The instability is a **structural limitation** of the method on this dataset (few samples + non-uniqueness of the sparse decomposition on projected CLIP embeddings). The full causal diagnosis is in `docs/design/proposals/CONCEPT-INSTABILITY-DIAGNOSIS.md`.
 
 ---
 

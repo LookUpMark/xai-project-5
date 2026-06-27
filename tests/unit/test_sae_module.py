@@ -5,6 +5,7 @@ Tests the facade interface with real AutoEncoderTopK (random weights).
 No GPU or real training required.
 """
 
+import config
 import pytest
 
 from autoencoder.sae_module import SAEManager
@@ -14,7 +15,7 @@ class TestSAEManagerInit:
     def test_default_config(self):
         mgr = SAEManager()
         assert mgr.config["activation_dim"] == 512
-        assert mgr.config["dict_size"] == 4096
+        assert mgr.config["dict_size"] == config.sae.dict_size
         assert mgr.config["k"] == 32
 
     def test_custom_config(self):
@@ -55,7 +56,7 @@ class TestSAEManagerEncode:
         mgr = SAEManager({"device": "cpu"})
         mgr.load(tmp_model_dir)
         sparse = mgr.encode(fake_embeddings[:10])
-        assert sparse.shape == (10, 4096)
+        assert sparse.shape == (10, config.sae.dict_size)
 
     def test_encode_sparsity(self, tmp_model_dir, fake_embeddings):
         mgr = SAEManager({"device": "cpu"})
@@ -69,7 +70,7 @@ class TestSAEManagerEncode:
         mgr = SAEManager({"device": "cpu"})
         mgr.load(tmp_model_dir)
         sparse, values, indices = mgr.encode_topk(fake_embeddings[:10])
-        assert sparse.shape == (10, 4096)
+        assert sparse.shape == (10, config.sae.dict_size)
         assert values.shape == (10, 32)
         assert indices.shape == (10, 32)
 
@@ -93,7 +94,7 @@ class TestSAEManagerConcepts:
         mgr = SAEManager({"device": "cpu"})
         mgr.load(tmp_model_dir)
         W = mgr.get_decoder_weights()
-        assert W.shape == (4096, 512)
+        assert W.shape == (config.sae.dict_size, 512)
 
     def test_get_top_concepts_length(self, tmp_model_dir, fake_embeddings):
         mgr = SAEManager({"device": "cpu"})
@@ -109,7 +110,7 @@ class TestSAEManagerConcepts:
         feat_id, activation = concepts[0][0]
         assert isinstance(feat_id, int)
         assert isinstance(activation, float)
-        assert 0 <= feat_id < 4096
+        assert 0 <= feat_id < config.sae.dict_size
 
 
 class TestSAEManagerMetrics:

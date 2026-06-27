@@ -100,7 +100,7 @@ logger = setup_logging(__name__)
 
 
 def dataclass_to_dict(obj) -> dict:
-    """Convert a frozen/regular dataclass to a plain dict.
+    """Convert a frozen/regular dataclass to a plain dict (shallow).
 
     Args:
         obj: A dataclass instance.
@@ -108,6 +108,11 @@ def dataclass_to_dict(obj) -> dict:
     Returns:
         Dict with field names as keys.
     """
+    # ponytail: deliberately SHALLOW — unlike dataclasses.asdict, this does not
+    # recurse into nested dataclasses/containers and so preserves tuple fields
+    # (e.g. SAEHiddenConfig.match_thresholds = (0.7, 0.9)) as tuples. Callers
+    # JSON-serialise the result, where the distinction is moot, but keeping it
+    # shallow avoids surprising recursion if a config gains a nested field.
     return {f.name: getattr(obj, f.name) for f in dataclasses.fields(obj)}
 
 

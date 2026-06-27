@@ -21,7 +21,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import config
 import utils
 from autoencoder.sae_module import SAEManager
-from autoencoder.tracking import init_tracking, log_artifact, finish_tracking
 from autoencoder.visualization import plot_concept_score_distribution
 
 logger = utils.setup_logging(__name__)
@@ -107,22 +106,6 @@ def run() -> Path:
     # Visualization
     fig_path = config.paths.figures_dir / "concept_score_distribution.png"
     plot_concept_score_distribution(scores, fig_path)
-
-    # Tracking
-    if config.wandb_cfg.enabled:
-        init_tracking(
-            "concept_naming",
-            {
-                "project": config.wandb_cfg.project,
-                "seed": SEED,
-                "total_features": len(concept_names),
-                "mean_score": mean_score,
-            },
-        )
-        try:
-            log_artifact(OUTPUT_PATH, "concept_names", "results")
-        finally:
-            finish_tracking()
 
     return OUTPUT_PATH
 

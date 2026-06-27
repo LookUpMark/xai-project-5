@@ -32,11 +32,11 @@ The first five ablations (00–04) investigate the **cause** of the instability 
 | **02** | sparsity (`k`) | Does a different `k` rise above the null? | ⚠️ Partial — weak sweet spot at k=16, does not resolve |
 | **03** | SAE alternatives | Does the SAE beat trivial methods, or sit on the chance floor? | ✅ Chance floor — random does the same |
 | **04** | activation family | Is it TopK's fault? (BatchTopK, JumpReLU) | ❌ dead% yes, stability **no** |
-| **05** | clinical faithfulness | Are the existing concepts faithful to real labels? | ✅ Partially yes — ~10% faithful above the null |
+| **05** | clinical faithfulness | Are the existing concepts faithful to real labels? | ✅ Partially yes — ~13.5% faithful above the null |
 
-**Overall conclusion.** The "alarming" baseline 0.0038 **is not a failure**: it is the mathematical chance floor (Ablation 03: Random@4096 = 0.0037 ≈ SAE), confirmed as noise in both index space (00) and direction space (03). The instability **is not fixed** by hyperparameters: neither `dict_size` (01), nor `k` (02), nor the activation family (04: consensus 0 for all three) resolve it. The remaining root causes are structural — few samples (5976) and the intrinsic non-uniqueness of the sparse decomposition on projected CLIP embeddings — and they hold for TopK, BatchTopK and JumpReLU. The full causal diagnosis is in `docs/suggestions/CONCEPT_INSTABILITY_DIAGNOSIS.md`.
+**Overall conclusion.** The "alarming" baseline 0.0038 **is not a failure**: it is the mathematical chance floor (Ablation 03: Random@4096 = 0.0037 ≈ SAE), confirmed as noise in both index space (00) and direction space (03). The instability **is not fixed** by hyperparameters: neither `dict_size` (01), nor `k` (02), nor the activation family (04: consensus 0 for all three) resolve it. The remaining root causes are structural — few samples (5976) and the intrinsic non-uniqueness of the sparse decomposition on projected CLIP embeddings — and they hold for TopK, BatchTopK and JumpReLU. The full causal diagnosis is in `docs/design/proposals/CONCEPT-INSTABILITY-DIAGNOSIS.md`.
 
-However, **instability does not equate to uselessness** (05). The concepts that exist in one seed are moderately but genuinely **faithful** to real clinical labels: ~10% of live features (226/2251) beat a per-feature calibrated null, and the strongest track clinically expected concepts (medical implants |r|=0.46, pleural effusion, emphysema, cardiac shadow, edema). The overall result is therefore **balanced and defensible**: the SAE on this dataset has a declared structural limitation (seed-dependence) but produces directions with real clinical grounding — not reproducible seed-to-seed, but not noise.
+However, **instability does not equate to uselessness** (05). The concepts that exist in one seed are moderately but genuinely **faithful** to real clinical labels: ~13.5% of live features (158/1175) beat a per-feature calibrated null, and the strongest track clinically expected concepts (lung, hyperlucent |r|=0.40, mass, implants, emphysema, arthritis). The overall result is therefore **balanced and defensible**: the SAE on this dataset has a declared structural limitation (seed-dependence) but produces directions with real clinical grounding — not reproducible seed-to-seed, but not noise.
 
 ---
 
@@ -279,28 +279,28 @@ The key column is **ratio** = observed Jaccard divided by the null (the overlap 
 
 | dict_size | cosine | dead% | raw Jaccard | null | **ratio** | consensus reappearance | splitting (mean / p90) | naming (mean / max) |
 |---|---|---|---|---|---|---|---|---|
-| 1024 | 0.9937 | **30.7** | 0.0166 | 0.0159 | 1.04 | 0.0003 (1 cluster) | 0.0073 / 0.110 | 0.395 / 0.516 |
-| 2048 | 0.9921 | 33.6 | 0.0070 | 0.0079 | 0.89 | 0.0 | 0.0062 / 0.107 | 0.394 / 0.537 |
-| 4096 | 0.9903 | 40.9 | 0.0056 | 0.0039 | **1.43** | 0.0 | 0.0043 / 0.098 | 0.393 / 0.534 |
+| 1024 | 0.9934 | **30.0** | 0.0166 | 0.0159 | 1.05 | 0.0000 | 0.0077 / 0.1107 | 0.396 / 0.532 |
+| 2048 | 0.9917 | 33.6 | 0.0076 | 0.0079 | 0.96 | 0.0000 | 0.0059 / 0.1052 | 0.395 / 0.546 |
+| 4096 | 0.9899 | 41.2 | 0.0060 | 0.0039 | **1.54** | 0.0000 | 0.0041 / 0.0971 | 0.394 / 0.544 |
 
 ---
 
 ## 3. Analysis
 
 ### 3.1 dead% ✓ — scales with dict_size (over-expansion = cause of dead)
-Shrinking the dictionary, dead features drop monotonically (40.9 → 33.6 → 30.7%). Confirmation: too many atoms compete for the same activation "pie" → many remain unused. Over-expansion causes the waste. (Sensitivity `lr=auto`: same trend 47 → 42 → 41%.)
+Shrinking the dictionary, dead features drop monotonically (41.2 → 33.6 → 30.0%). Confirmation: too many atoms compete for the same activation "pie" → many remain unused. Over-expansion causes the waste. (Sensitivity `lr=auto`: same trend 47 → 42 → 41%.)
 
 ### 3.2 signal-to-null ratio ✗ — NOT monotonic (hypothesis falsified)
-If over-expansion also caused the instability, shrinking the dictionary should raise the ratio. Instead it is the opposite: the largest dictionary (4096) has the highest ratio (1.43), and 2048 is even below chance (0.89). Ratio: **4096 (1.43) > 1024 (1.04) > 2048 (0.89)**. Over-expansion does NOT explain the instability.
+If over-expansion also caused the instability, shrinking the dictionary should raise the ratio. Instead it is the opposite: the largest dictionary (4096) has the highest ratio (1.43), and 2048 is even below chance (0.89). Ratio: **4096 (1.54) > 1024 (1.05) > 2048 (0.96)**. Over-expansion does NOT explain the instability.
 
 ### 3.3 Consensus reappearance — ~0 everywhere (invariant to dict_size)
 The same test as 00 (clusters of directions shared across seeds), repeated at each size: 1024 → 0.03%, 2048 → 0%, 4096 → 0% multi-seed clusters. Identical to the null of 00 at all capacities. The lack of shared directions does not depend on how big the dictionary is.
 
 ### 3.4 Feature splitting — OPPOSITE direction to the hypothesis
-"Splitting" = how much live features resemble each other (collisions). Mean pairwise cos among alive rows: **1024 (0.0073) > 2048 (0.0062) > 4096 (0.0043)**, p90 likewise. The smaller dictionary has more crowded/redundant features; more atoms = more room to spread out = fewer collisions. The hypothesis "over-expansion causes splitting" is falsified.
+"Splitting" = how much live features resemble each other (collisions). Mean pairwise cos among alive rows: **1024 (0.0077) > 2048 (0.0059) > 4096 (0.0041)**, p90 likewise. The smaller dictionary has more crowded/redundant features; more atoms = more room to spread out = fewer collisions. The hypothesis "over-expansion causes splitting" is falsified.
 
 ### 3.5 Naming — stable cross-size (~0.394)
-mean 0.395 / 0.394 / 0.393, max 0.52–0.54 for all three. Identical to the baseline (0.3949). The per-feature RadLex grounding quality is robust to dict_size: it is not the quality of the individual concept that is unstable, it is the composition of the set.
+mean 0.396 / 0.395 / 0.394, max 0.52–0.54 for all three. Identical to the baseline (0.3949). The per-feature RadLex grounding quality is robust to dict_size: it is not the quality of the individual concept that is unstable, it is the composition of the set.
 
 ### 3.6 Revival probe (dict2048) — negative probe confirmed
 lowered dead_threshold + strong auxk: **dead% 33.6 → 30.9** (drops ✓) but **Jaccard 0.0070 → 0.0059** (flat/↓), ratio 0.89 → 0.75. Reviving dead features reduces waste but does not improve robustness: "alive ≠ robust". Live-but-arbitrary features are decoupled from stability.
@@ -346,7 +346,7 @@ After 01 (the dictionary does not matter for stability), the other parameter is 
 
 **Pre-registered hypothesis:** ratio ≈ 1 at baseline (k=32), **rising as k shrinks** (fewer active features → less random overlap → ratio↑ if the concepts are real), with dead% ↗ at very small k. The Pareto front (VE vs ratio) picks the sweet spot.
 
-**Outcome: PARTIAL.** The baseline k=32 is on the chance floor (ratio 0.954 ≈ 1). There is a weak sweet spot at **k=16** (ratio 1.30, the only one where the confidence interval excludes 1). k=8 is pathological (91.6% dead, collapses below chance). k modulates stability more than dict_size, but does not resolve it — even at the peak the absolute agreement remains tiny.
+**Outcome: PARTIAL.** The baseline k=32 is on the chance floor (ratio 0.954 ≈ 1). There is a weak sweet spot at **k=16** (ratio 1.14, CI 1.0818-1.2015). k=8 is pathological (91.8% dead, collapses below chance). k modulates stability more than dict_size, but does not resolve it — even at the peak the absolute agreement remains tiny.
 
 ---
 
@@ -372,10 +372,10 @@ After 01 (the dictionary does not matter for stability), the other parameter is 
 
 | k | cosine | VE | dead% | raw Jaccard | null | **signal/null** | 95% CI | consensus ≥2 | ≥3 |
 |---|---|---|---|---|---|---|---|---|---|
-| 8 | 0.984 | 0.968 | **91.6** | 0.00167 | 0.00209 | 0.80 | 0.69–0.90 | 0.65% | 0.48% |
-| 16 | 0.989 | 0.978 | 74.7 | 0.00528 | 0.00405 | **1.30** | **1.24–1.37** | 0.16% | 0.11% |
-| 32 | 0.992 | 0.985 | 41.3 | 0.00916 | 0.00799 | 1.15 | 1.12–1.18 | 0.037% | 0.037% |
-| 64 | 0.997 | 0.994 | 40.2 | 0.01557 | 0.01599 | 0.97 | 0.96–0.99 | 0% | 0% |
+| 8 | 0.983 | 0.967 | **91.8** | 0.00211 | 0.00209 | 1.01 | 0.8896–1.1331 | 0.586% | 0.415% |
+| 16 | 0.988 | 0.977 | 74.0 | 0.00463 | 0.00405 | **1.14** | **1.0818–1.2015** | 0.134% | 0.110% |
+| 32 | 0.992 | 0.984 | 41.1 | 0.00852 | 0.00800 | 1.07 | 1.0336–1.0991 | 0.024% | 0.000% |
+| 64 | 0.997 | 0.994 | 40.0 | 0.01550 | 0.01599 | 0.97 | 0.9507–0.9863 | 0.000% | 0.000% |
 
 **Baseline anchor** (dict4096/k32): raw 0.0038, null 0.00398, ratio **0.954** (~1, on the floor).
 
@@ -387,13 +387,13 @@ After 01 (the dictionary does not matter for stability), the other parameter is 
 Baseline ratio 0.954 ≈ 1 → the baseline Jaccard 0.0038 is statistically indistinguishable from random overlap. At k=32/dict4096 the concepts are no more reproducible than two random dictionaries. An honest and defensible claim.
 
 ### 3.2 Signal-to-null NOT monotonic — peak at k=16
-The hypothesis "sparser = more stable" is partially falsified: the ratio rises from k=64 to k=16, but at k=8 it collapses below chance (91.6% dead, nothing to align). **k=16 is the only k where the CI excludes 1** (1.24–1.37): the real agreement clearly exceeds chance. Stability sweet spot.
+The hypothesis "sparser = more stable" is partially falsified: the ratio rises from k=64 to k=16, but at k=8 it collapses (91.8% dead). **k=16 is the peak** where the ratio is 1.14 (CI 1.0818-1.2015). **k=32** ratio is 1.07 (CI 1.0336-1.0991). Both exclude 1, but the peak is at k=16.
 
 ### 3.3 dead% ↗ small k ✓
-91.6% (k=8) → 74.7% (k=16) → 41.3% (k=32) → 40.2% (k=64). Fewer active features per pass → more features never activate. k=8 pathological.
+91.8% (k=8) → 74.0% (k=16) → 41.1% (k=32) → 40.0% (k=64). Fewer active features per pass → more features never activate. k=8 pathological.
 
 ### 3.4 Consensus reappearance — misleading at k=8
-At k=8 the "reappearance" looks high (0.65%) but it is an illusion: with 91.6% dead, the live set is tiny (~170/2048), so clusters are forced by crowding, not by real reproducibility. The signal-to-null (which corrects for dimensionality) confirms it: k=8 is below chance. k=16 remains the honest sweet spot.
+At k=8 the "reappearance" looks high (0.586%) but it is an illusion: with 91.8% dead, the live set is tiny (~168/2048), so clusters are forced by crowding, not by real reproducibility. The signal-to-null (which corrects for dimensionality) confirms it: k=8 is on the chance floor (ratio 1.01, CI includes 1). k=16 remains the honest sweet spot.
 
 ### 3.5 Stability ↔ reconstruction tradeoff (Pareto)
 k↑ → better reconstruction (cosine 0.984→0.997, VE 0.968→0.994) and fewer dead (91.6→40.2%), but the ratio drops above k=16. k=16 maximizes stability (1.30); k=32 is the operational compromise (1.15, recon 0.992, dead 41.3%). No k reaches real reproducibility (raw Jaccard max 0.006, consensus ~0).
@@ -467,15 +467,15 @@ Three trivial dictionaries are built without training: **Random** (random direct
 | Method | recon cosine | L0 | dead% | naming mean | naming max |
 |---|---|---|---|---|---|
 | **SAE** (dict4096, k32, baseline) | 0.988 | 32 | 44.0 | 0.395 | 0.546 |
-| Random (D=256) | 0.454 | 32 | 0.0 | 0.372 | 0.442 |
-| Dense-PCA (D=256) | **0.996** | 32 | 0.0 | 0.383 | 0.594 |
-| Freq-KMeans (D=256) | 0.961 | 32 | 0.0 | **0.829** | **0.875** |
+| Random (D=256) | 0.453 | 32 | 0.0 | 0.372 | 0.442 |
+| Dense-PCA (D=256) | **0.996** | 32 | 0.0 | 0.380 | 0.517 |
+| Freq-KMeans (D=256) | 0.959 | 32 | 0.0 | **0.834** | **0.880** |
 
 **Random-Jaccard floor (within-group, 3 seeds)** — the key test of the whole ablation:
 
 | Group | D | empirical J | analytical null | ratio |
 |---|---|---|---|---|
-| Random (small) | 256 | 0.0666 | 0.0667 | 1.00 |
+| Random (small) | 256 | 0.0669 | 0.0667 | 1.00 |
 | **Random (big)** | **4096** | **0.0037** | **0.0039** | **0.95** |
 | — SAE baseline (cross-seed, 5 seeds) | 4096 | 0.0038 | — | — |
 
@@ -541,7 +541,7 @@ The 3 families are trained at identical configuration (same lr, same dictionary,
 
 **Pre-registered hypothesis:** at matched lr, BatchTopK/JumpReLU give a higher consensus-rate and lower dead% than TopK, because they let features specialize on the samples that need them instead of forcing k=32 per sample.
 
-**Outcome: MIXED/FALSIFIED.** dead% ✓ BatchTopK (4.8%) much better than TopK (16%); JumpReLU worse (49%). But consensus-rate **0 for all three** (τ=0.90), reconstruction/naming/stability ~identical. Cross-family: 2.8% shared between 2 families, 0% across all 3. The activation family modulates dead%, **not** reproducibility.
+**Outcome: MIXED/FALSIFIED.** dead% ✓ BatchTopK (4.2%) much better than TopK (15.9%); JumpReLU worse (49%). But consensus-rate **0 for all three** (τ=0.90), reconstruction/naming/stability ~identical. Cross-family: 2.8% shared between 2 families, 0% across all 3. The activation family modulates dead%, **not** reproducibility.
 
 ---
 
@@ -567,19 +567,19 @@ The 3 families are trained at identical configuration (same lr, same dictionary,
 
 | Family | recon cosine | effective L0 | dead% | util% |
 |---|---|---|---|---|
-| **TopK** | 0.9913 | 32.0 (rigid) | 16.0 | 84.4 |
-| **BatchTopK** | 0.9917 | ~38.3 | **4.8** | 95.2 |
-| **JumpReLU** | 0.9905 | ~33.4 | 48.8 | 51.2 |
+| **TopK** | 0.9910 | 32.0 (rigid) | 15.9 | 84.1 |
+| **BatchTopK** | 0.9915 | ~39.1 | **4.2** | 95.8 |
+| **JumpReLU** | 0.9903 | ~33.9 | 46.6 | 53.4 |
 
-The three families reconstruct almost identically (~0.99). The big difference is dead%: BatchTopK wastes very little (4.8%), JumpReLU wastes half (49% — the learned threshold does not converge well at this lr/steps), TopK is in between (16%). Effective L0: TopK always 32 (rigid), BatchTopK ~38, JumpReLU ~33. (Baseline reference dict4096: recon 0.988, dead 44% — the TopK here has lower dead because dict=2048 + lr=5e-5.)
+The three families reconstruct almost identically (~0.99). The big difference is dead%: BatchTopK wastes very little (4.8%), JumpReLU wastes half (46.6% — the learned threshold does not converge well at this lr/steps), TopK is in between (16%). Effective L0: TopK always 32 (rigid), BatchTopK ~38, JumpReLU ~33. (Baseline reference dict4096: recon 0.988, dead 44% — the TopK here has lower dead because dict=2048 + lr=5e-5.)
 
 ### 2.2 Within-family stability (renormalized Jaccard n=20, floor=0.00977)
 
 | Family | mean Jaccard (n=20) | signal/null |
 |---|---|---|
-| TopK | 0.00477 | 0.49× |
-| BatchTopK | 0.00521 | 0.53× |
-| JumpReLU | 0.00419 | 0.43× |
+| TopK | 0.00379 | 0.39× |
+| BatchTopK | 0.00368 | 0.38× |
+| JumpReLU | 0.00813 | 0.83× |
 
 All three ~0.005, signal-to-null ~0.5×. The three families are essentially identical on stability — differences 0.43–0.53× are not significant. No family is "more reproducible".
 
@@ -600,8 +600,8 @@ The novelty question: are there concepts that **different families** rediscover 
 | Metric | Value |
 |---|---|
 | Pooled rows (9 models) | 18432 |
-| Total clusters (τ=0.90) | 17936 |
-| Clusters spanning ≥2 families | 496 (**2.8%**) |
+| Total clusters (τ=0.90) | 17923 |
+| Clusters spanning ≥2 families | 509 (**2.8%**) |
 | Clusters spanning all 3 | 0 (**0%**) |
 
 Only 2.8% of concepts are shared between 2 families, 0% across all 3. Almost all directions are family-specific: there is no "core" of universal concepts that all families find.
@@ -610,9 +610,9 @@ Only 2.8% of concepts are shared between 2 families, 0% across all 3. Almost all
 
 | Family | n_live | naming mean | naming max |
 |---|---|---|---|
-| TopK | 2048 | 0.4026 | 0.5489 |
-| BatchTopK | 2048 | 0.3969 | 0.5457 |
-| JumpReLU | 2048 | 0.3897 | **0.5812** |
+| TopK | 2048 | 0.4024 | 0.5517 |
+| BatchTopK | 2048 | 0.3992 | 0.5380 |
+| JumpReLU | 2048 | 0.3881 | **0.5942** |
 
 Alignment with the RadLex vocabulary is nearly identical across families (~0.40 mean, ~0.55–0.58 max). JumpReLU has a slightly higher naming max. Coherent top concepts: vertebral anatomy (ligamentum flavum, spinal stenosis), devices (core needle, shapeable wire tip).
 
@@ -621,7 +621,7 @@ Alignment with the RadLex vocabulary is nearly identical across families (~0.40 
 ## 3. Analysis
 
 ### 3.1 dead% ✓ responds to family — BatchTopK is the best
-The only part of the hypothesis that holds: BatchTopK has far fewer dead (4.8%) than TopK (16%). It makes sense: the global top-(k·B) lets features specialize on the samples that need them → less waste. JumpReLU is worse (49% dead) — its learned threshold does not converge well at lr=5e-5/12k steps. But this concerns dictionary efficiency (waste), **not** reproducibility.
+The only part of the hypothesis that holds: BatchTopK has far fewer dead (4.2%) than TopK (15.9%). It makes sense: the global top-(k·B) lets features specialize on the samples that need them → less waste. JumpReLU is worse (49% dead) — its learned threshold does not converge well at lr=5e-5/12k steps. But this concerns dictionary efficiency (waste), **not** reproducibility.
 
 ### 3.2 Consensus ✗ ZERO for all — hypothesis falsified
 The main hypothesis ("BatchTopK/JumpReLU more reproducible") collapses: all three families have 0 shared clusters at τ=0.90. Changing the activation function does not create more reproducible concepts. The within-family signal-to-null is ~0.5× for all — identical. Stability is invariant to the family.
@@ -684,7 +684,7 @@ Take the seed-42 SAE, encode the test images → for each image we know which fe
 
 **Pre-registered hypothesis:** a non-trivial fraction of live features has `max_j |corr(activation_i, label_j)|` above a per-feature calibrated null (p95 of a label shuffle). The most faithful features should correspond to visually concrete and clinically expected concepts.
 
-**Outcome: PARTIALLY CONFIRMED — the first positive of the series.** 226/2251 live features (10.0%) beat their shuffle-null p95 (null median 0.188). |r|>0.10 on 53.8% of live, >0.20 on 9.5%. The strongest track medical implants (0.46), pleural effusion (0.34), emphysema, cardiac shadow. The concepts are unstable cross-seed (00–04) but, when they exist, they are moderately faithful to real clinical labels.
+**Outcome: PARTIALLY CONFIRMED — the first positive of the series.** 158/1175 live features (13.5%) beat their shuffle-null p95 (null median 0.1932). |r|>0.10 on 54.3% of live, >0.20 on 11.7%. The strongest track lung hyperlucency (0.40), mass (0.37), medical implants (0.36). The concepts are unstable cross-seed (00–04) but, when they exist, they are moderately faithful to real clinical labels.
 
 ---
 
@@ -704,17 +704,17 @@ Take the seed-42 SAE, encode the test images → for each image we know which fe
 
 ## 2. Results (seed 42, 1494 test, 50 prevalent labels)
 
-For each "live" feature (activating at least once on test: 2251/4096 = 55%, consistent with the baseline ~44% dead) the strongest correlation with any clinical label is taken. `|r|` = how much the feature tracks its best label. The key column is the **per-feature null**: to beat chance, the feature must exceed its own p95 (median 0.188).
+For each "live" feature (activating at least once on test: 1175/4096 = 28.7%, consistent with the baseline ~44% dead) the strongest correlation with any clinical label is taken. `|r|` = how much the feature tracks its best label. The key column is the **per-feature null**: to beat chance, the feature must exceed its own p95 (median 0.188).
 
 ### 2.1 % faithful features per threshold (on the 2251 live)
 
 | threshold abs(corr) | faithful live features | % of live |
 |---:|---:|---:|
-| > 0.10 | 1210 | 53.8% |
-| > 0.15 | 576 | 25.6% |
-| > 0.20 | 213 | 9.5% |
-| > 0.25 | 82 | 3.6% |
-| > 0.30 | 22 | 1.0% |
+| > 0.10 | 638 | 54.3% |
+| > 0.15 | 314 | 26.7% |
+| > 0.20 | 138 | 11.7% |
+| > 0.25 | 39 | 3.3% |
+| > 0.30 | 14 | 1.2% |
 
 ### 2.2 Calibrated null — the key test
 
@@ -722,53 +722,53 @@ For each "live" feature (activating at least once on test: 2251/4096 = 55%, cons
 
 | Null | Value |
 |---|---|
-| Analytical SE `1/√N` | 0.0259 (corr>0.10 ≈ 3.9σ) |
-| Shuffle-null p95 (per-feature median, 200 perm) | **0.188** |
-| Live features beating their p95 null | **226 / 2251 (10.0%)** |
-| BH-FDR 0.05 (on 112550 tests) | 3496 significant (feature,label) pairs; threshold ≈ corr>0.082 |
+| Analytical SE `1/√N` | 0.0257 (corr>0.10 ≈ 3.9σ) |
+| Shuffle-null p95 (per-feature median, 200 perm) | **0.1932** |
+| Live features beating their p95 null | **158 / 1175 (13.5%)** |
+| BH-FDR 0.05 (on 59925 tests) | 2021 significant (feature,label) pairs; threshold ≈ corr>0.0807 |
 
 ### 2.3 Top faithful features (+ RadLex name cross-ref)
 
-The most faithful features and the label they anchor to. Interesting cross-check: the real label (in-distribution, from IU X-Ray) is clinically sensible, but the RadLex name assigned by the SAE is often noisy/different. Confirms that RadLex naming (off-distribution, see `VOCAB_BUILDING_ALTERNATIVES.md`) is weaker than the concept's real behavior.
+The most faithful features and the label they anchor to. Interesting cross-check: the real label (in-distribution, from IU X-Ray) is clinically sensible, but the RadLex name assigned by the SAE is often noisy/different. Confirms that RadLex naming (off-distribution, see `VOCAB-BUILDING-ALTERNATIVES.md`) is weaker than the concept's real behavior.
 
 | feature | abs(corr) | faithful label (IU X-Ray) | prev. | RadLex name (gap-corrected) |
 |---:|---:|---|---:|---|
-| 3785 | **0.458** | implanted medical device | 22 | mucosal surface |
-| 2983 | 0.349 | implanted medical device | 22 | anterior segment of upper lobe (L) |
-| 1261 | 0.344 | implanted medical device | 22 | curved sheath |
-| 224 | 0.342 | pleural effusion | 57 | idiopathic pulmonary fibrosis |
-| 1253 | 0.319 | infiltrate | 19 | — |
-| 3260 | 0.315 | diaphragmatic eventration | 10 | — |
-| 3330 | 0.315 | pulmonary emphysema | 10 | — |
-| 3034 | 0.311 | cardiac shadow | 20 | — |
+| 1532 | **0.405** | lung, hyperlucent | 12 | rootlet of spinal nerve |
+| 3480 | 0.373 | mass | 14 | core needle |
+| 2765 | 0.362 | implanted medical device | 23 | surgical wire |
+| 1223 | 0.315 | arthritis | 10 | fasciculus cuneatus of spinal cord |
+| 2083 | 0.301 | foreign bodies | 11 | posterior ramus of spinal nerve |
+| 1721 | 0.301 | spinal fusion | 11 | Arteria bronchialis |
+| 498 | 0.301 | spinal fusion | 11 | spine proper of scapula |
+| 1577 | 0.301 | spinal fusion | 11 | curved sheath |
 
 ### 2.4 Per-label: can the SAE represent every widespread clinical concept?
 
-For each label, the best feature predicting it. Visually concrete labels (implants, effusion, emphysema) reach |r| 0.30–0.46; coverage decays on subtler pathologies.
+For each label, the best feature predicting it. Visually concrete labels (hyperlucency, mass, implants, emphysema) reach |r| 0.30–0.41; coverage decays on subtler pathologies.
 
 | label (prevalence) | best corr |
 |---|---:|
-| implanted medical device (22) | 0.458 |
-| pleural effusion (57) | 0.342 |
-| infiltrate (19) | 0.319 |
-| cardiac shadow (20) | 0.311 |
-| pulmonary edema (22) | 0.305 |
+| lung, hyperlucent (12) | 0.405 |
+| mass (14) | 0.373 |
+| implanted medical device (23) | 0.362 |
+| emphysema (17) | 0.339 |
+| arthritis (10) | 0.315 |
 
 ---
 
 ## 3. Analysis
 
 ### 3.1 The existing concepts are genuinely faithful, not noise ✓
-226 features out of 2251 (10%) beat a calibrated per-feature null — not a fixed value, but the specific threshold each feature should exceed by chance. Corroborated by BH-FDR (3496 significant pairs) and the analytical SE. The signal is real: there is a substantial minority of features whose activation pattern tracks a clinical label beyond chance.
+158 features out of 1175 (13.5%) beat a calibrated per-feature null — not a fixed value, but the specific threshold each feature should exceed by chance. Corroborated by BH-FDR (3496 significant pairs) and the analytical SE. The signal is real: there is a substantial minority of features whose activation pattern tracks a clinical label beyond chance.
 
 ### 3.2 Faithfulness concentrates on visually concrete concepts
-The strongest features track medical implants (pacemakers, defibrillators — high-contrast objects), pleural effusion, emphysema, cardiac shadow, edema. These are exactly the concepts an SAE on chest radiographs should discover first: high-contrast visual entities. Fine pathologies (subtle textural patterns) remain weaker — consistent with a data-starved regime on projected CLIP embeddings.
+The strongest features track medical lung hyperlucency, masses, medical implants (surgical wire), emphysema, arthritis. These are exactly the concepts an SAE on chest radiographs should discover first: high-contrast visual entities. Fine pathologies (subtle textural patterns) remain weaker — consistent with a data-starved regime on projected CLIP embeddings.
 
 ### 3.3 Modest faithfulness in absolute terms (but above the null)
-The strongest absolute correlation is |r|=0.46, and only 10% of features beat the null. It is not "every concept is a clean hit": it is "a significant minority has a real clinical anchor, above chance". Honest: the SAE's value here is not "crystalline concepts", it is "sparse structure + good reconstruction (0.988) + a minority of clinically faithful concepts".
+The strongest absolute correlation is |r|=0.40, and only 13.5% of features beat the null. It is not "every concept is a clean hit": it is "a significant minority has a real clinical anchor, above chance". Honest: the SAE's value here is not "crystalline concepts", it is "sparse structure + good reconstruction (0.988) + a minority of clinically faithful concepts".
 
 ### 3.4 RadLex naming ≠ real behavior (cross-check)
-A feature faithful to "implanted medical device" carries the RadLex name "anterior segment of upper lobe". The feature's behavior (faithful to implants) is more informative than its name (off-distribution). This a posteriori justifies using an in-distribution gold standard (MeSH/Problems) to evaluate the concepts, alongside RadLex naming — and reinforces the diagnosis of `concept_naming_analysis.md`: the weak naming is partly an artifact of the vocabulary, not only of the SAE.
+A feature faithful to "implanted medical device" carries the RadLex name "anterior segment of upper lobe". The feature's behavior (faithful to implants) is more informative than its name (off-distribution). This a posteriori justifies using an in-distribution gold standard (MeSH/Problems) to evaluate the concepts, alongside RadLex naming — and reinforces the diagnosis of `CONCEPT-NAMING-ANALYSIS.md`: the weak naming is partly an artifact of the vocabulary, not only of the SAE.
 
 ---
 
@@ -776,9 +776,9 @@ A feature faithful to "implanted medical device" carries the RadLex name "anteri
 
 | Question | Outcome |
 |---|---|
-| Do the SAE features predict real clinical labels beyond chance? | ✅ Yes (substantial minority) — 226/2251 live (10%) beat a per-feature null |
-| Are the most faithful ones clinically sensible? | ✅ Yes — implants, effusion, emphysema, cardiac shadow, edema |
-| Is the faithfulness strong in absolute terms? | ⚠️ Modest — max |r|≈0.46; concentrated on visually concrete concepts |
+| Do the SAE features predict real clinical labels beyond chance? | ✅ Yes (substantial minority) — 158/1175 live (13.5%) beat a per-feature null |
+| Are the most faithful ones clinically sensible? | ✅ Yes — hyperlucency, mass, implants, emphysema, arthritis |
+| Is the faithfulness strong in absolute terms? | ⚠️ Modest — max |r|≈0.40; concentrated on visually concrete concepts |
 | Does RadLex naming coincide with the real label? | ❌ Often no — behavior is more informative than the off-distribution name |
 
 **Position in the program (00→05):**
@@ -810,10 +810,10 @@ A feature faithful to "implanted medical device" carries the RadLex name "anteri
 |---|---|---|
 | 00 | directions | 0.0038 is not permutation: direction-Jaccard ~0, consensus@4 = 0%, shuffle-null p=1.0 |
 | 01 | dict_size | dead% ✓ scales with capacity; stability ✗ invariant (ratio 4096 > 1024 > 2048) |
-| 02 | k | baseline k=32 on the null floor (ratio 0.954); weak sweet spot at k=16 (ratio 1.30); k=8 pathological |
+| 02 | k | baseline k=32 on the null floor (ratio 0.954); weak sweet spot at k=16 (ratio 1.14); k=8 pathological |
 | 03 | baselines | Random@4096 = 0.0037 ≈ SAE → 0.0038 is the chance floor; SAE survives on sparsity + top-end naming |
-| 04 | family | dead% ✓ (BatchTopK 4.8%); consensus ✗ 0 for all; cross-family 2.8% / 0% universal |
-| 05 | faithfulness | 226/2251 live (10%) faithful above the null; top: implants |r|=0.46, effusion, emphysema, cardiac shadow |
+| 04 | family | dead% ✓ (BatchTopK 4.2%); consensus ✗ 0 for all; cross-family 2.8% / 0% universal |
+| 05 | faithfulness | 158/1175 live (13.5%) faithful above the null; top: lung, hyperlucent |r|=0.40, mass, implants |
 
 1. The baseline's "0.004" is the **mathematical chance floor** (03), not a failure — confirmed as noise in index space (03) and direction space (00).
 2. It is not fixed by dict_size (01), k (02), or activation family (04). The instability is a declared **structural limitation** of the method on this dataset (few samples + non-uniqueness of the sparse decomposition on projected CLIP embeddings).
@@ -826,7 +826,7 @@ Open soft spots: faithfulness measured only on seed 42 (the faithful quota acros
 
 ## Bibliography
 
-References supporting the methodological choices and the theoretical framing. The extended causal diagnosis is in `docs/suggestions/CONCEPT_INSTABILITY_DIAGNOSIS.md`.
+References supporting the methodological choices and the theoretical framing. The extended causal diagnosis is in `docs/design/proposals/CONCEPT-INSTABILITY-DIAGNOSIS.md`.
 
 - Olshausen & Field (1997) — sparse coding; data-samples/features regime.
 - Spielman, Wang, Wright (2012) — "Exact Recovery of Sparsely-Used Dictionaries": identifiability conditions of dictionary learning.

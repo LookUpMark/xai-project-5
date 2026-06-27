@@ -6,9 +6,6 @@ torchvision==0.27.0
 transformers==4.44.2
 dictionary-learning==0.1.0
 
-# Experiment tracking
-wandb==0.27.0
-
 # LLM Judge (MedGemma 4B via HuggingFace + LangGraph)
 langgraph>=0.2
 

@@ -23,7 +23,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import config
 import utils
 from autoencoder.sae_module import SAEManager
-from autoencoder.tracking import init_tracking, log_artifact, finish_tracking
 from autoencoder.visualization import plot_jaccard_heatmap, plot_per_seed_metrics
 
 logger = utils.setup_logging(__name__)
@@ -139,6 +138,23 @@ def run() -> Path:
     logger.info(f"  Mean Jaccard: {stability['mean_jaccard']:.4f}")
     logger.info(f"  Std Jaccard:  {stability['std_jaccard']:.4f}")
 
+    # 1b. Permutation-invariant matched stability (decoder best-match cosine).
+    # The slot-wise Jaccard above is ~0 by construction for SAEs with no canonical
+    # feature ordering and cannot establish non-identifiability (ML-AUDIT-2026-06-26
+    # F-001). This matched metric is the sound cross-seed signal.
+    logger.info("Computing permutation-invariant matched stability...")
+    matched = SAEManager.compute_stability_matched(
+        model_dirs, config={"device": config.hardware.device}
+    )
+    matched_path = config.paths.results_dir / "stability_matched.json"
+    with open(matched_path, "w") as f:
+        json.dump(matched, f, indent=2)
+    _mc, _nc = matched["mean_best_match_cosine"], matched["null_mean"]
+    logger.info(
+        f"  Best-match cosine: {_mc:.4f} vs null {_nc:.4f} "
+        f"({_mc / _nc:.2f}x), frac>=0.9: {matched['mean_frac_matched_0.9']:.4f}"
+    )
+
     # 2. Per-seed metrics
     logger.info("\nPer-seed metrics:")
     per_seed_metrics = {}
@@ -153,7 +169,7 @@ def run() -> Path:
 
         per_seed_metrics[seed] = {
             "mse": mse,
-            "cosine_sim": cosine,
+            "cosine": cosine,
             **sparsity,
             "feature_frequency_mean": freq.mean().item(),
             "feature_frequency_std": freq.std().item(),
@@ -207,21 +223,6 @@ def run() -> Path:
         json.dump(results, f, indent=2)
 
     logger.info(f"\nResults saved to: {OUTPUT_PATH}")
-
-    # Tracking
-    if config.wandb_cfg.enabled:
-        init_tracking(
-            "stability_analysis",
-            {
-                "project": config.wandb_cfg.project,
-                "mean_jaccard": stability["mean_jaccard"],
-                "std_jaccard": stability["std_jaccard"],
-            },
-        )
-        try:
-            log_artifact(OUTPUT_PATH, "stability_analysis", "results")
-        finally:
-            finish_tracking()
 
     return OUTPUT_PATH
 

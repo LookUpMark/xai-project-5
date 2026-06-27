@@ -22,12 +22,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import config
 import utils
 from autoencoder.sae_module import SAEManager
-from autoencoder.tracking import (
-    init_tracking,
-    log_metrics,
-    log_artifact,
-    finish_tracking,
-)
 
 logger = utils.setup_logging(__name__)
 
@@ -116,20 +110,6 @@ def train_single(seed: int) -> Path:
     logger.info(f"  Dict utilization: {sparsity['dict_utilization_pct']:.1f}%")
     logger.info(f"  Saved to: {model_dir}")
 
-    # Log to wandb if enabled
-    if config.wandb_cfg.enabled:
-        log_metrics(
-            {
-                f"train/seed{seed}/test_mse": mse,
-                f"train/seed{seed}/test_cosine": cosine,
-                f"train/seed{seed}/dead_pct": sparsity["dead_features_pct"],
-                f"train/seed{seed}/dict_util": sparsity["dict_utilization_pct"],
-            }
-        )
-        log_artifact(
-            model_dir / "training_manifest.json", f"sae_seed{seed}_manifest", "manifest"
-        )
-
     return model_dir
 
 
@@ -162,21 +142,6 @@ def main() -> None:
         f"steps={config.sae.steps}"
     )
 
-    # Init tracking
-    if config.wandb_cfg.enabled:
-        init_tracking(
-            "train_sae",
-            {
-                "project": config.wandb_cfg.project,
-                "entity": config.wandb_cfg.entity,
-                "seeds": list(config.training.seeds),
-                "k": config.sae.k,
-                "dict_size": config.sae.dict_size,
-                "steps": config.sae.steps,
-                "lr": config.sae.lr,
-            },
-        )
-
     # Step 2: Train all seeds
     model_dirs = []
     for seed in config.training.seeds:
@@ -184,7 +149,6 @@ def main() -> None:
         model_dirs.append(model_dir)
 
     logger.info(f"All {len(model_dirs)} SAEs trained successfully.")
-    finish_tracking()
 
 
 if __name__ == "__main__":

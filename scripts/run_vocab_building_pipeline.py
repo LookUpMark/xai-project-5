@@ -14,6 +14,10 @@ Usage:
     python scripts/run_vocab_building_pipeline.py --csv data/radlex.csv --topk 300 --device cuda
 """
 import argparse
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from config import VLMConfig, VocabularyConfig
 from utils import load_vlm, load_radlex_terms

@@ -25,6 +25,7 @@ class PathsConfig:
     models_dir: Path = field(init=False)
     results_dir: Path = field(init=False)
     figures_dir: Path = field(init=False)
+    baseline_results_dir: Path = field(init=False)
     visual_embeddings_path: Path = field(init=False)
     train_embeddings_path: Path = field(init=False)
     test_embeddings_path: Path = field(init=False)
@@ -34,6 +35,20 @@ class PathsConfig:
     vocab_embeddings_path: Path = field(init=False)
     vocab_labels_path: Path = field(init=False)
 
+    # ── Path A: SAE on 768-d pre-projection hidden state (additive, baseline-agnostic) ──
+    # Lives under embeddings/standard_hidden/ + models/sae_hidden/ + results/sae_hidden/
+    # so the 512-d baseline dirs are never touched. train() appends sae_seed{N}, so
+    # hidden_models_dir is the *base* dir (one model per seed sits under it).
+    hidden_embeddings_dir: Path = field(init=False)
+    hidden_visual_embeddings_path: Path = field(init=False)
+    hidden_train_embeddings_path: Path = field(init=False)
+    hidden_test_embeddings_path: Path = field(init=False)
+    hidden_visual_image_ids_path: Path = field(init=False)
+    hidden_train_image_ids_path: Path = field(init=False)
+    hidden_test_image_ids_path: Path = field(init=False)
+    hidden_models_dir: Path = field(init=False)
+    hidden_results_dir: Path = field(init=False)
+
     def __post_init__(self):
         self.data_dir = self.project_root / "data"
         subfolder = "augmented" if augmentation.enabled else "standard"
@@ -41,6 +56,9 @@ class PathsConfig:
         self.models_dir = self.project_root / "models"
         self.results_dir = self.project_root / "results"
         self.figures_dir = self.results_dir / "figures"
+        # Baseline (512-d) outputs live in their own subdir (mirror Path A's
+        # hidden_results_dir) so results/ root stays clean.
+        self.baseline_results_dir = self.results_dir / "baseline"
         self.visual_embeddings_path = self.embeddings_dir / "visual_embeddings.pt"
         self.train_embeddings_path = self.embeddings_dir / "train_embeddings.pt"
         self.test_embeddings_path = self.embeddings_dir / "test_embeddings.pt"
@@ -52,6 +70,30 @@ class PathsConfig:
         self.test_image_ids_path = self.embeddings_dir / "test_image_ids.json"
         self.vocab_embeddings_path = self.embeddings_dir / "text_vocab_embeddings.pt"
         self.vocab_labels_path = self.data_dir / "vocabulary.json"
+
+        # Path A (768-d pre-projection hidden state). Raw CLS tokens, no per-sample
+        # L2 norm (SAE-on-residual-stream literature trains on raw activations).
+        self.hidden_embeddings_dir = self.project_root / "embeddings" / "standard_hidden"
+        self.hidden_visual_embeddings_path = (
+            self.hidden_embeddings_dir / "visual_embeddings_768.pt"
+        )
+        self.hidden_train_embeddings_path = (
+            self.hidden_embeddings_dir / "train_embeddings_768.pt"
+        )
+        self.hidden_test_embeddings_path = (
+            self.hidden_embeddings_dir / "test_embeddings_768.pt"
+        )
+        self.hidden_visual_image_ids_path = (
+            self.hidden_embeddings_dir / "visual_image_ids.json"
+        )
+        self.hidden_train_image_ids_path = (
+            self.hidden_embeddings_dir / "train_image_ids.json"
+        )
+        self.hidden_test_image_ids_path = (
+            self.hidden_embeddings_dir / "test_image_ids.json"
+        )
+        self.hidden_models_dir = self.project_root / "models" / "sae_hidden"
+        self.hidden_results_dir = self.project_root / "results" / "sae_hidden"
 
 
 @dataclass(frozen=True)
@@ -118,7 +160,7 @@ class VocabularyConfig:
         return f"embeddings/{subfolder}/text_vocab_embeddings.pt"
 
     # Filtering parameters
-    top_k: int = 500
+    top_k: int = 1024
 
     # NIH ChestX-ray14 seed terms (always included in the final vocabulary)
     nih_seed_terms: List[str] = field(default_factory=lambda: [
@@ -237,7 +279,7 @@ class AugmentationConfig:
     embeddings/standard/ with augmentation off. Enable explicitly when
     generating/running the augmented ablation.
     """
-    enabled: bool = False
+    enabled: bool = False  # docstring: "Default disabled" — standard pipeline runs on embeddings/standard/
     num_augmentations: int = 2
     rotation_degrees: int = 5
     crop_scale: tuple[float, float] = (0.95, 1.0)
@@ -249,18 +291,18 @@ class SAEConfig:
 
     Ablation presets for small datasets (N ~ 7400):
         Conservative:  k=16, dict_size=2048, lr=None, steps=30_000
-        Default:       k=32, dict_size=4096, lr=None, steps=50_000
+        Default:       k=32, dict_size=2048, lr=None, steps=50_000
         Aggressive:    k=64, dict_size=4096, lr=None, steps=80_000
 
     lr=None triggers the library's auto-scaling: 2e-4 / sqrt(dict_size / 16384).
-    For dict_size=4096 this gives ~4e-4. For small datasets, consider overriding
+    For dict_size=2048 this gives ~5.7e-4. For small datasets, consider overriding
     to a lower value (e.g. 5e-5) to avoid overfitting.
     """
 
     activation_dim: int = 512
-    dict_size: int = 4096  # matches committed models (sae_seed*), _DEFAULTS, ablation notebooks
+    dict_size: int = 2048  # matches Path A default (config.sae_hidden) for baseline↔Path A comparison
     k: int = 32
-    lr: Optional[float] = None  # None = auto-scale from library
+    lr: Optional[float] = 5e-5  # None = library auto-scale (~4e-4)
     steps: int = 50_000
     warmup_steps: int = 1_000
     batch_size: int = 256
@@ -294,6 +336,50 @@ class SAEConfig:
             raise ValueError(
                 f"decay_start ({decay_start} = steps*decay_start_frac) must exceed "
                 f"warmup_steps ({self.warmup_steps})"
+            )
+
+
+@dataclass(frozen=True)
+class SAEHiddenConfig:
+    """Sparse Autoencoder (Top-K) hyperparameters for Path A — SAE on the 768-d
+    pre-projection CLS hidden state.
+
+    Audit-corrected (ML-AUDIT-2026-06-25): M-006 drops steps 50k→8k and pins lr=5e-5
+    (avoid ~2,140-epoch overfit + auto-scaled 4e-4); M-002 lowers dict_size from the
+    baseline's 4096 (1.5 samples/feat) to 2048 (2.9 samples/feat, 2.7x overcomplete of 768).
+    Input is RAW (no per-sample L2 norm) per SAE-on-residual-stream literature.
+    """
+
+    activation_dim: int = 768
+    dict_size: int = 2048
+    k: int = 32
+    lr: Optional[float] = 5e-5
+    steps: int = 8_000
+    warmup_steps: int = 1_000
+    batch_size: int = 256
+    log_steps: int = 1_000
+    decay_start_frac: float = 0.8
+    dead_threshold: float = 1e-8
+    # Permutation-invariant stability (compute_stability_matched, ML-AUDIT-2026-06-26 F-001):
+    n_perm: int = 200  # random-pairing null samples (Lan et al. 2024 use 1000)
+    match_thresholds: tuple[float, ...] = (0.7, 0.9)  # cosine cutoffs for "fraction matched"
+
+    def __post_init__(self):
+        if self.activation_dim != 768:
+            raise ValueError(
+                f"Path A activation_dim must be 768, got {self.activation_dim}"
+            )
+        if self.dict_size <= self.activation_dim:
+            raise ValueError(
+                f"dict_size ({self.dict_size}) must exceed activation_dim (768)"
+            )
+        if self.k >= self.dict_size:
+            raise ValueError(
+                f"k ({self.k}) must be less than dict_size ({self.dict_size})"
+            )
+        if self.warmup_steps >= self.steps:
+            raise ValueError(
+                f"warmup_steps ({self.warmup_steps}) must be < steps ({self.steps})"
             )
 
 
@@ -345,15 +431,6 @@ class JudgeConfig:
 
 
 @dataclass(frozen=True)
-class WandbConfig:
-    """Weights & Biases experiment tracking."""
-
-    enabled: bool = False
-    project: str = "sae-concept-discovery"
-    entity: Optional[str] = None
-
-
-@dataclass(frozen=True)
 class HardwareConfig:
     """Device and compute settings."""
 
@@ -364,6 +441,34 @@ class HardwareConfig:
     )
 
 
+@dataclass(frozen=True)
+class SpliCEConfig:
+    """Configuration for SPLiCE sparse decomposition (Path B).
+
+    SPLiCE performs deterministic sparse coding directly on the RadLex
+    vocabulary, avoiding the non-identifiability issues that plague
+    autoencoder-based approaches.
+
+    Args:
+        k: Number of concepts per image (top-k active coefficients).
+        use_gap_correction: Whether to subtract modality gap before decomposition.
+        vocab_path: Path to vocabulary JSON file.
+        vocab_emb_path: Path to vocabulary text embeddings (.pt file).
+        gap_path: Path to modality gap vector (.pt file).
+        output_dir: Directory for output files.
+    """
+
+    k: int = 32  # number of concepts per image (top-k active coefficients)
+    use_gap_correction: bool = True
+    # F-008: anchored to config.paths.project_root (the `paths` singleton is
+    # instantiated just below, so the late-bound default_factory resolves it at
+    # SpliCEConfig() construction time). Resolves correctly regardless of CWD.
+    vocab_path: Path = field(default_factory=lambda: paths.vocab_labels_path)
+    vocab_emb_path: Path = field(default_factory=lambda: paths.vocab_embeddings_path)
+    gap_path: Path = field(default_factory=lambda: paths.models_dir / "modality_gap.pt")
+    output_dir: Path = field(default_factory=lambda: paths.results_dir / "spliece")
+
+
 # ── Instantiate configs ──────────────────────────────────────────────
 
 augmentation = AugmentationConfig()
@@ -371,11 +476,12 @@ paths = PathsConfig()
 backbone = BackboneConfig()
 vlm = VLMConfig()
 sae = SAEConfig()
+sae_hidden = SAEHiddenConfig()
 training = TrainingConfig()
 explanation = ExplanationConfig()
 judge = JudgeConfig()
-wandb_cfg = WandbConfig()
 hardware = HardwareConfig()
+spliece = SpliCEConfig()
 
 # Backward compatibility alias
 DEVICE = hardware.device

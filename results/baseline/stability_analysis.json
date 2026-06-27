@@ -1,0 +1,118 @@
+{
+  "stability": {
+    "mean_jaccard": 0.0079988744109869,
+    "std_jaccard": 0.0009371658088639379,
+    "jaccard_matrix": [
+      [
+        1.0,
+        0.007298995740711689,
+        0.009393632411956787,
+        0.00858909823000431,
+        0.007261768914759159
+      ],
+      [
+        0.007298995740711689,
+        1.0,
+        0.007084181997925043,
+        0.009102551266551018,
+        0.0062500243075191975
+      ],
+      [
+        0.009393632411956787,
+        0.007084181997925043,
+        1.0,
+        0.008322859182953835,
+        0.008366559632122517
+      ],
+      [
+        0.00858909823000431,
+        0.009102551266551018,
+        0.008322859182953835,
+        1.0,
+        0.008319075219333172
+      ],
+      [
+        0.007261768914759159,
+        0.0062500243075191975,
+        0.008366559632122517,
+        0.008319075219333172,
+        1.0
+      ]
+    ]
+  },
+  "per_seed_metrics": {
+    "0": {
+      "mse": 3.825214662356302e-05,
+      "cosine": 0.9902288913726807,
+      "l0_mean": 32.0,
+      "l0_std": 0.0,
+      "dead_features_pct": 16.015625,
+      "activation_entropy": 6.5778656005859375,
+      "dict_utilization_pct": 83.984375,
+      "feature_frequency_mean": 0.015625,
+      "feature_frequency_std": 0.039311084896326065
+    },
+    "42": {
+      "mse": 3.851433939416893e-05,
+      "cosine": 0.9901590943336487,
+      "l0_mean": 32.0,
+      "l0_std": 0.0,
+      "dead_features_pct": 16.357421875,
+      "activation_entropy": 6.552830696105957,
+      "dict_utilization_pct": 83.642578125,
+      "feature_frequency_mean": 0.015625,
+      "feature_frequency_std": 0.04054076597094536
+    },
+    "123": {
+      "mse": 3.804945663432591e-05,
+      "cosine": 0.9902861714363098,
+      "l0_mean": 32.0,
+      "l0_std": 0.0,
+      "dead_features_pct": 15.966796875,
+      "activation_entropy": 6.537572860717773,
+      "dict_utilization_pct": 84.033203125,
+      "feature_frequency_mean": 0.015624999068677425,
+      "feature_frequency_std": 0.04056738689541817
+    },
+    "456": {
+      "mse": 3.9041649870341644e-05,
+      "cosine": 0.9900257587432861,
+      "l0_mean": 32.0,
+      "l0_std": 0.0,
+      "dead_features_pct": 14.94140625,
+      "activation_entropy": 6.632234573364258,
+      "dict_utilization_pct": 85.05859375,
+      "feature_frequency_mean": 0.015625,
+      "feature_frequency_std": 0.038012921810150146
+    },
+    "789": {
+      "mse": 3.772115451283753e-05,
+      "cosine": 0.990380048751831,
+      "l0_mean": 32.0,
+      "l0_std": 0.0,
+      "dead_features_pct": 16.064453125,
+      "activation_entropy": 6.539355278015137,
+      "dict_utilization_pct": 83.935546875,
+      "feature_frequency_mean": 0.015625,
+      "feature_frequency_std": 0.04070393741130829
+    }
+  },
+  "clustering": {
+    "n_active_features": 1720,
+    "n_dead_features": 328,
+    "high_correlation_pairs": 47,
+    "correlation_threshold": 0.7,
+    "mean_co_occurrence": 0.012957246974110603
+  },
+  "config": {
+    "seeds": [
+      0,
+      42,
+      123,
+      456,
+      789
+    ],
+    "n_samples": 1515,
+    "dataset": "test"
+  }
+}

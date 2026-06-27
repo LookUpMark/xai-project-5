@@ -1,0 +1,53 @@
+# Path A — Matched (Permutation-Invariant) Stability
+
+_Generated: 2026-06-26_
+
+## Summary
+
+Mean best-match cosine = 0.3246 (isotropic null 0.1169, p=0.000). WEAK universality (p=0.000, obs/null=2.8x): decoder subspaces share structure well above chance, but only 0.0% match ≥0.9 (2.2% ≥0.7) — no strong feature-level reproducibility. Analytical random-anchor ≈ 0.134.  Cf. slot-wise Jaccard (0.0038-class) which cannot show this.
+
+## Headline metrics
+
+| metric | value |
+| --- | --- |
+| mean best-match cosine | 0.3246 |
+| permutation null mean | 0.1169 |
+| observed / null | 2.78x |
+| p-value (P(null≥obs)) | 0.0000 |
+| min p-value across pairs | 0.0000 |
+| mean frac mutual 1-to-1 | 0.3220 |
+| analytical random anchor | 0.1344 |
+| dict_size / activation_dim | 1024 / 768 |
+
+## Matched-fraction thresholds
+
+| metric | value |
+| --- | --- |
+| mean frac matched ≥0.7 | 0.0224 |
+| mean frac matched ≥0.9 | 0.0004 |
+
+## Per-pair results
+
+| pair | best-match | null | p | frac≥0.7 | frac≥0.9 | mutual1-1 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0-1 | 0.3259 | 0.1169 | 0.000 | 0.020 | 0.000 | 0.329 |
+| 0-2 | 0.3225 | 0.1170 | 0.000 | 0.028 | 0.003 | 0.326 |
+| 0-3 | 0.3230 | 0.1169 | 0.000 | 0.029 | 0.000 | 0.331 |
+| 0-4 | 0.3236 | 0.1169 | 0.000 | 0.022 | 0.001 | 0.319 |
+| 1-2 | 0.3239 | 0.1169 | 0.000 | 0.018 | 0.000 | 0.335 |
+| 1-3 | 0.3230 | 0.1169 | 0.000 | 0.021 | 0.000 | 0.320 |
+| 1-4 | 0.3229 | 0.1170 | 0.000 | 0.026 | 0.000 | 0.304 |
+| 2-3 | 0.3328 | 0.1169 | 0.000 | 0.020 | 0.000 | 0.331 |
+| 2-4 | 0.3270 | 0.1169 | 0.000 | 0.020 | 0.000 | 0.313 |
+| 3-4 | 0.3212 | 0.1169 | 0.000 | 0.021 | 0.000 | 0.311 |
+
+## Interpretation
+
+Mean best-match cosine = 0.3246 (isotropic null 0.1169, p=0.000). WEAK universality (p=0.000, obs/null=2.8x): decoder subspaces share structure well above chance, but only 0.0% match ≥0.9 (2.2% ≥0.7) — no strong feature-level reproducibility. Analytical random-anchor ≈ 0.134.  Cf. slot-wise Jaccard (0.0038-class) which cannot show this.
+
+**Metric**: decoder-cosine matching (each feature paired with its most similar decoder direction across seeds) + isotropic random-vector null. Unlike slot-wise index Jaccard, this is permutation-invariant in the matching step — the property the F-001 metric lacked. NB: a row-shuffle null is degenerate for max-cosine (max-over-columns is permutation-invariant), so the null uses independent random unit vectors; it does not control for data-manifold concentration, hence the ≥0.9 matched-fraction is the concentration-robust signal.
+
+**Framing** (Lan et al. 2024; Leask et al. 2025): cross-seed SAEs are *expected* to share at most a subspace (weak universality), rarely identical features (strong universality). An observed/null ratio well above 1 with p<0.05 ⇒ weak universality present; at-null with p>0.05 ⇒ genuine non-identifiability at this data scale (M-002), now measured rather than asserted.
+
+Refs: Bricken 2023; Lan 2024 (arXiv:2410.06981); Leask 2025 (arXiv:2502.04878); Kriegeskorte 2008. See `docs/design/LITERATURE-SAE-STABILITY.md`.
+

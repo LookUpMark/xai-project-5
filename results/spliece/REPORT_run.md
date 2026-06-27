@@ -1,8 +1,8 @@
 # SPLiCE — Pipeline Run
 
 **Status**: Complete ✅
-**Total time**: 2.3s
-**Date**: 2026-06-27 12:27:19
+**Total time**: 2.7s
+**Date**: 2026-06-27 17:19:24
 
 ## Run config
 
@@ -27,7 +27,7 @@
 
 | stage | status | seconds |
 |-------|--------|--------|
-| decompose | ok | 2.3 |
+| decompose | ok | 2.7 |
 | coverage | ok | 0.0 |
 
 ## Output files
@@ -35,6 +35,15 @@
 - `sample_explanations.json` — Per-image concept lists (SAE-compatible schema)
 - `REPORT_coverage.md` — Vocabulary coverage analysis
 
+
+## Reproducibility
+
+- git commit: `772d55b20bd5fb9cd2a406f0e1b479f2e8a4a998`
+- versions: scikit-learn 1.8.0 | torch 2.12.0 | numpy 2.4.6
+- sha256(test_embeddings) [test_embeddings.pt]: `f266e54366f3fb5e`
+- sha256(text_vocab_embeddings) [text_vocab_embeddings.pt]: `922ee9509eb06e70`
+- sha256(modality_gap) [modality_gap.pt]: `36264e287fc1f1f5`
+- sha256(test_image_ids) [test_image_ids.json]: `3816a84e18deefc7`
 
 ## Verification
 

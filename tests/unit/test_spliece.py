@@ -74,3 +74,66 @@ class TestSpliCE:
         # k=25 > vocab_size=20; sklearn OMP raises ValueError
         with pytest.raises(ValueError, match="cannot be more than the number of features"):
             decompose_image(image_emb, vocab_emb, gap=None, k=25)
+
+    def test_run_emits_sae_schema(self, tmp_path):
+        """F-001/F-009: run() must emit SAE-compatible keys
+        (feature_id/name/activation) — the exact schema the LLM judge reads.
+        Synthetic fixtures so it runs without the gitignored embeddings."""
+        from dataclasses import replace
+        from concept_discovery.spliece import run
+        import config
+
+        V, D = 60, 512
+        vocab_emb = torch.randn(V, D)
+        vocab_emb = vocab_emb / vocab_emb.norm(dim=1, keepdim=True)
+        vocab_terms = [{"term": f"term_{i}"} for i in range(V)]  # real contract: list[dict]
+
+        # images built as positive combos of vocab atoms -> NNLS yields >0 concepts
+        image_embs = torch.stack([
+            (vocab_emb[3] + vocab_emb[7]) / 2,
+            (vocab_emb[10] + vocab_emb[20]) / 2,
+            vocab_emb[33],
+        ])
+        image_ids = ["img_a", "img_b", "img_c"]
+
+        emb_file = tmp_path / "vocab_emb.pt"
+        torch.save(vocab_emb, emb_file)
+        cfg = replace(
+            config.spliece, k=10, use_gap_correction=False,
+            vocab_emb_path=emb_file, output_dir=tmp_path,
+        )
+
+        results = run(cfg, image_embs, image_ids, vocab_terms)
+
+        assert len(results) == 3
+        for r in results:
+            assert set(r.keys()) == {"image_id", "top_k_concepts", "pseudo_report"}
+            assert len(r["top_k_concepts"]) <= 10
+            for c in r["top_k_concepts"]:
+                assert set(c.keys()) == {"feature_id", "name", "activation"}
+                assert isinstance(c["feature_id"], int)
+                assert isinstance(c["name"], str)
+                assert isinstance(c["activation"], float)
+                assert c["activation"] > 0
+
+    def test_run_length_guards(self, tmp_path):
+        """F-007: run() raises on test_embeddings/image_ids and vocab/vocab_emb mismatches."""
+        from dataclasses import replace
+        from concept_discovery.spliece import run
+        import config
+
+        vocab_terms = [{"term": f"t{i}"} for i in range(30)]
+        emb_file = tmp_path / "v.pt"
+        torch.save(torch.randn(30, 512), emb_file)
+        cfg = replace(config.spliece, vocab_emb_path=emb_file, output_dir=tmp_path)
+
+        # 5 embeddings vs 3 ids -> first guard fires before vocab is loaded
+        with pytest.raises(ValueError, match="test_embeddings"):
+            run(cfg, torch.randn(5, 512), ["a", "b", "c"], vocab_terms)
+
+        # vocab_terms (30) != vocab_emb rows (10) -> second guard
+        small_file = tmp_path / "small.pt"
+        torch.save(torch.randn(10, 512), small_file)
+        cfg2 = replace(config.spliece, vocab_emb_path=small_file, output_dir=tmp_path)
+        with pytest.raises(ValueError, match="vocab_terms"):
+            run(cfg2, torch.randn(3, 512), ["a", "b", "c"], vocab_terms)

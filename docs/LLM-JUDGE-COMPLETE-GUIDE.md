@@ -197,23 +197,32 @@ EXPLANATIONS_PATH = paths.results_dir / "spliece" / "sample_explanations.json"
 ```python
 import pandas as pd
 
-# Baseline
-baseline = pd.read_csv('results/aligned_scores_baseline.csv')
-baseline_pct = (baseline['aligned_score'] == 1.0).mean() * 100
+def pct_aligned(path):
+    """% Aligned from the judge CSV. Column is `verdict` (string), NOT `aligned_score`.
 
-# Path A
-path_a = pd.read_csv('results/aligned_scores_path_a.csv')  
-path_a_pct = (path_a['aligned_score'] == 1.0).mean() * 100
+    The CSV columns are: image_id, feature_id, concept, activation, verdict, raw_response.
+    `verdict` is one of {Aligned, Unaligned, Uncertain}. We count Aligned over all
+    rows (Uncertain stays in the denominator). The canonical, pre-computed value is
+    also in judge_scores.json["aligned_rate"] — these should agree.
+    """
+    df = pd.read_csv(path)
+    return (df['verdict'] == 'Aligned').mean() * 100
 
-# SPLiCE
-spliece = pd.read_csv('results/spliece/aligned_scores.csv')
-spliece_pct = (spliece['aligned_score'] == 1.0).mean() * 100
+baseline_pct = pct_aligned('results/aligned_scores_baseline.csv')
+path_a_pct   = pct_aligned('results/aligned_scores_path_a.csv')
+spliece_pct  = pct_aligned('results/spliece/aligned_scores.csv')
+null_pct     = pct_aligned('results/null/aligned_scores.csv')  # F-005: chance floor
 
 print(f"Baseline SAE (512-d):  {baseline_pct:.1f}% Aligned")
 print(f"Path A SAE (768-d):    {path_a_pct:.1f}% Aligned")
 print(f"SPLiCE Path B:         {spliece_pct:.1f}% Aligned")
-print(f"\nWinner: {max([('Baseline', baseline_pct), ('Path A', path_a_pct), ('SPLiCE', spliece_pct)], key=lambda x: x[1])[0]}")
+print(f"Random-k NULL:         {null_pct:.1f}% Aligned  (chance floor)")
+print(f"\nWinner by LIFT over null (the only fair cross-method comparison):")
+for name, pct in [('Baseline', baseline_pct), ('Path A', path_a_pct), ('SPLiCE', spliece_pct)]:
+    print(f"  {name}: lift = {pct / null_pct:.2f}x")
 ```
+
+> **⚠ F-005 — Confronta il LIFT, non il % Aligned grezzo.** I metodi emettono un numero diverso di concetti per immagine (Baseline/Path A ~5, SPLiCE ~18). Più concetti = più "biglietti della lotteria" su termini comuni (consolidation, effusion, tube), quindi SPLiCE è strutturalmente avvantaggiato sul % Aligned grezzo a parità di qualità. Genera il null con `python scripts/generate_null_explanations.py` (termini casuali, stesso k di SPLiCE), valutalo con lo stesso judge, e confronta `pct_metodo / pct_null` (lift). Solo il lift è confrontabile tra metodi.
 
 2. **Analisi distribuzioni**:
 ```python
@@ -227,7 +236,7 @@ for name, df in [('Baseline', baseline), ('Path A', path_a), ('SPLiCE', spliece)
 ```python
 # Top 10 concetti più aligned per method
 for name, df in [('Baseline', baseline), ('Path A', path_a), ('SPLiCE', spliece)]:
-    aligned = df[df['aligned_score'] == 1.0]
+    aligned = df[df['verdict'] == 'Aligned']
     print(f"\n{name} Top 10 Aligned:")
     print(aligned['concept'].value_counts().head(10))
 ```

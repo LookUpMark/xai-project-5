@@ -456,10 +456,13 @@ class SpliCEConfig:
 
     k: int = 32  # number of concepts per image (top-k active coefficients)
     use_gap_correction: bool = True
-    vocab_path: Path = field(default_factory=lambda: Path("data/vocabulary.json"))
-    vocab_emb_path: Path = field(default_factory=lambda: Path("embeddings/standard/text_vocab_embeddings.pt"))
-    gap_path: Path = field(default_factory=lambda: Path("models/modality_gap.pt"))
-    output_dir: Path = field(default_factory=lambda: Path("results/spliece"))
+    # F-008: anchored to config.paths.project_root (the `paths` singleton is
+    # instantiated just below, so the late-bound default_factory resolves it at
+    # SpliCEConfig() construction time). Resolves correctly regardless of CWD.
+    vocab_path: Path = field(default_factory=lambda: paths.vocab_labels_path)
+    vocab_emb_path: Path = field(default_factory=lambda: paths.vocab_embeddings_path)
+    gap_path: Path = field(default_factory=lambda: paths.models_dir / "modality_gap.pt")
+    output_dir: Path = field(default_factory=lambda: paths.results_dir / "spliece")
 
 
 # ── Instantiate configs ──────────────────────────────────────────────

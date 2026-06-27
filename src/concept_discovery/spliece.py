@@ -13,11 +13,13 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from dataclasses import replace
+from scipy.optimize import nnls
 from sklearn.linear_model import OrthogonalMatchingPursuit
 
 import sys
 sys.path.insert(0, "src/")
-from utils import load_tensor, ensure_dir
+from utils import load_tensor
 import config
 
 
@@ -27,72 +29,108 @@ def decompose_image(
     gap: torch.Tensor | None,     # (512,) modality gap vector
     k: int = 32,
 ) -> torch.Tensor:
-    """Return sparse coefficient vector (V,) via OMP.
+    """Return a non-negative sparse coefficient vector (V,) for one image.
 
-    Solves: min ||emb_corrected - vocab_emb.T @ c||²  s.t. nnz(c) <= k, c >= 0
+    Two-stage solve (F-003 fix): OMP selects exactly ``k`` atoms (deterministic,
+    exact L0), then non-negative least squares (NNLS) re-solves the coefficients
+    on that support. This replaces the previous ``clamp(min=0)`` of a signed OMP
+    solution, which zeroed ~40% of the support and inflated reconstruction error
+    8-14x. NNLS yields coefficients that are both non-negative AND
+    reconstruction-optimal on the chosen support.
+
+    Solves: support S = OMP_k(emb);  c_S = argmin ||emb - V_S^T c||  s.t. c >= 0.
+    Design-doc alternative: ``Lasso(positive=True)`` (joint L1 sparsity +
+    non-negativity); kept here as a tuning experiment if faithfulness is low.
 
     Args:
         image_emb: Single image embedding (L2-normalised).
         vocab_emb: Vocabulary term embeddings (rows = terms).
         gap: Modality gap vector for correction. If None, skipped.
-        k: Number of non-zero coefficients (L0 sparsity).
+        k: Number of atoms selected by OMP (L0 sparsity). Final nnz may be <= k
+            if NNLS drives some selected atoms to exactly 0.
 
     Returns:
-        Sparse coefficient vector (V,) with exactly k non-zero entries.
+        Non-negative sparse coefficient vector (V,).
     """
     emb = image_emb.clone()
     if gap is not None:
         emb = emb - gap  # modality-gap correction
 
-    # Orthogonal Matching Pursuit: exact L0 sparsity
-    omp = OrthogonalMatchingPursuit(n_nonzero_coefs=k, fit_intercept=False)
     X = vocab_emb.numpy()  # (V, 512) — dictionary atoms as rows
     y = emb.numpy()        # (512,) — target signal
-    omp.fit(X.T, y)        # X.T is (512, V); solve y ≈ X.T @ c
 
-    coeffs = torch.from_numpy(omp.coef_).float()  # (V,)
-    coeffs = coeffs.clamp(min=0)  # enforce non-negativity post-hoc
-    return coeffs
+    # Stage 1: OMP selects exactly k atoms (deterministic, exact L0).
+    omp = OrthogonalMatchingPursuit(n_nonzero_coefs=k, fit_intercept=False)
+    omp.fit(X.T, y)            # X.T is (512, V); solves y ≈ X.T @ c
+    support = np.nonzero(omp.coef_)[0]
+
+    # Stage 2: re-solve non-negative least squares on the selected support so the
+    # coefficients actually reconstruct the signal (no post-hoc clamp).
+    coeffs = np.zeros(X.shape[0], dtype=np.float64)
+    if support.size > 0:
+        c_nnls, _ = nnls(X[support].T, y)  # (512, |S|) -> c_nnls (|S|,), c >= 0
+        coeffs[support] = c_nnls
+    return torch.from_numpy(coeffs).float()  # (V,)
 
 
 def run(
     cfg: config.SpliCEConfig,
     test_embeddings: torch.Tensor,
     image_ids: list[str],
-    vocab_terms: list[str],
+    vocab_terms: list[dict],
 ) -> list[dict]:
     """Decompose all test images; return per-image concept lists.
 
-    Uses SAFE deserialization via utils.load_tensor() (weights_only=True).
+    Output schema is SAE-compatible (``feature_id`` / ``name`` / ``activation``)
+    so the SAME LLM judge (``src/evaluate_llm_judge.py``) can score it without an
+    adapter. Uses SAFE deserialization via ``utils.load_tensor()`` (weights_only=True).
 
     Args:
         cfg: SPLiCE configuration.
         test_embeddings: Test set image embeddings (N, 512).
         image_ids: Image identifiers (N,).
-        vocab_terms: Vocabulary term strings (V,).
+        vocab_terms: Vocabulary entries (V,) as ``{"term": str, ...}`` dicts.
 
     Returns:
         List of per-image dicts with top_k_concepts + pseudo_report.
-        Compatible with SAE sample_explanations.json schema.
     """
     import json
 
+    # F-007: guard against silent truncation / mislabeling on count mismatch.
+    if len(test_embeddings) != len(image_ids):
+        raise ValueError(
+            f"test_embeddings ({len(test_embeddings)}) != image_ids ({len(image_ids)}); "
+            "zip() would silently truncate — regenerate both from the same split."
+        )
+
     vocab_emb = load_tensor(cfg.vocab_emb_path)  # SAFE: weights_only=True
+    if len(vocab_terms) != vocab_emb.shape[0]:
+        raise ValueError(
+            f"vocab_terms ({len(vocab_terms)}) != vocab_emb rows ({vocab_emb.shape[0]}); "
+            "coefficient index would not map to the correct term — re-embed the vocabulary."
+        )
+
     gap = None
     if cfg.use_gap_correction:
         gap = load_tensor(cfg.gap_path)  # SAFE
+
+    top_n = config.explanation.explanation_top_n  # F-013: shared with the SAE path
 
     results = []
     for emb, img_id in zip(test_embeddings, image_ids):
         coeffs = decompose_image(emb, vocab_emb, gap, k=cfg.k)
         top_k = coeffs.topk(cfg.k)
         concepts = [
-            {"term": vocab_terms[idx]["term"], "coefficient": float(val)}
+            {
+                "feature_id": int(idx),
+                "name": vocab_terms[idx]["term"],
+                "activation": float(val),
+            }
             for idx, val in zip(top_k.indices.tolist(), top_k.values.tolist())
-            if val > 0  # filter out zero coefficients from clamp
+            if val > 0  # drop atoms NNLS drove to exactly 0
         ]
         pseudo_report = "Findings suggest: " + ", ".join(
-            c["term"] for c in concepts[:5]
+            c["name"] for c in concepts[:top_n]
         )
         results.append({
             "image_id": img_id,
@@ -100,7 +138,6 @@ def run(
             "pseudo_report": pseudo_report,
         })
 
-    ensure_dir(cfg.output_dir / "sample_explanations.json")
     cfg.output_dir.mkdir(parents=True, exist_ok=True)
     output_path = cfg.output_dir / "sample_explanations.json"
     with open(output_path, "w") as f:
@@ -143,21 +180,25 @@ if __name__ == "__main__":
 
     # Run decomposition
     print("   Running SPLiCE decomposition...")
-    results = run(config.spliece, test_emb, test_ids, vocab_terms)
+    # F-002: write to a throwaway dir so the self-check can NEVER clobber the
+    # production results/spliece/sample_explanations.json (1515 images).
+    selfcheck_cfg = replace(config.spliece, output_dir=Path("/tmp/spliece_selfcheck"))
+    results = run(selfcheck_cfg, test_emb, test_ids, vocab_terms)
 
-    # Verify sparsity (≤ k non-zero coeffs after clamp filtering)
+    # Verify sparsity (≤ k non-zero coeffs after NNLS zero-drop)
     assert len(results[0]["top_k_concepts"]) <= config.spliece.k, \
         f"Expected ≤{config.spliece.k} concepts, got {len(results[0]['top_k_concepts'])}"
 
-    # Verify all coefficients > 0 (clamp effective)
-    assert all(c["coefficient"] > 0 for c in results[0]["top_k_concepts"]), \
+    # Verify all activations > 0 (NNLS non-negativity, zero-drop effective)
+    assert all(c["activation"] > 0 for c in results[0]["top_k_concepts"]), \
         "Found zero or negative coefficients"
 
     print(f"✅ Self-check passed: {len(results)} images decomposed")
-    print(f"📄 Output written to: {config.spliece.output_dir / 'sample_explanations.json'}")
+    print(f"📄 Output written to: {selfcheck_cfg.output_dir / 'sample_explanations.json'}")
+    print(f"   (production output at {config.spliece.output_dir} is untouched)")
     print(f"\n📋 Sample result:")
     print(f"   Image: {results[0]['image_id']}")
     print(f"   Report: {results[0]['pseudo_report']}")
     print(f"   Top 3 concepts:")
     for i, c in enumerate(results[0]["top_k_concepts"][:3], 1):
-        print(f"      {i}. {c['term']}: {c['coefficient']:.4f}")
+        print(f"      {i}. {c['name']}: {c['activation']:.4f}")

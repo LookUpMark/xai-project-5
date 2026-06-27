@@ -58,14 +58,22 @@ def parse_args() -> argparse.Namespace:
 
 
 def _load_image_ids() -> list[str]:
-    """Load test image IDs from file or generate fallback."""
-    test_ids_path = config.paths.project_root / "data/test_image_ids.json"
-    if test_ids_path.exists():
-        with open(test_ids_path) as f:
-            return json.load(f)
-    # Fallback: generate from test embeddings count
-    test_emb = load_tensor(config.paths.test_embeddings_path)
-    return [f"test_{i}" for i in range(len(test_emb))]
+    """Load test image IDs from the canonical sidecar next to the embeddings.
+
+    F-010/F-011: read ``config.paths.test_image_ids_path`` — the sibling of
+    ``test_embeddings.pt`` that ``split_embeddings()`` writes in lockstep — not a
+    stale ``data/`` duplicate. No dummy fallback: dummy IDs match no IU X-Ray
+    report and silently corrupt the downstream judge, so a missing file is a
+    hard error rather than silent garbage.
+    """
+    test_ids_path = config.paths.test_image_ids_path
+    if not test_ids_path.exists():
+        raise FileNotFoundError(
+            f"{test_ids_path} missing; regenerate the split via "
+            "`python src/autoencoder/train_sae.py` (prepare_split)."
+        )
+    with open(test_ids_path) as f:
+        return json.load(f)
 
 
 def _analyze_coverage(
@@ -85,7 +93,7 @@ def _analyze_coverage(
     term_counter = Counter()
     for r in results:
         for c in r["top_k_concepts"]:
-            term_counter[c["term"]] += 1
+            term_counter[c["name"]] += 1
 
     # Calculate coverage statistics
     total_terms = len(vocab_terms)
@@ -203,6 +211,48 @@ def main() -> None:
     print(f"\nDone in {total:.1f}s. Report: {output_dir / 'REPORT_run.md'}")
 
 
+def _repro_info() -> list[str]:
+    """Collect git SHA, package versions, and input-file hashes (F-014/F-015).
+
+    The decomposition is deterministic, so reproducibility hinges on identical
+    inputs — which are gitignored and notebook-regenerated. Recording their
+    sha256 alongside the output lets a future run verify the inputs match.
+    """
+    import hashlib
+    import subprocess
+
+    lines: list[str] = []
+    try:
+        sha = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True, text=True, cwd=config.paths.project_root,
+        ).stdout.strip()
+        lines.append(f"- git commit: `{sha or 'unknown'}`")
+    except Exception:
+        lines.append("- git commit: unknown")
+
+    import sklearn
+    import torch
+    import numpy
+    lines.append(
+        f"- versions: scikit-learn {sklearn.__version__} | "
+        f"torch {torch.__version__} | numpy {numpy.__version__}"
+    )
+
+    for label, path in [
+        ("test_embeddings", config.paths.test_embeddings_path),
+        ("text_vocab_embeddings", config.spliece.vocab_emb_path),
+        ("modality_gap", config.spliece.gap_path),
+        ("test_image_ids", config.paths.test_image_ids_path),
+    ]:
+        if Path(path).exists():
+            digest = hashlib.sha256(Path(path).read_bytes()).hexdigest()[:16]
+            lines.append(f"- sha256({label}) [{Path(path).name}]: `{digest}`")
+        else:
+            lines.append(f"- sha256({label}): <missing>")
+    return lines
+
+
 def _write_run_report(args, cfg, output_dir, stages, total, num_images):
     """Write aggregate run report in markdown format."""
     from concept_discovery.spliece import decompose_image  # import here for docstring
@@ -237,6 +287,10 @@ def _write_run_report(args, cfg, output_dir, stages, total, num_images):
             "Output files",
             "- `sample_explanations.json` — Per-image concept lists (SAE-compatible schema)\n"
             + ("- `REPORT_coverage.md` — Vocabulary coverage analysis\n" if args.analyze else ""),
+        ),
+        (
+            "Reproducibility",
+            "\n".join(_repro_info()),
         ),
         (
             "Verification",

@@ -1,38 +1,38 @@
 # Vocabulary Coverage Analysis
 
-**Analysis date**: 2026-06-27 12:27:19
+**Analysis date**: 2026-06-27 17:19:24
 **Total images**: 1515
 **Total vocabulary**: 1030 terms
-**Active terms**: 1009 (98.0%)
-**Unused terms**: 21 (2.0%)
+**Active terms**: 981 (95.2%)
+**Unused terms**: 49 (4.8%)
 
 ## Top 20 Most Frequent Terms
 
 | Rank | Term | Frequency |
 |------|------|-----------|
-| 1 | chronic obstructive pulmonary disease | 318 |
-| 2 | right lung | 237 |
-| 3 | Rotatorische Subluxation | 213 |
-| 4 | persistent truncus arteriosus | 208 |
-| 5 | Pleuritis | 205 |
-| 6 | giant cell tumor | 194 |
-| 7 | myocardial infarction | 194 |
-| 8 | port | 186 |
-| 9 | endotracheal | 175 |
-| 10 | lambda sign of chest | 174 |
-| 11 | margin of liver | 167 |
-| 12 | intervertebral foramen | 163 |
-| 13 | adult respiratory distress syndrome | 162 |
-| 14 | lacertus fibrosis | 151 |
-| 15 | no posterior acoustic features | 151 |
-| 16 | shoulder extension | 150 |
-| 17 | lordotic position | 141 |
-| 18 | inferior subscapular nerve nucleus of spinal cord | 138 |
-| 19 | nodule | 133 |
-| 20 | folium | 129 |
+| 1 | chronic obstructive pulmonary disease | 298 |
+| 2 | right lung | 236 |
+| 3 | persistent truncus arteriosus | 200 |
+| 4 | myocardial infarction | 192 |
+| 5 | giant cell tumor | 189 |
+| 6 | Rotatorische Subluxation | 180 |
+| 7 | Pleuritis | 177 |
+| 8 | endotracheal | 168 |
+| 9 | intervertebral foramen | 165 |
+| 10 | margin of liver | 163 |
+| 11 | lambda sign of chest | 160 |
+| 12 | lacertus fibrosis | 144 |
+| 13 | shoulder extension | 142 |
+| 14 | lordotic position | 140 |
+| 15 | inferior subscapular nerve nucleus of spinal cord | 138 |
+| 16 | no posterior acoustic features | 137 |
+| 17 | port | 136 |
+| 18 | posterior longitudinal ligament | 130 |
+| 19 | Ramus mediastinalis Arteriae thoracica interna | 126 |
+| 20 | nodule | 124 |
 
 ## Sample of Unused Terms (first 20)
 
-left coronary artery, terminale Aorta, split pleura sign, right coronary artery, t3 segment of left lateral gray column of spinal cord, anterior segmental bronchus, inferior mediastinal space, left lateral gray column of spinal cord, descending aorta, inflammation, right thymic artery, bronchial branch of right internal thoracic artery, headcheese sign, t8 segment of lateral gray column of spinal cord, anterior segment of upper lobe of right lung, posterior segmental bronchus, right superior segmental bronchus, moderate central spinal stenosis, t5 segment of lateral gray column of spinal cord, right pericardial artery
+superior part of body of left scapula, anatomical cavity, bronchial branch of right internal thoracic artery, trunk of pulmonary branch of left vagus nerve, right thymic artery, terminale Aorta, catheter, tract of spinal cord, thoracic artery, t8 segment of lateral gray column of spinal cord, anterior superficial chest wall, moderate central spinal stenosis, catheter angiography, shadow sign, incomplete border sign of lung, fat sign, t5 segment of lateral gray column of spinal cord, inferior pulmonary ligament lymph node, peripheral bubble sign (EN), superior part of body of right scapula
 
-*(Total unused: 21 terms)*
+*(Total unused: 49 terms)*

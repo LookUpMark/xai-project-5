@@ -21,7 +21,6 @@ Run:
 import sys
 from pathlib import Path
 
-import numpy as np
 import torch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -99,17 +98,13 @@ def train_single(seed: int) -> Path:
         batch_size=config.sae.batch_size,
     )
 
-    # Sanity check on HELD-OUT test set (not training data)
+    # F-014: metrics on the FULL held-out test set (not a 256-subset, which
+    # under-reports the dead-feature rate).
     test_emb = utils.load_tensor(config.paths.test_embeddings_path)
-    n_check = min(config.training.sanity_check_samples, len(test_emb))
-    # Random subset, not positional slice
-    rng = np.random.default_rng(seed)
-    check_idx = rng.choice(len(test_emb), size=n_check, replace=False)
-    sample = test_emb[check_idx]
 
-    mse = mgr.compute_reconstruction_mse(sample)
-    cosine = mgr.compute_cosine_reconstruction(sample)
-    sparsity = mgr.compute_sparsity_metrics(sample)
+    mse = mgr.compute_reconstruction_mse(test_emb)
+    cosine = mgr.compute_cosine_reconstruction(test_emb)
+    sparsity = mgr.compute_sparsity_metrics(test_emb)
 
     logger.info(f"  Test MSE: {mse:.6f}")
     logger.info(f"  Test Cosine: {cosine:.4f}")

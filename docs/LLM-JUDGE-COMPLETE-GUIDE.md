@@ -209,7 +209,9 @@ for name, pct in [('Baseline', baseline_pct), ('Path A', path_a_pct), ('SPLiCE',
     print(f"  {name}: lift = {pct / null_pct:.2f}x")
 ```
 
-> **⚠ F-005 — Confronta il LIFT, non il % Aligned grezzo.** I metodi emettono un numero diverso di concetti per immagine (Baseline/Path A ~5, SPLiCE ~18). Più concetti = più "biglietti della lotteria" su termini comuni (consolidation, effusion, tube), quindi SPLiCE è strutturalmente avvantaggiato sul % Aligned grezzo a parità di qualità. Genera il null con `python scripts/generate_null_explanations.py` (termini casuali, stesso k di SPLiCE), valutalo con lo stesso judge, e confronta `pct_metodo / pct_null` (lift). Solo il lift è confrontabile tra metodi.
+> **⚠ F-005 — Confronta il LIFT, non il % Aligned grezzo.** I metodi emettono un numero diverso di concetti per immagine (Baseline/Path A ~5, SPLiCE ~13). Più concetti = più "biglietti della lotteria" su termini comuni (consolidation, effusion, tube). Confronta `pct_metodo / pct_null` contro un null **count-matched**: `results/null_k5/` (k=5, per Baseline/Path A) e `results/null/` (k≈13, per SPLiCE) — `python scripts/generate_null_explanations.py --k 5 --output results/null_k5`. Solo il lift è confrontabile tra metodi.
+
+> **ℹ F-018 — Coverage del judge.** ~7/1515 immagini (0.46%) non hanno report mappabile in `indiana_projections.csv`/`indiana_reports.csv` (4 PNG assenti dalle projections per provenienza upstream IU X-Ray, 3 con report vuoto). Il judge le scarta e le registra in `results/judge_coverage.json` — dropout simmetrico tra metodi, non influenza il confronto.
 
 2. **Analisi distribuzioni**:
 ```python

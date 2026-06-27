@@ -52,10 +52,13 @@ User chose to retrain the baseline at 8k steps to match Path A (was 50k, 6.25×)
 - **Bonus fix:** `run_baseline.py` referenced a non-existent `train_sae.main` (pre-existing — the train stage never ran via this entrypoint); now loops `train_single` over seeds. The baseline pipeline now runs end-to-end.
 - 42 judge/dataset tests still pass.
 
+## Round 4 — final polish (F-014 / F-016 / F-018 + run_sae_training)
+
+- **F-014:** Both train loops (`train_sae.py`, `train_hidden.py`) now compute sanity metrics (MSE / cosine / dead %) on the **full** held-out test set instead of a 256-subset (which under-reported the dead-feature rate). Takes effect on next retrain.
+- **F-016:** `SAEManager.train` now forces `autocast_dtype=torch.float32` on all devices (was bf16 on CUDA) — small dataset, and matches the committed MPS-float32 models for cross-device reproducibility.
+- **F-018:** Investigated the 7 dropped images — 4 PNGs absent from `indiana_projections.csv` (upstream IU X-Ray staging gap), 3 with empty reports. Upstream-data issue, not a pipeline bug; the judge drops + logs them to `results/judge_coverage.json` (symmetric across methods). Documented in the guide. **ACCEPTED.**
+- **`run_sae_training.py`:** Restored a no-op `src/autoencoder/tracking.py` (deleted in `6c53328`); the standalone SAE-training entrypoint imports and runs again. Removed the now-dead `numpy` import in `train_sae.py`.
+
 ## Still open
 
-- **F-012** (bootstrap CI on LIFT) — defer until Member 3's CSVs exist.
-- **F-014** (REPORT_training dead % measured on a 256-subset) — only relevant on retrain; naming now reports the correct full-set activation-dead %.
-- **F-016** (autocast dtype device-conditional) — optional reproducibility pin; no effect on committed MPS-float32 artifacts.
-- **F-018** (7 images dropped, no report) — graceful, symmetric; documentation only.
-- **Pre-existing, off the judge path:** `scripts/run_sae_training.py` still imports the deleted `autoencoder.tracking` (it genuinely used wandb hooks) and is broken until tracking is restored/stubbed. Not on the judge-readiness path; models are already trained.
+- **F-012** (bootstrap CI on LIFT) — the only Member-3-dependent item; defer until the judge CSVs exist.

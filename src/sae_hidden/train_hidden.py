@@ -44,15 +44,13 @@ def train_single(seed: int) -> dict:
         batch_size=config.sae_hidden.batch_size,
     )
 
+    # F-014: metrics on the FULL held-out test set — the 256-subset under-reported
+    # the dead-feature rate (a feature can miss 256 samples but fire on 1515).
     test_emb = utils.load_tensor(config.paths.hidden_test_embeddings_path)
-    rng = np.random.default_rng(seed)
-    n_check = min(config.training.sanity_check_samples, len(test_emb))
-    check_idx = rng.choice(len(test_emb), size=n_check, replace=False)
-    sample = test_emb[check_idx]
 
-    mse = mgr.compute_reconstruction_mse(sample)
-    cosine = mgr.compute_cosine_reconstruction(sample)
-    sparsity = mgr.compute_sparsity_metrics(sample)
+    mse = mgr.compute_reconstruction_mse(test_emb)
+    cosine = mgr.compute_cosine_reconstruction(test_emb)
+    sparsity = mgr.compute_sparsity_metrics(test_emb)
 
     log.info(f"  seed={seed} | MSE={mse:.6f} cos={cosine:.4f} "
              f"dead={sparsity['dead_features_pct']:.1f}% "

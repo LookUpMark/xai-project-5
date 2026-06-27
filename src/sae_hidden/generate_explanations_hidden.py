@@ -47,6 +47,7 @@ def build_explanation(top_concepts, concept_names):
 
 
 def run() -> Path:
+    utils.set_global_seed(SEED)  # F-009: deterministic generation
     model_dir = config.paths.hidden_models_dir / f"sae_seed{SEED}"
     for path, desc in [
         (model_dir, "Primary-seed SAE"),
@@ -69,7 +70,7 @@ def run() -> Path:
         if test_image_ids is not None:
             test_image_ids = test_image_ids[:max_samples]
 
-    mgr = SAEManager({"device": config.hardware.device, **hidden_sae_config()})
+    mgr = SAEManager({**hidden_sae_config(), "device": config.hardware.device})  # F-017: explicit device wins
     mgr.load(model_dir)
 
     top_per_sample = mgr.get_top_concepts(embeddings, n=config.explanation.explanation_top_n)

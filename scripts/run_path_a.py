@@ -27,6 +27,7 @@ sys.path.insert(0, str(_HERE.parent / "src"))  # src/  -> config, utils, sae_hid
 sys.path.insert(0, str(_HERE.parent))          # repo root -> xai_datasets
 
 import config
+import utils
 from sae_hidden import (
     extract_hidden,
     generate_explanations_hidden,
@@ -143,6 +144,16 @@ def _write_run_report(args, sae_hidden, embeddings_dir, models_dir, results_dir,
         (
             "Stage reports",
             "\n".join(f"- `{name}`" for name in stage_reports) or "_(none)_",
+        ),
+        (
+            "Reproducibility",
+            "\n".join(utils.repro_info([
+                ("train_embeddings", config.paths.hidden_train_embeddings_path),
+                ("test_embeddings", config.paths.hidden_test_embeddings_path),
+                ("text_vocab_embeddings", config.paths.vocab_embeddings_path),
+                ("modality_gap", config.paths.models_dir / "modality_gap.pt"),
+                ("primary_model", models_dir / f"sae_seed{config.training.primary_seed}" / "trainer_0" / "ae.pt"),
+            ])),
         ),
     ]
     write_report(

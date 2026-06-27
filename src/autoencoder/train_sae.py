@@ -28,7 +28,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import config
 import utils
 from autoencoder.sae_module import SAEManager
-from autoencoder.tracking import log_metrics, log_artifact
+# NOTE: autoencoder.tracking was removed (dead-code cut 6c53328); the wandb hooks
+# were never called here, so the import is gone. scripts/run_sae_training.py still
+# references tracking and is broken until restored/stubbed — it is off the judge path.
 
 logger = utils.setup_logging(__name__)
 

@@ -27,11 +27,12 @@ logger = utils.setup_logging(__name__)
 
 # Use primary_seed from config (not fragile seeds[1] index)
 SEED = config.training.primary_seed
-OUTPUT_PATH = config.paths.results_dir / "concept_names.json"
 
 
 def run() -> Path:
     """Run concept naming stage. Returns path to output file."""
+    # F-002: resolve lazily so baseline_variant's results_dir swap is honored.
+    output_path = config.paths.results_dir / "concept_names.json"
     model_dir = config.paths.models_dir / f"sae_seed{SEED}"
 
     for path, desc in [
@@ -71,6 +72,11 @@ def run() -> Path:
     modality_gap = utils.load_tensor(gap_path)
     logger.info(f"Loaded modality gap from {gap_path}")
 
+    # F-007: activation-based dead mask (decoder-norm is unreliable post TopK renorm).
+    train_emb = utils.load_tensor(config.paths.train_embeddings_path)
+    dead_mask = mgr.activation_dead_mask(train_emb)
+    logger.info(f"Activation-dead features: {int(dead_mask.sum())}/{len(dead_mask)}")
+
     logger.info(
         f"Computing concept names (top_n={config.explanation.concept_top_n})..."
     )
@@ -79,11 +85,12 @@ def run() -> Path:
         vocab_labels,
         top_n=config.explanation.concept_top_n,
         modality_gap=modality_gap,
+        dead_mask=dead_mask,  # F-007: activation-based
     )
 
     # Persist results
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(OUTPUT_PATH, "w") as f:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w") as f:
         json.dump(concept_names, f, indent=2, ensure_ascii=False)
 
     # Summary statistics
@@ -93,7 +100,7 @@ def run() -> Path:
     logger.info(f"  Total features: {len(concept_names)}")
     logger.info(f"  Mean score: {mean_score:.4f}")
     logger.info(f"  Min/Max: {min(scores):.4f} / {max(scores):.4f}")
-    logger.info(f"  Saved to: {OUTPUT_PATH}")
+    logger.info(f"  Saved to: {output_path}")
 
     # Top-10 by score
     sorted_concepts = sorted(
@@ -107,7 +114,7 @@ def run() -> Path:
     fig_path = config.paths.figures_dir / "concept_score_distribution.png"
     plot_concept_score_distribution(scores, fig_path)
 
-    return OUTPUT_PATH
+    return output_path
 
 
 def main() -> None:

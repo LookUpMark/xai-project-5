@@ -101,6 +101,7 @@ def run(augmented: bool = False) -> Path:
     Args:
         augmented: extract augmented views (see :func:`extract_hidden_embeddings`).
     """
+    utils.set_global_seed(config.training.split_seed)  # F-009: deterministic extraction
     out_path = config.paths.hidden_visual_embeddings_path
     ids_path = config.paths.hidden_visual_image_ids_path
     report_path = config.paths.hidden_results_dir / "REPORT_extraction.md"

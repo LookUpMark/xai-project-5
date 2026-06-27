@@ -27,8 +27,6 @@ from autoencoder.visualization import plot_jaccard_heatmap, plot_per_seed_metric
 
 logger = utils.setup_logging(__name__)
 
-OUTPUT_PATH = config.paths.results_dir / "stability_analysis.json"
-
 
 def compute_feature_frequency(
     mgr: SAEManager, embeddings: torch.Tensor
@@ -103,6 +101,8 @@ def compute_concept_clustering(
 
 def run() -> Path:
     """Run stability analysis stage. Returns path to output file."""
+    # F-002: resolve lazily so baseline_variant's results_dir swap is honored.
+    output_path = config.paths.results_dir / "stability_analysis.json"
     model_dirs = [
         config.paths.models_dir / f"sae_seed{s}" for s in config.training.seeds
     ]
@@ -218,13 +218,13 @@ def run() -> Path:
         },
     }
 
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(OUTPUT_PATH, "w") as f:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w") as f:
         json.dump(results, f, indent=2)
 
-    logger.info(f"\nResults saved to: {OUTPUT_PATH}")
+    logger.info(f"\nResults saved to: {output_path}")
 
-    return OUTPUT_PATH
+    return output_path
 
 
 def main() -> None:

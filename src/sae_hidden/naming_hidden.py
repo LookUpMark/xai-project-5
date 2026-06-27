@@ -111,9 +111,12 @@ def run() -> Path:
     mgr.load(model_dir)
     W_dec = mgr.get_decoder_weights().cpu()  # (dict, 768) — bridge runs on CPU
 
-    # Dead features are a property of the learned 768-d decoder vector, so flag
-    # them on the pre-projection norms (projecting a zero row gives -gap, masking it).
-    dead_mask = dead_feature_mask(W_dec, config.sae_hidden.dead_threshold)
+    # F-007: activation-based dead mask. The decoder-norm definition is structurally
+    # all-False because the TopK trainer re-normalizes decoder columns to unit norm
+    # every step; activation-dead (features that never fire on the train set) is the
+    # meaningful definition and matches compute_sparsity_metrics.
+    train_emb = utils.load_tensor(config.paths.hidden_train_embeddings_path)
+    dead_mask = mgr.activation_dead_mask(train_emb)
     n_dead = int(dead_mask.sum().item())
 
     # ── Frozen-projection bridge: 768-d decoder -> 512-d shared space ──

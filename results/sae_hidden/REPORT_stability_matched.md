@@ -1,6 +1,6 @@
 # Path A — Matched (Permutation-Invariant) Stability
 
-_Generated: 2026-06-26_
+_Generated: 2026-06-27_
 
 ## Summary
 

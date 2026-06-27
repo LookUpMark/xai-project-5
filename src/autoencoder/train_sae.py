@@ -1,15 +1,21 @@
 """
 train_sae.py — Train Sparse Autoencoders (Top-K)
 
-Train SAEs on BiomedCLIP embeddings with multiple seeds for stability analysis.
-Creates train/test split if not already on disk, trains on train split only,
-evaluates sanity checks on held-out test set.
+Library module with the SAE-training building blocks: group-aware train/test
+split, modality-gap computation, and per-seed Top-K SAE training + held-out
+sanity checks.
+
+The CLI entry point lives in ``scripts/run_sae_training.py`` (argparse-driven;
+can override hyperparameters without editing ``config.py``). This module is
+imported by that script and by the baseline notebooks, so its functions read
+the ``config`` singletons at call time.
 
 Prerequisites:
-    - embeddings/visual_embeddings.pt (output of embedding_extraction/extract_embeddings.py)
+    - embeddings/<standard|augmented>/visual_embeddings.pt + visual_image_ids.json
+      (output of embedding_extraction/extract_embeddings.py)
 
 Run:
-    python src/autoencoder/train_sae.py
+    python scripts/run_sae_training.py
 """
 
 import sys
@@ -22,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import config
 import utils
 from autoencoder.sae_module import SAEManager
+from autoencoder.tracking import log_metrics, log_artifact
 
 logger = utils.setup_logging(__name__)
 
@@ -59,17 +66,16 @@ def prepare_split() -> None:
 
 def compute_and_save_modality_gap() -> None:
     """Compute and save the modality gap between visual and text centroids."""
-    
     gap_path = config.paths.models_dir / "modality_gap.pt"
     logger.info("Computing modality gap...")
 
     train_emb = utils.load_tensor(config.paths.train_embeddings_path)
     vocab_emb = utils.load_tensor(config.paths.vocab_embeddings_path)
-    
+
     visual_centroid = train_emb.mean(dim=0)
     text_centroid = vocab_emb.mean(dim=0)
     gap = visual_centroid - text_centroid
-    
+
     config.paths.models_dir.mkdir(parents=True, exist_ok=True)
     torch.save(gap, gap_path)
     logger.info(f"Modality gap saved to {gap_path}")
@@ -113,43 +119,5 @@ def train_single(seed: int) -> Path:
     return model_dir
 
 
-def main() -> None:
-    """CLI entry point: create train/test split and train all seeds."""
-    # Set global seed for deterministic split
-    utils.set_global_seed(config.training.split_seed)
-
-    # Step 1: Create train/test split
-    prepare_split()
-
-    if not config.paths.train_embeddings_path.exists():
-        logger.error(
-            f"Train embeddings not found: {config.paths.train_embeddings_path}"
-        )
-        sys.exit(1)
-        
-    # Step 1.5: Compute and save modality gap
-    compute_and_save_modality_gap()
-
-    # Log environment info
-    logger.info(f"PyTorch: {torch.__version__}, CUDA: {torch.version.cuda or 'N/A'}")
-    logger.info(f"Device: {config.hardware.device}")
-    logger.info(
-        f"Training {len(config.training.seeds)} SAEs: seeds={config.training.seeds}"
-    )
-    logger.info(
-        f"SAE config: k={config.sae.k}, dict_size={config.sae.dict_size}, "
-        f"lr={'auto' if config.sae.lr is None else config.sae.lr}, "
-        f"steps={config.sae.steps}"
-    )
-
-    # Step 2: Train all seeds
-    model_dirs = []
-    for seed in config.training.seeds:
-        model_dir = train_single(seed)
-        model_dirs.append(model_dir)
-
-    logger.info(f"All {len(model_dirs)} SAEs trained successfully.")
-
-
-if __name__ == "__main__":
-    main()
+# The CLI entry point (argparse, hyperparameter overrides) lives in
+# scripts/run_sae_training.py, which imports the functions above.

@@ -114,7 +114,7 @@ def run() -> Path:
     if missing:
         raise FileNotFoundError(
             f"Missing models: {[str(m) for m in missing]}. "
-            f"Run first: python src/autoencoder/train_sae.py"
+            f"Run first: python scripts/run_sae_training.py"
         )
 
     # Use TEST embeddings for stability analysis
@@ -122,7 +122,7 @@ def run() -> Path:
     if not embeddings_path.exists():
         raise FileNotFoundError(
             f"Test embeddings not found: {embeddings_path}. "
-            f"Run first: python src/autoencoder/train_sae.py"
+            f"Run first: python scripts/run_sae_training.py"
         )
 
     embeddings = utils.load_tensor(embeddings_path)

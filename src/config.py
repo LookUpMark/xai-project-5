@@ -437,6 +437,31 @@ class HardwareConfig:
     )
 
 
+@dataclass(frozen=True)
+class SpliCEConfig:
+    """Configuration for SPLiCE sparse decomposition (Path B).
+
+    SPLiCE performs deterministic sparse coding directly on the RadLex
+    vocabulary, avoiding the non-identifiability issues that plague
+    autoencoder-based approaches.
+
+    Args:
+        k: Number of concepts per image (top-k active coefficients).
+        use_gap_correction: Whether to subtract modality gap before decomposition.
+        vocab_path: Path to vocabulary JSON file.
+        vocab_emb_path: Path to vocabulary text embeddings (.pt file).
+        gap_path: Path to modality gap vector (.pt file).
+        output_dir: Directory for output files.
+    """
+
+    k: int = 32  # number of concepts per image (top-k active coefficients)
+    use_gap_correction: bool = True
+    vocab_path: Path = field(default_factory=lambda: Path("data/vocabulary.json"))
+    vocab_emb_path: Path = field(default_factory=lambda: Path("embeddings/standard/text_vocab_embeddings.pt"))
+    gap_path: Path = field(default_factory=lambda: Path("models/modality_gap.pt"))
+    output_dir: Path = field(default_factory=lambda: Path("results/spliece"))
+
+
 # ── Instantiate configs ──────────────────────────────────────────────
 
 augmentation = AugmentationConfig()
@@ -449,6 +474,7 @@ training = TrainingConfig()
 explanation = ExplanationConfig()
 judge = JudgeConfig()
 hardware = HardwareConfig()
+spliece = SpliCEConfig()
 
 # Backward compatibility alias
 DEVICE = hardware.device

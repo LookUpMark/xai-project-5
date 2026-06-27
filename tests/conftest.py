@@ -39,11 +39,11 @@ def fake_vocab_labels():
 
 @pytest.fixture
 def fake_sparse():
-    """Fake sparse activations (10, 4096) with k=32 non-zero per row."""
+    """Fake sparse activations (10, 1024) with k=32 non-zero per row."""
     torch.manual_seed(42)
-    sparse = torch.zeros(10, 4096)
+    sparse = torch.zeros(10, 1024)
     for i in range(10):
-        indices = torch.randperm(4096)[:32]
+        indices = torch.randperm(1024)[:32]
         sparse[i, indices] = torch.randn(32).abs()
     return sparse
 
@@ -56,9 +56,9 @@ def mock_ae():
 
     def mock_encode(x, return_topk=False, use_threshold=False):
         batch_size = x.shape[0]
-        sparse = torch.zeros(batch_size, 4096)
+        sparse = torch.zeros(batch_size, 1024)
         for i in range(batch_size):
-            indices = torch.randperm(4096)[:32]
+            indices = torch.randperm(1024)[:32]
             sparse[i, indices] = torch.randn(32).abs()
         if return_topk:
             topk_vals = []
@@ -84,10 +84,10 @@ def mock_ae():
     ae.decode = mock_decode
     ae.__call__ = mock_forward
 
-    # Fake decoder weights (512, 4096) — transposed to (4096, 512)
+    # Fake decoder weights (512, 1024) — transposed to (1024, 512)
     ae.decoder = MagicMock()
     ae.decoder.weight = MagicMock()
-    ae.decoder.weight.data = torch.randn(512, 4096)
+    ae.decoder.weight.data = torch.randn(512, 1024)
 
     return ae
 
@@ -99,9 +99,9 @@ def tmp_model_dir(tmp_path, mock_ae):
     model_dir.mkdir()
 
     state_dict = {
-        "encoder.weight": torch.randn(4096, 512),
-        "encoder.bias": torch.zeros(4096),
-        "decoder.weight": torch.randn(512, 4096),
+        "encoder.weight": torch.randn(1024, 512),
+        "encoder.bias": torch.zeros(1024),
+        "decoder.weight": torch.randn(512, 1024),
         "b_dec": torch.zeros(512),
         "k": torch.tensor(32),
         "threshold": torch.tensor(-1.0),
@@ -113,7 +113,7 @@ def tmp_model_dir(tmp_path, mock_ae):
             "dict_class": "AutoEncoderTopK",
             "k": 32,
             "activation_dim": 512,
-            "dict_size": 4096,
+            "dict_size": 1024,
         }
     }
     with open(model_dir / "config.json", "w") as f:
@@ -130,9 +130,9 @@ def tmp_model_dir_trainer0(tmp_path):
     trainer_dir.mkdir(parents=True)
 
     state_dict = {
-        "encoder.weight": torch.randn(4096, 512),
-        "encoder.bias": torch.zeros(4096),
-        "decoder.weight": torch.randn(512, 4096),
+        "encoder.weight": torch.randn(1024, 512),
+        "encoder.bias": torch.zeros(1024),
+        "decoder.weight": torch.randn(512, 1024),
         "b_dec": torch.zeros(512),
         "k": torch.tensor(32),
         "threshold": torch.tensor(-1.0),

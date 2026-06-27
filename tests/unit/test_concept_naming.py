@@ -19,7 +19,7 @@ class TestNameConcepts:
         mgr.load(tmp_model_dir)
         names = mgr.name_concepts(fake_vocab_embeddings, fake_vocab_labels, top_n=3)
 
-        assert len(names) == 4096
+        assert len(names) == 1024
         assert 0 in names
         assert "name" in names[0]
         assert "score" in names[0]
@@ -93,15 +93,15 @@ class TestNameConcepts:
         model_dir = tmp_path / "sae_dead"
         model_dir.mkdir()
 
-        decoder_weight = torch.randn(512, 4096)
+        decoder_weight = torch.randn(512, 1024)
         # Set features 0, 1, 2 as dead (zero columns → zero rows after transpose)
         decoder_weight[:, 0] = 0.0
         decoder_weight[:, 1] = 0.0
         decoder_weight[:, 2] = 0.0
 
         state_dict = {
-            "encoder.weight": torch.randn(4096, 512),
-            "encoder.bias": torch.zeros(4096),
+            "encoder.weight": torch.randn(1024, 512),
+            "encoder.bias": torch.zeros(1024),
             "decoder.weight": decoder_weight,
             "b_dec": torch.zeros(512),
             "k": torch.tensor(32),

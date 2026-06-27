@@ -14,7 +14,7 @@ class TestSAEManagerInit:
     def test_default_config(self):
         mgr = SAEManager()
         assert mgr.config["activation_dim"] == 512
-        assert mgr.config["dict_size"] == 4096
+        assert mgr.config["dict_size"] == 1024
         assert mgr.config["k"] == 32
 
     def test_custom_config(self):
@@ -55,7 +55,7 @@ class TestSAEManagerEncode:
         mgr = SAEManager({"device": "cpu"})
         mgr.load(tmp_model_dir)
         sparse = mgr.encode(fake_embeddings[:10])
-        assert sparse.shape == (10, 4096)
+        assert sparse.shape == (10, 1024)
 
     def test_encode_sparsity(self, tmp_model_dir, fake_embeddings):
         mgr = SAEManager({"device": "cpu"})
@@ -69,7 +69,7 @@ class TestSAEManagerEncode:
         mgr = SAEManager({"device": "cpu"})
         mgr.load(tmp_model_dir)
         sparse, values, indices = mgr.encode_topk(fake_embeddings[:10])
-        assert sparse.shape == (10, 4096)
+        assert sparse.shape == (10, 1024)
         assert values.shape == (10, 32)
         assert indices.shape == (10, 32)
 
@@ -93,7 +93,7 @@ class TestSAEManagerConcepts:
         mgr = SAEManager({"device": "cpu"})
         mgr.load(tmp_model_dir)
         W = mgr.get_decoder_weights()
-        assert W.shape == (4096, 512)
+        assert W.shape == (1024, 512)
 
     def test_get_top_concepts_length(self, tmp_model_dir, fake_embeddings):
         mgr = SAEManager({"device": "cpu"})
@@ -109,7 +109,7 @@ class TestSAEManagerConcepts:
         feat_id, activation = concepts[0][0]
         assert isinstance(feat_id, int)
         assert isinstance(activation, float)
-        assert 0 <= feat_id < 4096
+        assert 0 <= feat_id < 1024
 
 
 class TestSAEManagerMetrics:

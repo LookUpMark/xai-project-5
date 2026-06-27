@@ -33,7 +33,7 @@ class TestFullPipelineFlow:
         for sample_concepts in concepts:
             assert len(sample_concepts) == 5
             for feat_id, activation in sample_concepts:
-                assert 0 <= feat_id < 4096
+                assert 0 <= feat_id < 1024
                 assert activation >= 0
 
     def test_naming_pipeline(
@@ -44,8 +44,8 @@ class TestFullPipelineFlow:
 
         concept_names = mgr.name_concepts(fake_vocab_embeddings, fake_vocab_labels)
 
-        # All 4096 features should have names
-        assert len(concept_names) == 4096
+        # All 1024 features should have names
+        assert len(concept_names) == 1024
 
         # Names should come from vocabulary
         all_names = {info["name"] for info in concept_names.values()}
@@ -130,7 +130,7 @@ class TestFullPipelineFlow:
         mgr.load(tmp_model_dir_trainer0)
 
         sparse = mgr.encode(fake_embeddings[:5])
-        assert sparse.shape == (5, 4096)
+        assert sparse.shape == (5, 1024)
 
         concepts = mgr.get_top_concepts(fake_embeddings[:3], n=3)
         assert len(concepts) == 3

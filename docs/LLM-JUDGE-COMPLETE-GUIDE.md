@@ -1,7 +1,7 @@
 # LLM Judge Evaluation — Complete Guide (All Methods)
 
 > **Target**: Member 3 (LLM Judge Evaluation Team)  
-> **Branches**: `feat/sae-hidden-768` (Path A + Baseline) + `feat/spliece-path-b` (SPLiCE)  
+> **Branch**: `dev` — tutti e 3 i metodi (Baseline + Path A + SPLiCE) sono qui, nessun checkout necessario  
 > **Status**: Ready for evaluation — All 3 methods prepared  
 > **Date**: 2026-06-27
 
@@ -13,7 +13,7 @@
 
 | Method | Input File | Concepts/Image | Status |
 |--------|-----------|----------------|--------|
-| **Baseline SAE (512-d)** | `results/sample_explanations.json` | 5.0 fixed | ✅ Ready |
+| **Baseline SAE (512-d)** | `results/baseline/sample_explanations.json` | 5.0 fixed | ✅ Ready |
 | **Path A SAE (768-d)** | `results/sae_hidden/sample_explanations.json` | 5.0 fixed | ✅ Ready |
 | **SPLiCE Path B** | `results/spliece/sample_explanations.json` | 18.3 avg (14-22) | ✅ Ready |
 
@@ -49,7 +49,7 @@
 
 ### File 1: Baseline SAE (512-d)
 
-**Path**: `results/sample_explanations.json`
+**Path**: `results/baseline/sample_explanations.json`
 
 **Struttura**:
 ```json
@@ -117,26 +117,17 @@
 
 ### FASE 1: Setup (10 min)
 
-1. **Verifica branches**:
+1. **Verifica che tutti gli input esistano** (tutti su `dev`, nessun checkout):
    ```bash
-   # Branch principale (Path A + Baseline)
-   git checkout feat/sae-hidden-768
-   
-   # Verifica che tutti gli input esistano
-   ls -lh results/sample_explanations.json           # Baseline
-   ls -lh results/sae_hidden/sample_explanations.json  # Path A
+   ls -lh results/baseline/sample_explanations.json    # Baseline (512-d)
+   ls -lh results/sae_hidden/sample_explanations.json  # Path A (768-d)
+   ls -lh results/spliece/sample_explanations.json     # SPLiCE (Path B)
    ```
 
-2. **Checkout SPLiCE branch** (per SPLiCE evaluation):
-   ```bash
-   git checkout feat/spliece-path-b
-   ls -lh results/spliece/sample_explanations.json    # SPLiCE
-   ```
-
-3. **Verifica image_id mapping** (tutti i metodi):
+2. **Verifica image_id mapping** (tutti i metodi):
    ```bash
    # Dovrebbe restituire: "1000_IM-0003-1001.dcm.png"
-   cat results/sample_explanations.json | jq -r '.[0].image_id'
+   cat results/baseline/sample_explanations.json | jq -r '.[0].image_id'
    cat results/sae_hidden/sample_explanations.json | jq -r '.[0].image_id'
    cat results/spliece/sample_explanations.json | jq -r '.[0].image_id'
    ```
@@ -145,11 +136,9 @@
 
 #### Method 1: Baseline SAE (512-d)
 
-**Branch**: `feat/sae-hidden-768`
-
-**Modifica `src/evaluate_llm_judge.py`** (riga 39):
+**Modifica `src/evaluate_llm_judge.py`** (riga 39) — già il default baseline:
 ```python
-EXPLANATIONS_PATH = paths.results_dir / "sample_explanations.json"
+EXPLANATIONS_PATH = paths.baseline_results_dir / "sample_explanations.json"
 ```
 
 **Esegui**:
@@ -160,8 +149,6 @@ EXPLANATIONS_PATH = paths.results_dir / "sample_explanations.json"
 **Output**: `results/aligned_scores_baseline.csv` (rinomina per chiarezza)
 
 #### Method 2: Path A SAE (768-d)
-
-**Branch**: `feat/sae-hidden-768`
 
 **Modifica `src/evaluate_llm_judge.py`** (riga 39):
 ```python
@@ -176,8 +163,6 @@ EXPLANATIONS_PATH = paths.results_dir / "sae_hidden" / "sample_explanations.json
 **Output**: `results/sae_hidden/aligned_scores.csv` oppure rinomina in `results/aligned_scores_path_a.csv`
 
 #### Method 3: SPLiCE Path B
-
-**Branch**: `feat/spliece-path-b`
 
 **Modifica `src/evaluate_llm_judge.py`** (riga 39):
 ```python
@@ -303,16 +288,9 @@ for name, df in [('Baseline', baseline), ('Path A', path_a), ('SPLiCE', spliece)
 
 ### Problema: Branch switching tra evaluations
 
-**Symptom**: Files non trovati quando switchi branch
+**Symptom**: Files non trovati
 
-**Fix**: 
-```bash
-# Per valutare Path A + Baseline
-git checkout feat/sae-hidden-768
-
-# Per valutare SPLiCE (dopo aver finito gli altri due)
-git checkout feat/spliece-path-b
-```
+**Fix**: Tutti i risultati dei 3 metodi sono su `dev` in `results/{baseline,sae_hidden,spliece}/` — nessun branch switch necessario. Se un file manca, rigeneralo con lo script corrispondente (`scripts/run_baseline.py`, `scripts/run_path_a.py`, `scripts/run_spliece.py`).
 
 ---
 

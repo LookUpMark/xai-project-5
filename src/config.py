@@ -25,6 +25,7 @@ class PathsConfig:
     models_dir: Path = field(init=False)
     results_dir: Path = field(init=False)
     figures_dir: Path = field(init=False)
+    baseline_results_dir: Path = field(init=False)
     visual_embeddings_path: Path = field(init=False)
     train_embeddings_path: Path = field(init=False)
     test_embeddings_path: Path = field(init=False)
@@ -55,6 +56,9 @@ class PathsConfig:
         self.models_dir = self.project_root / "models"
         self.results_dir = self.project_root / "results"
         self.figures_dir = self.results_dir / "figures"
+        # Baseline (512-d) outputs live in their own subdir (mirror Path A's
+        # hidden_results_dir) so results/ root stays clean.
+        self.baseline_results_dir = self.results_dir / "baseline"
         self.visual_embeddings_path = self.embeddings_dir / "visual_embeddings.pt"
         self.train_embeddings_path = self.embeddings_dir / "train_embeddings.pt"
         self.test_embeddings_path = self.embeddings_dir / "test_embeddings.pt"

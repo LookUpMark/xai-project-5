@@ -6,8 +6,8 @@ functions (each writes its own JSON). Adds: optional hyperparameter overrides,
 
 Reuses stages unchanged via ``autoencoder.variant.baseline_variant`` (swaps
 ``config.sae`` + ``config.paths.{models,results,figures}_dir`` for the chosen
-variant, restores on exit). The default run writes to the canonical
-``models/sae_seed{N}`` + ``results/`` (matching ``train_sae.py``), so
+variant, restores on exit). The default run writes results to
+``results/baseline/`` (models stay at the canonical ``models/sae_seed{N}``), so
 ``--skip-train`` reuses an existing retrain with zero waste.
 
 Usage:
@@ -52,7 +52,7 @@ def main() -> None:
     args = parse_args()
     root = config.paths.project_root
     models_dir = root / "models" / f"sae_baseline_{args.tag}" if args.tag else config.paths.models_dir
-    results_dir = root / "results" / f"sae_baseline_{args.tag}" if args.tag else config.paths.results_dir
+    results_dir = root / "results" / f"sae_baseline_{args.tag}" if args.tag else config.paths.baseline_results_dir
 
     overrides: dict = {}
     if args.dict_size is not None:
@@ -71,9 +71,13 @@ def main() -> None:
         print(f"  override: dict_size={sae.dict_size} k={sae.k} steps={sae.steps}")
     print("=" * 64)
 
-    # Default (no tag) reuses the canonical dirs verbatim -> --skip-train picks up an
-    # existing retrain; --tag isolates into its own namespace.
-    swap = {} if not args.tag else {"models_dir": models_dir, "results_dir": results_dir}
+    # Always isolate results into results/baseline (or results/sae_baseline_{tag});
+    # models_dir only diverges from the canonical models/ when --tag is set, so the
+    # default run reuses cached models/sae_seed{N} (--skip-train) but writes its
+    # results into the baseline subdir, keeping results/ root clean.
+    swap = {"results_dir": results_dir}
+    if args.tag:
+        swap["models_dir"] = models_dir
 
     stages: list[tuple[str, str, float]] = []
     t0 = time.time()

@@ -36,7 +36,7 @@ from utils import setup_logging, set_global_seed
 logger = setup_logging(__name__)
 
 # Paths
-EXPLANATIONS_PATH = paths.results_dir / "sample_explanations.json"
+EXPLANATIONS_PATH = paths.baseline_results_dir / "sample_explanations.json"
 REPORTS_CSV_PATH = paths.data_dir / "iu_xray" / "reports" / "indiana_reports.csv"
 PROJECTIONS_CSV_PATH = paths.data_dir / "iu_xray" / "reports" / "indiana_projections.csv"
 OUTPUT_CSV_PATH = paths.results_dir / "aligned_scores.csv"
@@ -326,7 +326,7 @@ def evaluate(
         resume: if True, skip already-evaluated pairs from checkpoint.
         batch_save_every: save checkpoint every N evaluations.
         explanations_path: Override for the explanations JSON path.
-            Defaults to ``results/sample_explanations.json``.
+            Defaults to ``results/baseline/sample_explanations.json``.
         reports_path: Override for the reports CSV path.
             Defaults to ``data/iu_xray/indiana_reports.csv``.
         projections_path: Override for the projections CSV path.

@@ -256,7 +256,7 @@ print(f'Delta: {spliece_pct - baseline_pct:+.1f}%')
 ```
 
 **Opzione B**: Se baseline % Aligned NON esiste:
-- Prima calcola baseline % Aligned (stesso procedura su `results/sample_explanations.json`)
+- Prima calcola baseline % Aligned (stesso procedura su `results/baseline/sample_explanations.json`)
 - Poi confronta
 
 ---

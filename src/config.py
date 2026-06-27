@@ -337,7 +337,7 @@ class JudgeConfig:
     parameters, retry budget, checkpoint frequency, and reproducibility seed.
     """
 
-    model_name: str = "unsloth/medgemma-4b-it"
+    model_name: str = "google/medgemma-4b-it"
     max_new_tokens: int = 10
     max_retries: int = 2
     batch_save_every: int = 25

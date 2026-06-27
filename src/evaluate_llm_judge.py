@@ -28,7 +28,12 @@ from langgraph.graph import StateGraph, END
 import pandas as pd
 import torch
 from tqdm import tqdm
-from transformers import pipeline
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    BitsAndBytesConfig,
+    pipeline,
+)
 
 from config import paths, judge as judge_cfg, training as training_cfg
 from utils import setup_logging, set_global_seed
@@ -37,8 +42,8 @@ logger = setup_logging(__name__)
 
 # Paths
 EXPLANATIONS_PATH = paths.results_dir / "sample_explanations.json"
-REPORTS_CSV_PATH = paths.data_dir / "iu_xray" / "reports" / "indiana_reports.csv"
-PROJECTIONS_CSV_PATH = paths.data_dir / "iu_xray" / "reports" / "indiana_projections.csv"
+REPORTS_CSV_PATH = paths.data_dir / "iu_xray" / "indiana_reports.csv"
+PROJECTIONS_CSV_PATH = paths.data_dir / "iu_xray" / "indiana_projections.csv"
 OUTPUT_CSV_PATH = paths.results_dir / "aligned_scores.csv"
 CHECKPOINT_PATH = paths.results_dir / ".judge_checkpoint.json"
 SCORES_JSON_PATH = paths.results_dir / "judge_scores.json"
@@ -95,21 +100,62 @@ _pipe = None
 def get_pipeline():
     """Load the MedGemma pipeline once and cache it globally.
 
-    Device/dtype adapts to the host: CUDA uses bfloat16 + device_map='auto'
-    (the original config); Apple Silicon uses float16 + 'mps' (bfloat16 is
-    incompletely supported on MPS); CPU falls back to float32.
+    Uses BitsAndBytes for 4-bit quantization if CUDA is available,
+    otherwise falls back to unquantized float16/float32.
     """
     global _pipe
     if _pipe is None:
+        import os
+        from huggingface_hub import login
+
+        # Try to load .env file gracefully if python-dotenv is installed
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except ImportError:
+            pass
+
+        hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+        if hf_token:
+            logger.info("Logging into Hugging Face via environment token.")
+            login(token=hf_token)
+        else:
+            logger.warning("No HF_TOKEN found in environment. Restricted models may fail to load.")
+
         logger.info("Loading model %s ...", MODEL_NAME)
         if torch.cuda.is_available():
-            kwargs = dict(torch_dtype=torch.bfloat16, device_map="auto")
-        elif torch.backends.mps.is_available():
-            kwargs = dict(torch_dtype=torch.float16, device="mps")
+            logger.info("CUDA available: loading in 4-bit quantized mode.")
+            bnb_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_compute_dtype=torch.bfloat16,
+            )
+            tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+            model = AutoModelForCausalLM.from_pretrained(
+                MODEL_NAME,
+                quantization_config=bnb_config,
+                torch_dtype=torch.bfloat16,
+                device_map="auto",
+            )
+            _pipe = pipeline(
+                "text-generation",
+                model=model,
+                tokenizer=tokenizer,
+                return_full_text=False,
+            )
         else:
-            kwargs = dict(torch_dtype=torch.float32, device="cpu")
-        logger.info("Device/dtype: %s", kwargs)
-        _pipe = pipeline("text-generation", model=MODEL_NAME, **kwargs)
+            if torch.backends.mps.is_available():
+                kwargs = dict(torch_dtype=torch.float16, device="mps")
+            else:
+                kwargs = dict(torch_dtype=torch.float32, device="cpu")
+            logger.info("Device/dtype (unquantized): %s", kwargs)
+            _pipe = pipeline(
+                "text-generation", 
+                model=MODEL_NAME, 
+                return_full_text=False,
+                **kwargs
+            )
         logger.info("Model loaded successfully.")
     return _pipe
 

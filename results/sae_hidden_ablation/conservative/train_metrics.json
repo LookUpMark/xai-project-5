@@ -1,0 +1,57 @@
+[
+  {
+    "seed": 0,
+    "model_dir": "/Users/marcantoniolopez/Documents/github/xai-project-5/models/sae_hidden_abl_conservative/sae_seed0",
+    "test_mse": 0.10600149631500244,
+    "test_cosine": 0.9664249420166016,
+    "l0_mean": 16.0,
+    "l0_std": 0.0,
+    "dead_features_pct": 40.8203125,
+    "activation_entropy": 5.713870048522949,
+    "dict_utilization_pct": 59.1796875
+  },
+  {
+    "seed": 42,
+    "model_dir": "/Users/marcantoniolopez/Documents/github/xai-project-5/models/sae_hidden_abl_conservative/sae_seed42",
+    "test_mse": 0.09967499226331711,
+    "test_cosine": 0.9691853523254395,
+    "l0_mean": 16.0,
+    "l0_std": 0.0,
+    "dead_features_pct": 41.50390625,
+    "activation_entropy": 5.662169456481934,
+    "dict_utilization_pct": 58.49609375
+  },
+  {
+    "seed": 123,
+    "model_dir": "/Users/marcantoniolopez/Documents/github/xai-project-5/models/sae_hidden_abl_conservative/sae_seed123",
+    "test_mse": 0.09572385996580124,
+    "test_cosine": 0.9706686735153198,
+    "l0_mean": 16.0,
+    "l0_std": 0.0,
+    "dead_features_pct": 40.4296875,
+    "activation_entropy": 5.638935089111328,
+    "dict_utilization_pct": 59.5703125
+  },
+  {
+    "seed": 456,
+    "model_dir": "/Users/marcantoniolopez/Documents/github/xai-project-5/models/sae_hidden_abl_conservative/sae_seed456",
+    "test_mse": 0.10041429847478867,
+    "test_cosine": 0.9688307642936707,
+    "l0_mean": 16.0,
+    "l0_std": 0.0,
+    "dead_features_pct": 43.65234375,
+    "activation_entropy": 5.70212459564209,
+    "dict_utilization_pct": 56.34765625
+  },
+  {
+    "seed": 789,
+    "model_dir": "/Users/marcantoniolopez/Documents/github/xai-project-5/models/sae_hidden_abl_conservative/sae_seed789",
+    "test_mse": 0.09542771428823471,
+    "test_cosine": 0.9706488847732544,
+    "l0_mean": 16.0,
+    "l0_std": 0.0,
+    "dead_features_pct": 42.1875,
+    "activation_entropy": 5.687799453735352,
+    "dict_utilization_pct": 57.8125
+  }
+]

@@ -1,0 +1,368 @@
+[
+  {
+    "image_id": "test_0",
+    "top_k_concepts": [
+      {
+        "term": "clear space sign",
+        "coefficient": 0.6784815192222595
+      },
+      {
+        "term": "bronchiole",
+        "coefficient": 0.6267243027687073
+      },
+      {
+        "term": "linear atelectasis",
+        "coefficient": 0.5081825256347656
+      },
+      {
+        "term": "cardiogenic pulmonary edema",
+        "coefficient": 0.49829888343811035
+      },
+      {
+        "term": "peripheral calcifications",
+        "coefficient": 0.4127276539802551
+      },
+      {
+        "term": "posterior segment of upper lobe of right lung",
+        "coefficient": 0.3646920919418335
+      },
+      {
+        "term": "gray commissure of spinal cord",
+        "coefficient": 0.35256627202033997
+      },
+      {
+        "term": "pediatric filter",
+        "coefficient": 0.351508229970932
+      },
+      {
+        "term": "ruptured aneurysm",
+        "coefficient": 0.32733964920043945
+      },
+      {
+        "term": "endotracheal",
+        "coefficient": 0.29488134384155273
+      },
+      {
+        "term": "linkes diaphragmatisches Peritoneum",
+        "coefficient": 0.22501108050346375
+      },
+      {
+        "term": "Lungenarterie",
+        "coefficient": 0.21317653357982635
+      },
+      {
+        "term": "lipid containing",
+        "coefficient": 0.2128319889307022
+      },
+      {
+        "term": "mehrere spinale Ebenen",
+        "coefficient": 0.20595954358577728
+      },
+      {
+        "term": "degenerative Spondylolisthese",
+        "coefficient": 0.19063261151313782
+      },
+      {
+        "term": "jejunostomy tube",
+        "coefficient": 0.18701988458633423
+      },
+      {
+        "term": "rim calcification",
+        "coefficient": 0.18551310896873474
+      },
+      {
+        "term": "centrilobular emphysema",
+        "coefficient": 0.17427682876586914
+      }
+    ],
+    "pseudo_report": "Findings suggest: clear space sign, bronchiole, linear atelectasis, cardiogenic pulmonary edema, peripheral calcifications"
+  },
+  {
+    "image_id": "test_1",
+    "top_k_concepts": [
+      {
+        "term": "pneumothorax",
+        "coefficient": 0.5486589670181274
+      },
+      {
+        "term": "non-sclerotic",
+        "coefficient": 0.5069148540496826
+      },
+      {
+        "term": "large rod-like calcification",
+        "coefficient": 0.4794519543647766
+      },
+      {
+        "term": "T6 vertebral body",
+        "coefficient": 0.45663532614707947
+      },
+      {
+        "term": "ripple sign",
+        "coefficient": 0.4228999614715576
+      },
+      {
+        "term": "tissue embolism",
+        "coefficient": 0.41426241397857666
+      },
+      {
+        "term": "hydrophilic dilator",
+        "coefficient": 0.3638339936733246
+      },
+      {
+        "term": "bronchiole",
+        "coefficient": 0.34906280040740967
+      },
+      {
+        "term": "costomediastinal recess",
+        "coefficient": 0.3374239504337311
+      },
+      {
+        "term": "lollipop sign",
+        "coefficient": 0.3182035982608795
+      },
+      {
+        "term": "3 or more spinal levels",
+        "coefficient": 0.25117820501327515
+      },
+      {
+        "term": "brachytherapy catheter",
+        "coefficient": 0.24923589825630188
+      },
+      {
+        "term": "pulmonary infarction",
+        "coefficient": 0.23732957243919373
+      },
+      {
+        "term": "Shmoo-shaped heart (EN)",
+        "coefficient": 0.19283555448055267
+      },
+      {
+        "term": "restrictive cardiomyopathy",
+        "coefficient": 0.14385876059532166
+      },
+      {
+        "term": "Segment der Pleurah\u00f6hle",
+        "coefficient": 0.11819153279066086
+      }
+    ],
+    "pseudo_report": "Findings suggest: pneumothorax, non-sclerotic, large rod-like calcification, T6 vertebral body, ripple sign"
+  },
+  {
+    "image_id": "test_2",
+    "top_k_concepts": [
+      {
+        "term": "central venous catheter without port or pump",
+        "coefficient": 0.4758378863334656
+      },
+      {
+        "term": "3 or more spinal levels",
+        "coefficient": 0.4371183216571808
+      },
+      {
+        "term": "left pleural fissure",
+        "coefficient": 0.4338342547416687
+      },
+      {
+        "term": "tracheal overlap sign (EN)",
+        "coefficient": 0.39414727687835693
+      },
+      {
+        "term": "Linke Lungenarterie",
+        "coefficient": 0.3914080262184143
+      },
+      {
+        "term": "Rigler notch sign",
+        "coefficient": 0.3912409543991089
+      },
+      {
+        "term": "patient",
+        "coefficient": 0.37701594829559326
+      },
+      {
+        "term": "Musculus obliquus superior",
+        "coefficient": 0.3042285442352295
+      },
+      {
+        "term": "tissue space",
+        "coefficient": 0.29959702491760254
+      },
+      {
+        "term": "Mediastinaldrainage",
+        "coefficient": 0.29556816816329956
+      },
+      {
+        "term": "thrombophlebitis",
+        "coefficient": 0.27595749497413635
+      },
+      {
+        "term": "clear space sign",
+        "coefficient": 0.20480027794837952
+      },
+      {
+        "term": "fiducial placement",
+        "coefficient": 0.19917453825473785
+      },
+      {
+        "term": "myometrium",
+        "coefficient": 0.1778106689453125
+      },
+      {
+        "term": "cardiogenic pulmonary edema",
+        "coefficient": 0.16774201393127441
+      },
+      {
+        "term": "tuberculosis",
+        "coefficient": 0.15654222667217255
+      },
+      {
+        "term": "Chronisch infiltrative Lungenerkrankung",
+        "coefficient": 0.10786383599042892
+      }
+    ],
+    "pseudo_report": "Findings suggest: central venous catheter without port or pump, 3 or more spinal levels, left pleural fissure, tracheal overlap sign (EN), Linke Lungenarterie"
+  },
+  {
+    "image_id": "test_3",
+    "top_k_concepts": [
+      {
+        "term": "chest radiology",
+        "coefficient": 0.6659584641456604
+      },
+      {
+        "term": "emphysema",
+        "coefficient": 0.5500780344009399
+      },
+      {
+        "term": "lollipop sign",
+        "coefficient": 0.5302778482437134
+      },
+      {
+        "term": "pulmonary infarction",
+        "coefficient": 0.49342602491378784
+      },
+      {
+        "term": "bronchiole",
+        "coefficient": 0.4372921288013458
+      },
+      {
+        "term": "anatomical anomaly",
+        "coefficient": 0.33744117617607117
+      },
+      {
+        "term": "enchondroma",
+        "coefficient": 0.3310142755508423
+      },
+      {
+        "term": "body of scapula",
+        "coefficient": 0.2954014241695404
+      },
+      {
+        "term": "calcification disorder",
+        "coefficient": 0.2938385605812073
+      },
+      {
+        "term": "cardiac notch of left lung",
+        "coefficient": 0.2769306004047394
+      },
+      {
+        "term": "Pulmonale Hypertonie",
+        "coefficient": 0.2726714313030243
+      },
+      {
+        "term": "acute marginal artery",
+        "coefficient": 0.21422627568244934
+      },
+      {
+        "term": "dental device",
+        "coefficient": 0.20804989337921143
+      },
+      {
+        "term": "mehrere spinale Ebenen",
+        "coefficient": 0.18441149592399597
+      },
+      {
+        "term": "vascular disorder of spinal cord",
+        "coefficient": 0.17640778422355652
+      },
+      {
+        "term": "gastrojejuenostomy tube",
+        "coefficient": 0.13802383840084076
+      }
+    ],
+    "pseudo_report": "Findings suggest: chest radiology, emphysema, lollipop sign, pulmonary infarction, bronchiole"
+  },
+  {
+    "image_id": "test_4",
+    "top_k_concepts": [
+      {
+        "term": "Spondylodese",
+        "coefficient": 0.7257561683654785
+      },
+      {
+        "term": "Segment der Pleurah\u00f6hle",
+        "coefficient": 0.6346056461334229
+      },
+      {
+        "term": "extrapleural sign",
+        "coefficient": 0.5248147249221802
+      },
+      {
+        "term": "patient",
+        "coefficient": 0.4969567656517029
+      },
+      {
+        "term": "descending thoracic aorta",
+        "coefficient": 0.4853467345237732
+      },
+      {
+        "term": "tendon of right spinalis capitis",
+        "coefficient": 0.4607893228530884
+      },
+      {
+        "term": "non-sclerotic",
+        "coefficient": 0.42819103598594666
+      },
+      {
+        "term": "air embolism",
+        "coefficient": 0.4266095459461212
+      },
+      {
+        "term": "ascites",
+        "coefficient": 0.3585582971572876
+      },
+      {
+        "term": "margin of liver",
+        "coefficient": 0.33510643243789673
+      },
+      {
+        "term": "paracentesis",
+        "coefficient": 0.3190886080265045
+      },
+      {
+        "term": "pneumothorax",
+        "coefficient": 0.28227177262306213
+      },
+      {
+        "term": "left major fissure",
+        "coefficient": 0.2271985411643982
+      },
+      {
+        "term": "pars dextra faciei diaphragmaticae hepatis",
+        "coefficient": 0.2143401801586151
+      },
+      {
+        "term": "myometrium",
+        "coefficient": 0.20075355470180511
+      },
+      {
+        "term": "Lungenarterie",
+        "coefficient": 0.18715843558311462
+      },
+      {
+        "term": "infiltrativ",
+        "coefficient": 0.0717712789773941
+      }
+    ],
+    "pseudo_report": "Findings suggest: Spondylodese, Segment der Pleurah\u00f6hle, extrapleural sign, patient, descending thoracic aorta"
+  }
+]

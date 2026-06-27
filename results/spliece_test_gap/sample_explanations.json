@@ -1,0 +1,408 @@
+[
+  {
+    "image_id": "test_0",
+    "top_k_concepts": [
+      {
+        "term": "sail sign of chest",
+        "coefficient": 0.5037261247634888
+      },
+      {
+        "term": "superior division bronchus",
+        "coefficient": 0.38788041472435
+      },
+      {
+        "term": "upper extremity artery",
+        "coefficient": 0.3556802272796631
+      },
+      {
+        "term": "electrode",
+        "coefficient": 0.3413451313972473
+      },
+      {
+        "term": "disc herniation",
+        "coefficient": 0.2771438956260681
+      },
+      {
+        "term": "pars dextra faciei diaphragmaticae hepatis",
+        "coefficient": 0.24293918907642365
+      },
+      {
+        "term": "lateraler Teil der linken Scapula",
+        "coefficient": 0.23434945940971375
+      },
+      {
+        "term": "proximal tendon of left subclavius",
+        "coefficient": 0.1808469444513321
+      },
+      {
+        "term": "vascular loop compression",
+        "coefficient": 0.15965121984481812
+      },
+      {
+        "term": "subsequent day",
+        "coefficient": 0.15829885005950928
+      },
+      {
+        "term": "Erdheim-Chester disease",
+        "coefficient": 0.15226681530475616
+      },
+      {
+        "term": "consolidation",
+        "coefficient": 0.13416901230812073
+      },
+      {
+        "term": "amorphous calcification",
+        "coefficient": 0.11487390846014023
+      },
+      {
+        "term": "blind pouch",
+        "coefficient": 0.10757062584161758
+      },
+      {
+        "term": "severe parenchymal heterogeneity",
+        "coefficient": 0.10277962684631348
+      },
+      {
+        "term": "left major fissure",
+        "coefficient": 0.06840506941080093
+      },
+      {
+        "term": "cervical segment of cuneate fasciculus of spinal cord",
+        "coefficient": 0.033601805567741394
+      }
+    ],
+    "pseudo_report": "Findings suggest: sail sign of chest, superior division bronchus, upper extremity artery, electrode, disc herniation"
+  },
+  {
+    "image_id": "test_1",
+    "top_k_concepts": [
+      {
+        "term": "lenticulostriate artery",
+        "coefficient": 0.2776854634284973
+      },
+      {
+        "term": "right lung",
+        "coefficient": 0.2235264629125595
+      },
+      {
+        "term": "atelectasis",
+        "coefficient": 0.19090840220451355
+      },
+      {
+        "term": "postvertebral muscle",
+        "coefficient": 0.18637792766094208
+      },
+      {
+        "term": "ulcer",
+        "coefficient": 0.183803990483284
+      },
+      {
+        "term": "eosinophilic granuloma",
+        "coefficient": 0.16484157741069794
+      },
+      {
+        "term": "tuberculosis",
+        "coefficient": 0.1612887680530548
+      },
+      {
+        "term": "perfusion applicator",
+        "coefficient": 0.13131652772426605
+      },
+      {
+        "term": "root of long thoracic nerve",
+        "coefficient": 0.12662675976753235
+      },
+      {
+        "term": "floating viscera sign (EN)",
+        "coefficient": 0.12278217077255249
+      },
+      {
+        "term": "endocavitary linear transducer",
+        "coefficient": 0.11682171374559402
+      },
+      {
+        "term": "sacral segment of spinal epidural space",
+        "coefficient": 0.10695379227399826
+      },
+      {
+        "term": "pulmonary embolism",
+        "coefficient": 0.09407898038625717
+      },
+      {
+        "term": "myometrium",
+        "coefficient": 0.07925278693437576
+      },
+      {
+        "term": "thymic cyst",
+        "coefficient": 0.07832327485084534
+      },
+      {
+        "term": "intervertebral disc degeneration",
+        "coefficient": 0.07762735337018967
+      },
+      {
+        "term": "Umverteilung des pulmonalen Blutflusses",
+        "coefficient": 0.07152170687913895
+      },
+      {
+        "term": "imaging with contrast",
+        "coefficient": 0.06906409561634064
+      },
+      {
+        "term": "lateral superficial chest wall",
+        "coefficient": 0.01521256472915411
+      }
+    ],
+    "pseudo_report": "Findings suggest: lenticulostriate artery, right lung, atelectasis, postvertebral muscle, ulcer"
+  },
+  {
+    "image_id": "test_2",
+    "top_k_concepts": [
+      {
+        "term": "diagnosis",
+        "coefficient": 0.4511202871799469
+      },
+      {
+        "term": "vascular plethora sign",
+        "coefficient": 0.34754642844200134
+      },
+      {
+        "term": "upper lobe of lung",
+        "coefficient": 0.2944454848766327
+      },
+      {
+        "term": "hydrophilic dilator",
+        "coefficient": 0.18037784099578857
+      },
+      {
+        "term": "severe parenchymal heterogeneity",
+        "coefficient": 0.17560581862926483
+      },
+      {
+        "term": "pars dextra faciei diaphragmaticae hepatis",
+        "coefficient": 0.16429924964904785
+      },
+      {
+        "term": "non-sclerotic",
+        "coefficient": 0.15882480144500732
+      },
+      {
+        "term": "reversed halo sign",
+        "coefficient": 0.15666009485721588
+      },
+      {
+        "term": "T4 vertebral body",
+        "coefficient": 0.15549783408641815
+      },
+      {
+        "term": "cervical segment of cuneate fasciculus of spinal cord",
+        "coefficient": 0.1499052345752716
+      },
+      {
+        "term": "stretched bronchus sign",
+        "coefficient": 0.13564752042293549
+      },
+      {
+        "term": "tuberculosis",
+        "coefficient": 0.09895491600036621
+      },
+      {
+        "term": "jejunostomy tube",
+        "coefficient": 0.09504479914903641
+      },
+      {
+        "term": "coaxial access technique",
+        "coefficient": 0.09196539223194122
+      },
+      {
+        "term": "3 or more spinal levels",
+        "coefficient": 0.08733794838190079
+      },
+      {
+        "term": "abscess",
+        "coefficient": 0.08039876818656921
+      },
+      {
+        "term": "folium",
+        "coefficient": 0.06283429265022278
+      },
+      {
+        "term": "Erdheim-Chester disease",
+        "coefficient": 0.0596180185675621
+      },
+      {
+        "term": "Ramus bronchialis Arteriae thoracica interna",
+        "coefficient": 0.05360097438097
+      }
+    ],
+    "pseudo_report": "Findings suggest: diagnosis, vascular plethora sign, upper lobe of lung, hydrophilic dilator, severe parenchymal heterogeneity"
+  },
+  {
+    "image_id": "test_3",
+    "top_k_concepts": [
+      {
+        "term": "continuous diaphragm sign",
+        "coefficient": 0.3510017395019531
+      },
+      {
+        "term": "lambda sign of chest",
+        "coefficient": 0.3049928843975067
+      },
+      {
+        "term": "belly of spinal part of left deltoid",
+        "coefficient": 0.22455796599388123
+      },
+      {
+        "term": "autoimmune pancreatitis",
+        "coefficient": 0.22255758941173553
+      },
+      {
+        "term": "Ramus mediastinalis Arteriae thoracica interna",
+        "coefficient": 0.2154240608215332
+      },
+      {
+        "term": "costal cartilage of rib",
+        "coefficient": 0.1903083622455597
+      },
+      {
+        "term": "symptom",
+        "coefficient": 0.1738385111093521
+      },
+      {
+        "term": "emphysema",
+        "coefficient": 0.13314615190029144
+      },
+      {
+        "term": "left inferior pulmonary ligament lymph node",
+        "coefficient": 0.1281813532114029
+      },
+      {
+        "term": "nucleus of brain",
+        "coefficient": 0.1278122514486313
+      },
+      {
+        "term": "zone of arytenoid cartilage",
+        "coefficient": 0.12141907215118408
+      },
+      {
+        "term": "CT arrowhead sign",
+        "coefficient": 0.11994840949773788
+      },
+      {
+        "term": "nonhydrophilic dilator",
+        "coefficient": 0.11384597420692444
+      },
+      {
+        "term": "tubular artery sign (EN)",
+        "coefficient": 0.10981937497854233
+      },
+      {
+        "term": "port",
+        "coefficient": 0.09825906902551651
+      },
+      {
+        "term": "right minor fissure",
+        "coefficient": 0.09156619757413864
+      },
+      {
+        "term": "splint",
+        "coefficient": 0.08616556227207184
+      },
+      {
+        "term": "superior mediastinal lymph node",
+        "coefficient": 0.06950308382511139
+      },
+      {
+        "term": "Lungenerkrankung",
+        "coefficient": 0.059093985706567764
+      },
+      {
+        "term": "stroke complication",
+        "coefficient": 0.0550607293844223
+      }
+    ],
+    "pseudo_report": "Findings suggest: continuous diaphragm sign, lambda sign of chest, belly of spinal part of left deltoid, autoimmune pancreatitis, Ramus mediastinalis Arteriae thoracica interna"
+  },
+  {
+    "image_id": "test_4",
+    "top_k_concepts": [
+      {
+        "term": "peripheral fat sign (EN)",
+        "coefficient": 0.27274271845817566
+      },
+      {
+        "term": "wall of left ventricle",
+        "coefficient": 0.24149277806282043
+      },
+      {
+        "term": "Pleuritis",
+        "coefficient": 0.21658097207546234
+      },
+      {
+        "term": "endoscopic transducer",
+        "coefficient": 0.20449106395244598
+      },
+      {
+        "term": "persistent truncus arteriosus",
+        "coefficient": 0.19326159358024597
+      },
+      {
+        "term": "intervertebral foramen",
+        "coefficient": 0.191732719540596
+      },
+      {
+        "term": "giant cell tumor",
+        "coefficient": 0.19021496176719666
+      },
+      {
+        "term": "mega-aeroesophagus sign",
+        "coefficient": 0.18416611850261688
+      },
+      {
+        "term": "atypical small acinar proliferation",
+        "coefficient": 0.15518900752067566
+      },
+      {
+        "term": "spinal fixation device",
+        "coefficient": 0.1533927321434021
+      },
+      {
+        "term": "trunk of right anterior pulmonary nerve plexus",
+        "coefficient": 0.13662931323051453
+      },
+      {
+        "term": "thrombus",
+        "coefficient": 0.12751761078834534
+      },
+      {
+        "term": "deformity",
+        "coefficient": 0.10746604204177856
+      },
+      {
+        "term": "cerebral hemisphere",
+        "coefficient": 0.09241564571857452
+      },
+      {
+        "term": "3 or more spinal levels",
+        "coefficient": 0.08611345291137695
+      },
+      {
+        "term": "Arterioven\u00f6se Malformation",
+        "coefficient": 0.07874339818954468
+      },
+      {
+        "term": "lacertus fibrosis",
+        "coefficient": 0.06120152026414871
+      },
+      {
+        "term": "Segment der Pleurah\u00f6hle",
+        "coefficient": 0.05768623948097229
+      },
+      {
+        "term": "bending position",
+        "coefficient": 0.01703638955950737
+      }
+    ],
+    "pseudo_report": "Findings suggest: peripheral fat sign (EN), wall of left ventricle, Pleuritis, endoscopic transducer, persistent truncus arteriosus"
+  }
+]

@@ -2,17 +2,16 @@
 generate_explanations.py — Generate SAE-based explanations
 
 For each image, extract the top-k activated SAE concepts and generate
-a structured explanation (pseudo-report) for the LLM Judge.
+a structured explanation (pseudo-report) for the LLM Judge. 
 
-Uses HELD-OUT test embeddings for evaluation.
+Uses HELD-OUT test embeddings and writes ``sample_explanations.json``.
+
+Invoked by ``scripts/run_baseline.py`` (and the ablation driver). 
 
 Prerequisites:
-    - models/sae_seed{PRIMARY_SEED}/ae.pt
-    - embeddings/test_embeddings.pt
-    - results/concept_names.json (output of concept_naming.py)
-
-Run:
-    python src/autoencoder/generate_explanations.py
+    - models/sae_seed{seed}/ae.pt
+    - embeddings/<...>/test_embeddings.pt (+ test_image_ids.json sidecar)
+    - results/concept_names.json (output of concept_naming.build_concept_names)
 """
 
 import json
@@ -26,7 +25,6 @@ from autoencoder.sae_module import SAEManager
 
 logger = utils.setup_logging(__name__)
 
-SEED = config.training.primary_seed
 CONCEPT_NAMES_PATH = config.paths.results_dir / "concept_names.json"
 OUTPUT_PATH = config.paths.results_dir / "sample_explanations.json"
 TEST_IMAGE_IDS_PATH = config.paths.test_image_ids_path
@@ -45,7 +43,7 @@ def generate_explanation(
 
     Returns:
         Dict with keys: top_k_concepts, pseudo_report. ``image_id`` is added by
-        ``run()`` once the test image-id sidecar is available. This shape
+        ``build_explanations()`` once the test image-id sidecar is available. This shape
         matches what ``evaluate_llm_judge.py`` consumes: each concept carries
         ``feature_id`` / ``name`` / ``activation``.
     """
@@ -87,9 +85,16 @@ def generate_explanation(
     }
 
 
-def run() -> Path:
-    """Run explanation generation stage. Returns path to output file."""
-    model_dir = config.paths.models_dir / f"sae_seed{SEED}"
+def build_explanations(seed: int) -> Path:
+    """Generate pseudo-report explanations using the ``sae_seed{seed}`` model.
+
+    Args:
+        seed: The trained-model seed used to encode/explain the test set.
+
+    Returns:
+        Path to the written ``sample_explanations.json``.
+    """
+    model_dir = config.paths.models_dir / f"sae_seed{seed}"
 
     # Use TEST embeddings for evaluation (not training data)
     embeddings_path = config.paths.test_embeddings_path
@@ -157,10 +162,4 @@ def run() -> Path:
     return OUTPUT_PATH
 
 
-def main() -> None:
-    """CLI entry point for explanation generation."""
-    run()
-
-
-if __name__ == "__main__":
-    main()
+# Invoked by scripts/run_baseline.py (and the ablation driver) — no __main__.

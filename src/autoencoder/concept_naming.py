@@ -1,16 +1,19 @@
 """
 concept_naming.py — Assign names to SAE concepts
 
-Assign medical names to the SAE features using cosine similarity
-between decoder weights and vocabulary embeddings.
+Library stage: assign medical names to the SAE features of a single
+reference model using cosine similarity between gap-corrected decoder
+weights and vocabulary embeddings. 
+
+Writes ``concept_names.json``.
+
+Invoked by ``scripts/run_baseline.py`` (and the ablation driver).
 
 Prerequisites:
-    - models/sae_seed{PRIMARY_SEED}/ae.pt
-    - embeddings/text_vocab_embeddings.pt
+    - models/sae_seed{seed}/ae.pt
+    - models/modality_gap.pt
+    - embeddings/<...>/text_vocab_embeddings.pt
     - data/vocabulary.json
-
-Run:
-    python src/autoencoder/concept_naming.py
 """
 
 import json
@@ -25,14 +28,19 @@ from autoencoder.visualization import plot_concept_score_distribution
 
 logger = utils.setup_logging(__name__)
 
-# Use primary_seed from config (not fragile seeds[1] index)
-SEED = config.training.primary_seed
 OUTPUT_PATH = config.paths.results_dir / "concept_names.json"
 
 
-def run() -> Path:
-    """Run concept naming stage. Returns path to output file."""
-    model_dir = config.paths.models_dir / f"sae_seed{SEED}"
+def build_concept_names(seed: int) -> Path:
+    """Name every feature of the ``sae_seed{seed}`` model.
+
+    Args:
+        seed: The trained-model seed whose decoder features are named.
+
+    Returns:
+        Path to the written ``concept_names.json``.
+    """
+    model_dir = config.paths.models_dir / f"sae_seed{seed}"
 
     for path, desc in [
         (model_dir, "SAE model"),
@@ -110,10 +118,4 @@ def run() -> Path:
     return OUTPUT_PATH
 
 
-def main() -> None:
-    """CLI entry point for concept naming."""
-    run()
-
-
-if __name__ == "__main__":
-    main()
+# Invoked by scripts/run_baseline.py (and the ablation driver) — no __main__.

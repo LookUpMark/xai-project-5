@@ -1,7 +1,8 @@
 """run_baseline.py — orchestrate the full baseline (512-d SAE) pipeline.
 
-Thin driver over the existing ``src/autoencoder`` stage ``run()`` / ``main()``
-functions (each writes its own JSON). Adds: optional hyperparameter overrides,
+Thin driver over the ``src/autoencoder`` stage functions
+(``train_sae`` / ``build_concept_names`` / ``analyze_stability`` /
+``build_explanations``, each writes its own JSON). Adds: optional hyperparameter overrides,
 ``--tag`` isolation, and an aggregate ``REPORT_run.md``.
 
 Reuses stages unchanged via ``autoencoder.variant.baseline_variant`` (swaps
@@ -88,11 +89,18 @@ def main() -> None:
             stages.append((name, "ok", time.time() - ts))
             print(f"  [done] {name} ({stages[-1][2]:.0f}s)")
 
+        def _train() -> None:
+            train_sae.prepare_split()
+            train_sae.compute_and_save_modality_gap()
+            for s in config.training.seeds:
+                train_sae.train_single(s)
+
+        primary = config.training.primary_seed
         if not args.skip_train:
-            step("train", train_sae.main)
-        step("naming", concept_naming.run)
-        step("stability", stability_analysis.run)
-        step("explain", generate_explanations.run)
+            step("train", _train)
+        step("naming", lambda: concept_naming.build_concept_names(seed=primary))
+        step("stability", lambda: stability_analysis.analyze_stability(seeds=config.training.seeds))
+        step("explain", lambda: generate_explanations.build_explanations(seed=primary))
 
     total = time.time() - t0
     _write_run_report(args, sae, models_dir, results_dir, stages, total)

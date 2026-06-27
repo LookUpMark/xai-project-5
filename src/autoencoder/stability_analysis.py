@@ -2,15 +2,18 @@
 stability_analysis.py — Multi-seed stability analysis and clustering
 
 Evaluate robustness of SAE concepts by comparing activations across
-multiple SAEs trained with different seeds. Uses HELD-OUT test embeddings.
-Computes Jaccard similarity, per-seed metrics, and concept clustering.
+multiple SAEs trained with different seeds. 
+
+Uses HELD-OUT test embeddings.  Computes Jaccard similarity, 
+permutation-invariant matched stability, per-seed metrics, 
+and concept clustering; 
+writes ``stability_analysis.json`` (+ ``stability_matched.json``).
+
+Invoked by ``scripts/run_baseline.py`` (and the ablation driver).
 
 Prerequisites:
-    - models/sae_seed{0,42,123,456,789}/ae.pt (all 5 seeds)
-    - embeddings/test_embeddings.pt
-
-Run:
-    python src/autoencoder/stability_analysis.py
+    - models/sae_seed{seed}/ae.pt for every seed in the ensemble
+    - embeddings/<...>/test_embeddings.pt
 """
 
 import json
@@ -101,10 +104,17 @@ def compute_concept_clustering(
     }
 
 
-def run() -> Path:
-    """Run stability analysis stage. Returns path to output file."""
+def analyze_stability(seeds: tuple[int, ...]) -> Path:
+    """Compute cross-seed stability over the trained ensemble.
+
+    Args:
+        seeds: The trained-model seeds forming the ensemble to compare.
+
+    Returns:
+        Path to the written ``stability_analysis.json``.
+    """
     model_dirs = [
-        config.paths.models_dir / f"sae_seed{s}" for s in config.training.seeds
+        config.paths.models_dir / f"sae_seed{s}" for s in seeds
     ]
     missing = [
         d
@@ -158,7 +168,7 @@ def run() -> Path:
     # 2. Per-seed metrics
     logger.info("\nPer-seed metrics:")
     per_seed_metrics = {}
-    for seed, model_dir in zip(config.training.seeds, model_dirs):
+    for seed, model_dir in zip(seeds, model_dirs):
         mgr = SAEManager({"device": config.hardware.device})
         mgr.load(model_dir)
 
@@ -194,7 +204,7 @@ def run() -> Path:
     jaccard_np = stability["jaccard_matrix"].numpy()
     plot_jaccard_heatmap(
         jaccard_np,
-        list(config.training.seeds),
+        list(seeds),
         config.paths.figures_dir / "jaccard_heatmap.png",
     )
     plot_per_seed_metrics(
@@ -212,7 +222,7 @@ def run() -> Path:
         "per_seed_metrics": per_seed_metrics,
         "clustering": clustering,
         "config": {
-            "seeds": list(config.training.seeds),
+            "seeds": list(seeds),
             "n_samples": embeddings.shape[0],
             "dataset": "test",
         },
@@ -227,10 +237,4 @@ def run() -> Path:
     return OUTPUT_PATH
 
 
-def main() -> None:
-    """CLI entry point for stability analysis."""
-    run()
-
-
-if __name__ == "__main__":
-    main()
+# Invoked by scripts/run_baseline.py (and the ablation driver) — no __main__.

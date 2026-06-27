@@ -271,7 +271,7 @@ class SAEManager:
             save_dir=str(model_dir),
             log_steps=self.config.get("log_steps", 1000),
             device=device,
-            autocast_dtype=torch.float32 if device in ["cpu", "mps"] else torch.bfloat16,
+            autocast_dtype=torch.float32,  # F-016: force float32 everywhere — small dataset, and matches the committed MPS-float32 models for cross-device reproducibility
             normalize_activations=False,
             verbose=True,
         )

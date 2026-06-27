@@ -109,7 +109,6 @@ class VLMConfig:
     """Vision-Language Model configuration (model identity and runtime)."""
     model_name: str = "chuhac/BiomedCLIP-vit-bert-hf"
     processor_name: str = "chuhac/BiomedCLIP-vit-bert-hf"
-    device: str = "cuda"
     batch_size: int = 64
     num_workers: int = 4
     device: str = (
@@ -291,7 +290,7 @@ class SAEConfig:
 
     Ablation presets for small datasets (N ~ 7400):
         Conservative:  k=16, dict_size=2048, lr=None, steps=30_000
-        Default:       k=32, dict_size=2048, lr=None, steps=50_000
+        Default:       k=32, dict_size=2048, lr=5e-5, steps=8_000  # matched to Path A (F-003)
         Aggressive:    k=64, dict_size=4096, lr=None, steps=80_000
 
     lr=None triggers the library's auto-scaling: 2e-4 / sqrt(dict_size / 16384).
@@ -303,10 +302,11 @@ class SAEConfig:
     dict_size: int = 2048  # matches Path A default (config.sae_hidden) for baseline↔Path A comparison
     k: int = 32
     lr: Optional[float] = 5e-5  # None = library auto-scale (~4e-4)
-    steps: int = 50_000
+    steps: int = 8_000  # F-003: matched to Path A (config.sae_hidden) for fair baseline↔Path A comparison
     warmup_steps: int = 1_000
     batch_size: int = 256
     log_steps: int = 1_000
+    dead_threshold: float = 1e-8  # F-013: mirror SAEHiddenConfig (single source of truth)
     decay_start_frac: float = 0.8  # fraction of steps to start LR decay
     lr_base: float = 2e-4  # base LR for auto-scaling formula
     lr_ref_dict_size: int = 16384  # reference dict_size for auto-scaling

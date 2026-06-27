@@ -483,6 +483,7 @@ def evaluate(
             key = (image_id, concept_name)
             if key in done_keys:
                 continue
+            done_keys.add(key)  # F-005: dedup within this run too, not only on --resume
             eval_pairs.append({
                 "image_id": image_id,
                 "concept_name": concept_name,

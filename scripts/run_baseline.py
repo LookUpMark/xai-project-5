@@ -28,6 +28,7 @@ sys.path.insert(0, str(_HERE.parent / "src"))  # src/  -> config, utils, autoenc
 sys.path.insert(0, str(_HERE.parent))          # repo root -> xai_datasets
 
 import config
+import utils
 from autoencoder import concept_naming, generate_explanations, stability_analysis, train_sae
 from autoencoder.variant import baseline_variant
 from sae_hidden.reports import md_table, write_report
@@ -89,7 +90,11 @@ def main() -> None:
             print(f"  [done] {name} ({stages[-1][2]:.0f}s)")
 
         if not args.skip_train:
-            step("train", train_sae.main)
+            def _train_all_seeds():
+                train_sae.prepare_split()  # idempotent; ensures the train/test split exists
+                for s in config.training.seeds:
+                    train_sae.train_single(s)
+            step("train", _train_all_seeds)
         step("naming", concept_naming.run)
         step("stability", stability_analysis.run)
         step("explain", generate_explanations.run)
@@ -132,6 +137,16 @@ def _write_run_report(args, sae, models_dir, results_dir, stages, total):
                     ["explanations", f"{results_dir}/sample_explanations.json"],
                 ],
             ),
+        ),
+        (
+            "Reproducibility",
+            "\n".join(utils.repro_info([
+                ("train_embeddings", config.paths.train_embeddings_path),
+                ("test_embeddings", config.paths.test_embeddings_path),
+                ("text_vocab_embeddings", config.paths.vocab_embeddings_path),
+                ("modality_gap", config.paths.models_dir / "modality_gap.pt"),
+                ("primary_model", models_dir / f"sae_seed{config.training.primary_seed}" / "trainer_0" / "ae.pt"),
+            ])),
         ),
     ]
     write_report(results_dir / "REPORT_run.md", "Baseline (512-d) — Pipeline Run", sections, summary)

@@ -5,6 +5,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import logging
+import os
 import random
 from pathlib import Path
 
@@ -46,6 +47,45 @@ def set_global_seed(seed: int) -> None:
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+    # F-015: full op-level determinism when the workspace env is configured (CUDA
+    # requires CUBLAS_WORKSPACE_CONFIG); warn_only avoids hard errors on MPS/CPU.
+    if os.environ.get("CUBLAS_WORKSPACE_CONFIG"):
+        torch.use_deterministic_algorithms(True, warn_only=True)
+
+
+def repro_info(input_paths: list[tuple[str, Path]]) -> list[str]:
+    """Git SHA + package versions + sha256 of input files — F-010 reproducibility block.
+
+    Inputs are gitignored and notebook-regenerated, so recording their sha256 lets a
+    future run verify the committed outputs came from identical inputs.
+    """
+    import hashlib
+    import subprocess
+
+    import numpy
+    import sklearn
+
+    lines: list[str] = []
+    try:
+        sha = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True, text=True, cwd=Path(__file__).resolve().parent.parent,
+        ).stdout.strip()
+        lines.append(f"- git commit: `{sha or 'unknown'}`")
+    except Exception:
+        lines.append("- git commit: unknown")
+    lines.append(
+        f"- versions: scikit-learn {sklearn.__version__} | "
+        f"torch {torch.__version__} | numpy {numpy.__version__}"
+    )
+    for label, path in input_paths:
+        path = Path(path)
+        if path.exists():
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()[:16]
+            lines.append(f"- sha256({label}) [{path.name}]: `{digest}`")
+        else:
+            lines.append(f"- sha256({label}): <missing>")
+    return lines
 
 
 def load_tensor(path: str | Path, device: str = "cpu") -> torch.Tensor:

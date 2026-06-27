@@ -186,12 +186,14 @@ def pct_aligned(path):
     """% Aligned from the judge CSV. Column is `verdict` (string), NOT `aligned_score`.
 
     The CSV columns are: image_id, feature_id, concept, activation, verdict, raw_response.
-    `verdict` is one of {Aligned, Unaligned, Uncertain}. We count Aligned over all
-    rows (Uncertain stays in the denominator). The canonical, pre-computed value is
-    also in judge_scores.json["aligned_rate"] — these should agree.
+    `verdict` is one of {Aligned, Unaligned, Uncertain}. Infrastructure-error rows are
+    written with verdict=Uncertain and a `raw_response` starting with "ERROR:" — exclude
+    them so the denominator matches the judge's own `judge_scores.json["aligned_rate"]`
+    (aligned_count / total_valid, F-006). Uncertain *model* verdicts stay in the denominator.
     """
     df = pd.read_csv(path)
-    return (df['verdict'] == 'Aligned').mean() * 100
+    valid = df[~df["raw_response"].astype(str).str.startswith("ERROR:")]
+    return (valid["verdict"] == "Aligned").mean() * 100
 
 baseline_pct = pct_aligned('results/aligned_scores_baseline.csv')
 path_a_pct   = pct_aligned('results/aligned_scores_path_a.csv')

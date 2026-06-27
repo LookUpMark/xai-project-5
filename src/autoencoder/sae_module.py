@@ -375,6 +375,20 @@ class SAEManager:
             )
         return encoded, values, indices
 
+    def activation_dead_mask(self, embeddings: torch.Tensor) -> torch.Tensor:
+        """Boolean mask ``(dict_size,)`` of features that NEVER fire on ``embeddings``.
+
+        Activation-based dead definition (matches :meth:`compute_sparsity_metrics`),
+        and the meaningful one for naming: the TopK trainer re-normalizes decoder
+        columns to unit norm every step, so a decoder-norm mask is structurally
+        all-False (F-007). Use this to mark dead features DEAD_FEATURE at naming time.
+        """
+        self._check_loaded()
+        with torch.no_grad():
+            enc = self._ae.encode(embeddings.to(self._device))  # (N, dict_size)
+            active = (enc > 0).any(dim=0)
+        return ~active.cpu()
+
     def decode(self, sparse: torch.Tensor) -> torch.Tensor:
         """
         Decode a sparse representation back to embedding space.
@@ -446,6 +460,7 @@ class SAEManager:
         vocab_labels: list[str],
         top_n: int = 3,
         modality_gap: Optional[torch.Tensor] = None,
+        dead_mask: Optional[torch.Tensor] = None,
     ) -> dict[int, dict]:
         """
         Assign names to SAE concepts via cosine similarity with vocabulary.
@@ -482,12 +497,14 @@ class SAEManager:
 
         W_dec = self.get_decoder_weights()  # (dict_size, 512)
 
-        # Identify dead features on the ORIGINAL (pre-shift) decoder norms: "dead" is
-        # a property of the learned feature, not of the gap-shifted vector. (Computing
-        # it after the shift would mask genuinely-zero decoder rows, since a zero row
-        # becomes -gap with norm ||gap|| > 0.)
-        dead_threshold = self.config.get("dead_threshold", 1e-8)
-        dead_mask = W_dec.norm(dim=1) < dead_threshold
+        # F-007: prefer an activation-based dead mask from the caller. The decoder-norm
+        # fallback below is structurally unreliable — the TopK trainer re-normalizes
+        # decoder columns to unit norm every step, so every decoder row has norm ≈1.
+        if dead_mask is None:
+            dead_threshold = self.config.get("dead_threshold", 1e-8)
+            dead_mask = W_dec.norm(dim=1) < dead_threshold
+        else:
+            dead_mask = dead_mask.to(W_dec.device)
 
         if modality_gap is not None:
             W_dec = W_dec - modality_gap.unsqueeze(0).to(W_dec.device)

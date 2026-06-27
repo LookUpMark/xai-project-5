@@ -27,8 +27,6 @@ from autoencoder.sae_module import SAEManager
 logger = utils.setup_logging(__name__)
 
 SEED = config.training.primary_seed
-CONCEPT_NAMES_PATH = config.paths.results_dir / "concept_names.json"
-OUTPUT_PATH = config.paths.results_dir / "sample_explanations.json"
 TEST_IMAGE_IDS_PATH = config.paths.test_image_ids_path
 
 
@@ -89,6 +87,11 @@ def generate_explanation(
 
 def run() -> Path:
     """Run explanation generation stage. Returns path to output file."""
+    utils.set_global_seed(SEED)  # F-009: deterministic generation
+    # F-002: resolve under the active results_dir (baseline_variant swaps it at
+    # runtime), not the import-time value, so outputs land in results/baseline/.
+    concept_names_path = config.paths.results_dir / "concept_names.json"
+    output_path = config.paths.results_dir / "sample_explanations.json"
     model_dir = config.paths.models_dir / f"sae_seed{SEED}"
 
     # Use TEST embeddings for evaluation (not training data)
@@ -97,13 +100,13 @@ def run() -> Path:
     for path, desc in [
         (model_dir, "SAE model"),
         (embeddings_path, "Test embeddings"),
-        (CONCEPT_NAMES_PATH, "Concept names"),
+        (concept_names_path, "Concept names"),
     ]:
         if not path.exists():
             raise FileNotFoundError(f"{desc} not found: {path}")
 
     embeddings = utils.load_tensor(embeddings_path)
-    with open(CONCEPT_NAMES_PATH) as f:
+    with open(concept_names_path) as f:
         concept_names = json.load(f)
 
     # Load the per-row image ids (basename) for the test split so each
@@ -144,17 +147,17 @@ def run() -> Path:
         )
         explanations.append(explanation)
 
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(OUTPUT_PATH, "w") as f:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w") as f:
         json.dump(explanations, f, indent=2, ensure_ascii=False)
 
     logger.info(f"Explanations generated: {len(explanations)}")
-    logger.info(f"Saved to: {OUTPUT_PATH}")
+    logger.info(f"Saved to: {output_path}")
 
     if explanations:
         logger.info(f"\nExample (sample 0):\n  {explanations[0]['pseudo_report']}")
 
-    return OUTPUT_PATH
+    return output_path
 
 
 def main() -> None:

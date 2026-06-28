@@ -58,26 +58,41 @@ JUDGE_PROMPT_TEMPLATE = """You are a clinical AI evaluator specializing in radio
 Given a radiology report and a concept discovered by an interpretability method,
 determine whether the report supports the concept.
 
-Radiology report:
-\"{report}\"
-
-Discovered concept:
-\"{concept}\"
-
-Determine if the radiology report SUPPORTS, CONTRADICTS, or is AMBIGUOUS about
-the presence/relevance of this concept.
-
 Rules:
 - SUPPORTS (Aligned): The report explicitly mentions or implies this finding/concept.
-- CONTRADICTS (Unaligned): The report explicitly denies or contradicts this concept.
-- AMBIGUOUS (Uncertain): The report does not mention this concept, or the relationship is unclear.
+- CONTRADICTS (Unaligned): 
+    1. The report explicitly denies this concept.
+    2. OR the concept is a pathology/abnormality (e.g., pneumonia, mass, fracture) and the report does NOT mention it. In radiology, unmentioned pathologies are assumed absent.
+- AMBIGUOUS (Uncertain): The concept is a normal anatomical structure or artifact (e.g., ribs, spine, devices) that might be in the image but is simply not mentioned by the radiologist because it is normal or irrelevant.
 
-Answer with EXACTLY one word: Aligned, Unaligned, or Uncertain."""
+Examples:
+
+Radiology report: "There is an increased opacity in the right upper lobe with associated atelectasis."
+Discovered concept: "flexible Spule"
+Answer format: The report discusses lung opacities, but a flexible Spule (coil) is a completely unrelated artifact. | Verdict: Uncertain
+
+Radiology report: "The heart is top normal in size. The lungs are clear. No acute disease."
+Discovered concept: "cardiomegaly"
+Answer format: The report states the heart is normal size, which explicitly contradicts cardiomegaly (enlarged heart). | Verdict: Unaligned
+
+Radiology report: "There is an increased opacity in the right upper lobe with possible mass."
+Discovered concept: "mass lesion"
+Answer format: The report explicitly mentions a possible mass, which aligns with the concept of a mass lesion. | Verdict: Aligned
+
+Now evaluate the following:
+
+Radiology report:
+"{report}"
+
+Discovered concept:
+"{concept}"
+
+Answer format: <max 15 words explanation> | Verdict: <Aligned/Unaligned/Uncertain>"""
 
 # Appended to the prompt on retries to reinforce the expected format
 RETRY_SUFFIX = (
     "\n\nIMPORTANT: Your previous answer was not in the expected format. "
-    "You MUST answer with exactly one word: Aligned, Unaligned, or Uncertain."
+    "You MUST follow the format: <max 15 words explanation> | Verdict: <Aligned/Unaligned/Uncertain>"
 )
 
 VALID_VERDICTS = ("Aligned", "Unaligned", "Uncertain")
@@ -217,7 +232,7 @@ def build_judge_graph():
                         "type": "text",
                         "text": (
                             "You are a clinical AI evaluator specializing in radiology. "
-                            "Answer with exactly one word."
+                            "Answer in the exact format: <explanation> | Verdict: <label>"
                         ),
                     }
                 ],
@@ -302,19 +317,27 @@ def _extract_verdict(raw_text: str) -> str | None:
     """
     Try to extract a valid verdict from the LLM's raw response.
 
-    Handles cases like ``"Aligned."``, ``"The answer is Unaligned"``, etc.
+    Handles the CoT format: "Explanation | Verdict: Aligned".
     Also maps verb-shaped answers (``"Supports"``, ``"Contradicts"``,
     ``"Ambiguous"``) to their corresponding label via ``_VERB_ALIASES``
     """
-    raw_lower = raw_text.lower().strip().rstrip(".")
-    for verdict in VALID_VERDICTS:
-        if verdict.lower() == raw_lower:
-            return verdict
+    # 1. Try to split by "Verdict:"
+    parts = raw_text.split("Verdict:")
+    if len(parts) > 1:
+        verdict_str = parts[-1].strip().strip(".").lower()
+        # Sort by length descending to check 'Unaligned' before 'Aligned'
+        for verdict in sorted(VALID_VERDICTS, key=len, reverse=True):
+            if verdict.lower() in verdict_str:
+                return verdict
+        for alias, label in _VERB_ALIASES.items():
+            if alias in verdict_str:
+                return label
+
+    # 2. Fallback: search the entire raw_text
+    raw_lower = raw_text.lower().strip()
     for verdict in VALID_VERDICTS:
         if verdict.lower() in raw_lower.split():
             return verdict
-    if raw_lower in _VERB_ALIASES:
-        return _VERB_ALIASES[raw_lower]
     for word in raw_lower.split():
         if word in _VERB_ALIASES:
             return _VERB_ALIASES[word]
@@ -500,6 +523,7 @@ def evaluate(
         skipped_no_report, skipped_image_ids, len(explanations),
     )
 
+    eval_pairs = eval_pairs[:300]
     total = len(eval_pairs)
     logger.info("Pairs to evaluate: %d", total)
 

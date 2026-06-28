@@ -424,7 +424,7 @@ class JudgeConfig:
     """
 
     model_name: str = "google/medgemma-4b-it"
-    max_new_tokens: int = 10
+    max_new_tokens: int = 64
     max_retries: int = 2
     batch_save_every: int = 25
     seed: int = 42

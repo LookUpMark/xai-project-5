@@ -1,0 +1,14 @@
+{
+  "skipped_no_report_count": 7,
+  "skipped_image_ids": [
+    "1536_IM-0347-0001-0001.dcm.png",
+    "1536_IM-0347-0001-0002.dcm.png",
+    "1536_IM-0347-0001-0003.dcm.png",
+    "1761_IM-0497-1001.dcm.png",
+    "2115_IM-0744-1001.dcm.png",
+    "2115_IM-0744-2001.dcm.png",
+    "3809_IM-1919-1003002.dcm.png"
+  ],
+  "total_images": 1515,
+  "exclusion_rate": 0.0046
+}

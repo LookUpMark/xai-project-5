@@ -45,9 +45,9 @@ EXPLANATIONS_PATH = paths.baseline_results_dir / "sample_explanations.json"
 REPORTS_CSV_PATH = paths.data_dir / "iu_xray" / "indiana_reports.csv"
 PROJECTIONS_CSV_PATH = paths.data_dir / "iu_xray" / "indiana_projections.csv"
 OUTPUT_CSV_PATH = paths.results_dir / "aligned_scores.csv"
-CHECKPOINT_PATH = paths.results_dir / ".judge_checkpoint.json"
-SCORES_JSON_PATH = paths.results_dir / "judge_scores.json"
-COVERAGE_JSON_PATH = paths.results_dir / "judge_coverage.json"
+CHECKPOINT_PATH = paths.results_dir / f"judge_checkpoint_{judge_cfg.model_name}.json"
+SCORES_JSON_PATH = paths.results_dir / f"judge_scores_{judge_cfg.model_name}.json"
+COVERAGE_JSON_PATH = paths.results_dir / f"judge_coverage_{judge_cfg.model_name}.json"
 
 # Model config — sourced from config.judge 
 MODEL_NAME = judge_cfg.model_name
@@ -55,28 +55,28 @@ MODEL_NAME = judge_cfg.model_name
 # Prompt template — includes Rules block mapping verbs to labels 
 JUDGE_PROMPT_TEMPLATE = """You are a clinical AI evaluator specializing in radiology.
 
-Given a radiology report and a concept discovered by an interpretability method,
-determine whether the report supports the concept.
+Given a radiology report and an AI-generated pseudo-report based on discovered concepts,
+determine whether the original report supports the findings in the pseudo-report.
 
 Rules:
-- SUPPORTS (Aligned): The report explicitly mentions or implies this finding/concept.
+- SUPPORTS (Aligned): The original report explicitly mentions or implies the findings/concepts in the pseudo-report.
 - CONTRADICTS (Unaligned): 
-    1. The report explicitly denies this concept.
-    2. OR the concept is a pathology/abnormality (e.g., pneumonia, mass, fracture) and the report does NOT mention it. In radiology, unmentioned pathologies are assumed absent.
-- AMBIGUOUS (Uncertain): The concept is a normal anatomical structure or artifact (e.g., ribs, spine, devices) that might be in the image but is simply not mentioned by the radiologist because it is normal or irrelevant.
+    1. The original report explicitly denies these concepts.
+    2. OR the pseudo-report mentions a pathology/abnormality (e.g., pneumonia, mass, fracture) and the original report does NOT mention it. In radiology, unmentioned pathologies are assumed absent.
+- AMBIGUOUS (Uncertain): The pseudo-report mentions normal anatomical structures or artifacts (e.g., ribs, spine, devices) that might be in the image but are simply not mentioned by the radiologist because they are normal or irrelevant.
 
 Examples:
 
 Radiology report: "There is an increased opacity in the right upper lobe with associated atelectasis."
-Discovered concept: "flexible Spule"
+AI-generated pseudo-report: "The model identifies the following visual concepts in this radiograph: flexible Spule."
 Answer format: The report discusses lung opacities, but a flexible Spule (coil) is a completely unrelated artifact. | Verdict: Uncertain
 
 Radiology report: "The heart is top normal in size. The lungs are clear. No acute disease."
-Discovered concept: "cardiomegaly"
+AI-generated pseudo-report: "The model identifies the following visual concepts in this radiograph: cardiomegaly."
 Answer format: The report states the heart is normal size, which explicitly contradicts cardiomegaly (enlarged heart). | Verdict: Unaligned
 
 Radiology report: "There is an increased opacity in the right upper lobe with possible mass."
-Discovered concept: "mass lesion"
+AI-generated pseudo-report: "The model identifies the following visual concepts in this radiograph: mass lesion."
 Answer format: The report explicitly mentions a possible mass, which aligns with the concept of a mass lesion. | Verdict: Aligned
 
 Now evaluate the following:
@@ -84,8 +84,8 @@ Now evaluate the following:
 Radiology report:
 "{report}"
 
-Discovered concept:
-"{concept}"
+AI-generated pseudo-report:
+"{pseudo_report}"
 
 Answer format: <max 15 words explanation> | Verdict: <Aligned/Unaligned/Uncertain>"""
 
@@ -192,7 +192,7 @@ def build_judge_graph():
 
     # --- State schema ---
     class JudgeState(TypedDict):
-        concept: str
+        pseudo_report: str
         report: str
         prompt: str
         raw_response: str
@@ -203,7 +203,7 @@ def build_judge_graph():
     def prepare_prompt(state: JudgeState) -> dict:
         prompt = JUDGE_PROMPT_TEMPLATE.format(
             report=state["report"],
-            concept=state["concept"],
+            pseudo_report=state["pseudo_report"],
         )
         return {"prompt": prompt}
 
@@ -496,24 +496,19 @@ def evaluate(
             skipped_image_ids.append(image_id)
             continue
 
-        # The explanations JSON uses "top_k_concepts" with sub-keys
-        # "feature_id", "name", "activation"
-        concepts_list = item.get("top_k_concepts", [])
-        for concept_info in concepts_list:
-            concept_name = concept_info.get("name", "")
-            if not concept_name:
-                continue
-            key = (image_id, concept_name)
-            if key in done_keys:
-                continue
-            done_keys.add(key)  # F-005: dedup within this run too, not only on --resume
-            eval_pairs.append({
-                "image_id": image_id,
-                "concept_name": concept_name,
-                "feature_id": concept_info.get("feature_id", -1),       # F-009
-                "activation": concept_info.get("activation", 0.0),       # F-009
-                "report": report,
-            })
+        # We evaluate the pseudo-report
+        pseudo_report = item.get("pseudo_report", "")
+        if not pseudo_report:
+            continue
+        key = (image_id, pseudo_report)
+        if key in done_keys:
+            continue
+        done_keys.add(key)
+        eval_pairs.append({
+            "image_id": image_id,
+            "pseudo_report": pseudo_report,
+            "report": report,
+        })
 
     if skipped_no_report > 0:
         logger.warning("Skipped %d samples with missing reports", skipped_no_report)
@@ -523,7 +518,6 @@ def evaluate(
         skipped_no_report, skipped_image_ids, len(explanations),
     )
 
-    eval_pairs = eval_pairs[:300]
     total = len(eval_pairs)
     logger.info("Pairs to evaluate: %d", total)
 
@@ -543,7 +537,7 @@ def evaluate(
     for i, pair in enumerate(tqdm(eval_pairs, desc="LLM Judge Evaluation")):
         try:
             result_state = judge.invoke({
-                "concept": pair["concept_name"],
+                "pseudo_report": pair["pseudo_report"],
                 "report": pair["report"],
                 "prompt": "",
                 "raw_response": "",
@@ -557,21 +551,17 @@ def evaluate(
 
             records.append({
                 "image_id": pair["image_id"],
-                "feature_id": pair["feature_id"],
-                "concept": pair["concept_name"],
-                "activation": pair["activation"],
+                "pseudo_report": pair["pseudo_report"],
                 "verdict": verdict,
                 "raw_response": result_state.get("raw_response", ""),
             })
 
         except Exception as e:
             errors += 1
-            tqdm.write(f"  Error on {pair['image_id']}/{pair['concept_name']}: {e}")
+            tqdm.write(f"  Error on {pair['image_id']}/{pair['pseudo_report']}: {e}")
             records.append({
                 "image_id": pair["image_id"],
-                "feature_id": pair["feature_id"],
-                "concept": pair["concept_name"],
-                "activation": pair["activation"],
+                "pseudo_report": pair["pseudo_report"],
                 "verdict": "Uncertain",
                 "raw_response": f"ERROR: {e}",
             })
@@ -607,8 +597,8 @@ def _save_final(records: list[dict], output_path: Path | None = None) -> Path:
     dest.parent.mkdir(parents=True, exist_ok=True)
     df = pd.DataFrame(records)
     output_cols = [
-        "image_id", "feature_id", "concept",
-        "activation", "verdict", "raw_response",
+        "image_id", "pseudo_report",
+        "verdict", "raw_response",
     ]
     existing_cols = [c for c in output_cols if c in df.columns]
     df[existing_cols].to_csv(dest, index=False)

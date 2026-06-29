@@ -40,7 +40,6 @@ from autoencoder.train_sae import (
     prepare_split,
     train_single,
 )
-from autoencoder.tracking import finish_tracking, init_tracking
 
 
 def _parse_seeds(raw: str) -> tuple[int, ...]:
@@ -177,7 +176,6 @@ def main() -> None:
     model_dirs = [train_single(seed) for seed in config.training.seeds]
 
     print(f"All {len(model_dirs)} SAEs trained successfully.")
-    finish_tracking()
 
 
 if __name__ == "__main__":

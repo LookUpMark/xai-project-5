@@ -45,9 +45,9 @@ EXPLANATIONS_PATH = paths.baseline_results_dir / "sample_explanations.json"
 REPORTS_CSV_PATH = paths.data_dir / "iu_xray" / "indiana_reports.csv"
 PROJECTIONS_CSV_PATH = paths.data_dir / "iu_xray" / "indiana_projections.csv"
 OUTPUT_CSV_PATH = paths.results_dir / "aligned_scores.csv"
-CHECKPOINT_PATH = paths.results_dir / f"judge_checkpoint_{judge_cfg.model_name}.json"
-SCORES_JSON_PATH = paths.results_dir / f"judge_scores_{judge_cfg.model_name}.json"
-COVERAGE_JSON_PATH = paths.results_dir / f"judge_coverage_{judge_cfg.model_name}.json"
+CHECKPOINT_PATH = paths.results_dir / f"judge_checkpoint_{judge_cfg.model_name.replace('/', '_')}.json"
+SCORES_JSON_PATH = paths.results_dir / f"judge_scores_{judge_cfg.model_name.replace('/', '_')}.json"
+COVERAGE_JSON_PATH = paths.results_dir / f"judge_coverage_{judge_cfg.model_name.replace('/', '_')}.json"
 
 # Model config — sourced from config.judge 
 MODEL_NAME = judge_cfg.model_name
@@ -57,6 +57,7 @@ JUDGE_PROMPT_TEMPLATE = """You are a clinical AI evaluator specializing in radio
 
 Given a radiology report and an AI-generated pseudo-report based on discovered concepts,
 determine whether the original report supports the findings in the pseudo-report.
+Focus your evaluation primarily on the **dominant concept** mentioned at the end of the pseudo-report.
 
 Rules:
 - SUPPORTS (Aligned): The original report explicitly mentions or implies the findings/concepts in the pseudo-report.
@@ -68,16 +69,16 @@ Rules:
 Examples:
 
 Radiology report: "There is an increased opacity in the right upper lobe with associated atelectasis."
-AI-generated pseudo-report: "The model identifies the following visual concepts in this radiograph: flexible Spule."
-Answer format: The report discusses lung opacities, but a flexible Spule (coil) is a completely unrelated artifact. | Verdict: Uncertain
+AI-generated pseudo-report: "The model identifies the following visual concepts in this radiograph: bronchopulmonary lymph node, flexible Spule, twin peak sign. The dominant concept is 'flexible Spule' (activation=0.161)."
+Answer format: The report discusses lung opacities, but the dominant concept flexible Spule (coil) is a completely unrelated artifact. | Verdict: Uncertain
 
 Radiology report: "The heart is top normal in size. The lungs are clear. No acute disease."
-AI-generated pseudo-report: "The model identifies the following visual concepts in this radiograph: cardiomegaly."
+AI-generated pseudo-report: "The model identifies the following visual concepts in this radiograph: cardiomegaly, strap muscle of neck, thin rim. The dominant concept is 'cardiomegaly' (activation=0.180)."
 Answer format: The report states the heart is normal size, which explicitly contradicts cardiomegaly (enlarged heart). | Verdict: Unaligned
 
 Radiology report: "There is an increased opacity in the right upper lobe with possible mass."
-AI-generated pseudo-report: "The model identifies the following visual concepts in this radiograph: mass lesion."
-Answer format: The report explicitly mentions a possible mass, which aligns with the concept of a mass lesion. | Verdict: Aligned
+AI-generated pseudo-report: "The model identifies the following visual concepts in this radiograph: mass lesion, navicular fat stripe sign, bare orbit sign. The dominant concept is 'mass lesion' (activation=0.150)."
+Answer format: The report explicitly mentions a possible mass, which aligns with the dominant concept of a mass lesion. | Verdict: Aligned
 
 Now evaluate the following:
 
@@ -87,12 +88,12 @@ Radiology report:
 AI-generated pseudo-report:
 "{pseudo_report}"
 
-Answer format: <max 15 words explanation> | Verdict: <Aligned/Unaligned/Uncertain>"""
+Answer format: <max 25 words explanation> | Verdict: <Aligned/Unaligned/Uncertain>"""
 
 # Appended to the prompt on retries to reinforce the expected format
 RETRY_SUFFIX = (
     "\n\nIMPORTANT: Your previous answer was not in the expected format. "
-    "You MUST follow the format: <max 15 words explanation> | Verdict: <Aligned/Unaligned/Uncertain>"
+    "You MUST follow the format: <max 25 words explanation> | Verdict: <Aligned/Unaligned/Uncertain>"
 )
 
 VALID_VERDICTS = ("Aligned", "Unaligned", "Uncertain")

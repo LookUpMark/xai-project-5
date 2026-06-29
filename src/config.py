@@ -423,7 +423,7 @@ class JudgeConfig:
     parameters, retry budget, checkpoint frequency, and reproducibility seed.
     """
 
-    model_name: str = "google/gemma-4-26B-A4B-it"
+    model_name: str = "meta-llama/Llama-3.1-8B-Instruct"
     max_new_tokens: int = 64
     max_retries: int = 2
     batch_save_every: int = 25

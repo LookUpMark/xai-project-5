@@ -173,21 +173,6 @@ def main() -> None:
 
     print(f"PyTorch: {torch.__version__}, CUDA: {torch.version.cuda or 'N/A'}")
 
-    # Init tracking (no-op when WandbConfig.enabled is False)
-    if config.wandb_cfg.enabled:
-        init_tracking(
-            "train_sae",
-            {
-                "project": config.wandb_cfg.project,
-                "entity": config.wandb_cfg.entity,
-                "seeds": list(config.training.seeds),
-                "k": config.sae.k,
-                "dict_size": config.sae.dict_size,
-                "steps": config.sae.steps,
-                "lr": config.sae.lr,
-            },
-        )
-
     # Step 3: train one SAE per seed
     model_dirs = [train_single(seed) for seed in config.training.seeds]
 

@@ -29,6 +29,7 @@ from vocabulary_building.build_vocabulary import (
     rank_terms_by_relevance,
     build_final_vocabulary,
     build_vocabulary_pipeline,
+    filter_cxr_relevant_terms,
 )
 
 
@@ -286,6 +287,56 @@ class TestBuildVocabularyPipeline:
         # 3. Saves should be called
         mock_save_vocab.assert_called_once()
         mock_save_embs.assert_called_once()
+
+
+class TestCxrFiltering:
+    """Unit tests for the RadLex hierarchical chest filtering logic."""
+
+    def test_filter_cxr_relevant_terms(self, tmp_path):
+        # Create a mock radlex.csv file
+        csv_content = (
+            "Class ID,Preferred Label,Synonyms,Definitions,Obsolete,CUI,Semantic Types,Parents,"
+            "http://www.radlex.org/RID/Anatomical_Site\n"
+            "http://www.radlex.org/RID/RID1243,thorax,,,FALSE,,,,\n"
+            "http://www.radlex.org/RID/RID1301,lung,,,FALSE,,,http://www.radlex.org/RID/RID1243,\n"
+            "http://www.radlex.org/RID/RID1385,heart,,,FALSE,,,http://www.radlex.org/RID/RID1243,\n"
+            "http://www.radlex.org/RID/RID5,imaging observation,,,FALSE,,,,\n"
+            "http://www.radlex.org/RID/RID50696,lung imaging observation,,,FALSE,,,http://www.radlex.org/RID/RID5,\n"
+            "http://www.radlex.org/RID/RID28530,opacity,,,FALSE,,,http://www.radlex.org/RID/RID5,\n"
+            "http://www.radlex.org/RID/RID56,abdomen,,,FALSE,,,,\n"
+            "http://www.radlex.org/RID/RID5103,autoimmune pancreatitis,,,FALSE,,,http://www.radlex.org/RID/RID56,\n"
+            "http://www.radlex.org/RID/RID9999,pancreas,,,FALSE,,,http://www.radlex.org/RID/RID56,\n"
+            "http://www.radlex.org/RID/RID9998,pancreatic cyst,,,FALSE,,,http://www.radlex.org/RID/RID5,\n"
+            "http://www.radlex.org/RID/RID1000,mitral valve,,,FALSE,,,http://www.radlex.org/RID/RID5,http://www.radlex.org/RID/RID1385\n"
+        )
+        csv_file = tmp_path / "mock_radlex.csv"
+        with open(csv_file, "w", encoding="utf-8") as f:
+            f.write(csv_content)
+
+        input_terms = [
+            "thorax",                  # Target root
+            "lung",                    # Descends from thorax
+            "heart",                   # Descends from thorax
+            "opacity",                 # Descends from imaging observation (RID5) - generic, kept
+            "autoimmune pancreatitis", # Descends from abdomen - excluded
+            "pancreatic cyst",         # Descends from RID5 but has exclude keyword in label - excluded
+            "mitral valve",            # Site heart - kept
+            "non-radlex term",         # Not in CSV (e.g. manual seed) - kept
+        ]
+
+        filtered = filter_cxr_relevant_terms(str(csv_file), input_terms)
+
+        # Verified terms
+        assert "thorax" in filtered
+        assert "lung" in filtered
+        assert "heart" in filtered
+        assert "opacity" in filtered
+        assert "mitral valve" in filtered
+        assert "non-radlex term" in filtered
+        
+        # Excluded terms
+        assert "autoimmune pancreatitis" not in filtered
+        assert "pancreatic cyst" not in filtered
 
 
 # =========================================================================

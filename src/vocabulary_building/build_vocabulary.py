@@ -94,9 +94,9 @@ def compute_anchor_centroids(
 
         print(f"  {group_name} ({len(queries)} anchors):")
         for q in queries:
-            print(f"    • {q}")
+            print(f"    - {q}")
 
-    print(f"\n  Total: {total_anchors} anchors → "
+    print(f"\n  Total: {total_anchors} anchors -> "
           f"{len(centroids)} centroids\n")
 
     return torch.stack(centroids)  # (K, 512)
@@ -254,6 +254,195 @@ def save_vocab_embeddings(
           f"— shape {tuple(vocab_embeddings.shape)}")
 
 
+def filter_cxr_relevant_terms(csv_path: str, all_terms: List[str]) -> List[str]:
+    """
+    Filter the input list of preferred labels to keep only those that belong 
+    to the thoracic/chest X-ray domain or are generic radiology observations,
+    excluding other body systems/modalities (abdominal, pelvic, neurological, etc.).
+    
+    This implements Approach 1: Programmatic Hierarchical Traversal of the RadLex DAG.
+    
+    Args:
+        csv_path: path to radlex.csv.
+        all_terms: list of unique deduplicated non-obsolete terms.
+        
+    Returns:
+        List[str]: subset of all_terms that are chest-relevant or generic.
+    """
+    import csv
+    
+    def extract_rid(uri: str) -> str:
+        if not uri:
+            return ""
+        if "/" in uri:
+            return uri.split("/")[-1].strip()
+        if ":" in uri:
+            return uri.split(":")[-1].strip()
+        return uri.strip()
+
+    # Target roots (Thoracic domain since we're using IUXRay as baseline)
+    TARGET_ROOTS = {
+        "RID1243",   # thorax / chest
+        "RID1301",   # lung / Lunge
+        "RID1385",   # heart
+        "RID1362",   # Pleura
+        "RID1384",   # mediastinum
+        "RID1524",   # diaphragm
+        "RID15103",  # bony thorax
+        "RID1463",   # lymph node of thorax
+        "RID49962",  # chest vessels
+        "RID49961",  # chest veins
+        "RID50696",  # lung imaging observation
+    }
+
+    # Exclusion keywords in preferred labels of ancestors or anatomical site ancestors
+    EXCLUDE_KEYWORDS = {
+        "abdomen", "abdominal", "pelvis", "pelvic", "brain", "cerebral", "cranial",
+        "prostate", "prostatic", "breast", "mammo", "ovary", "ovarian", "uterus", 
+        "uterine", "renal", "kidney", "pancreas", "pancreatic", "liver", "hepatic", 
+        "spleen", "splenic", "gastric", "stomach", "colon", "duodenum", "bowel", 
+        "intestinal", "skull", "mandible", "lower extremity", "upper extremity", 
+        "leg", "foot", "ankle", "femur", "tibia", "arm", "hand", "elbow", "hip",
+        "cervical spine", "lumbar spine", "lumbosacral", "coccyx", "sacrum",
+        "bladder", "hepatobiliary", "biliary", "thyroid", "bi-rads", "birads",
+        "pi-rads", "pirads", "li-rads", "lirads", "c-rads", "crads"
+    }
+
+    child_to_parents = {}
+    rid_to_label = {}
+    label_to_rids = {}
+    rid_to_sites = {}
+    obsolete_rids = set()
+
+    with open(csv_path, "r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            class_id = extract_rid(row.get("Class ID", ""))
+            if not class_id:
+                continue
+                
+            obsolete = row.get("Obsolete", "").strip().upper() == "TRUE"
+            if obsolete:
+                obsolete_rids.add(class_id)
+                
+            label = row.get("Preferred Label", "").strip()
+            rid_to_label[class_id] = label
+            
+            # Map label (lowercase) to its RIDs
+            if label:
+                label_lower = label.lower()
+                if label_lower not in label_to_rids:
+                    label_to_rids[label_lower] = []
+                label_to_rids[label_lower].append(class_id)
+            
+            # Parse Parents
+            parents_raw = row.get("Parents", "")
+            parents = [extract_rid(p) for p in parents_raw.split("|") if p.strip()]
+            if parents:
+                child_to_parents[class_id] = parents
+                
+            # Parse Anatomical Site
+            site_raw = row.get("http://www.radlex.org/RID/Anatomical_Site", "")
+            sites = [extract_rid(s) for s in site_raw.split("|") if s.strip()]
+            if sites:
+                rid_to_sites[class_id] = sites
+
+    memo_ancestors = {}
+
+    def get_ancestor_labels(rid, visited=None):
+        if visited is None:
+            visited = set()
+        if rid in memo_ancestors:
+            return memo_ancestors[rid]
+        if rid in visited:
+            return set()
+            
+        visited.add(rid)
+        labels = set()
+        label = rid_to_label.get(rid, "")
+        if label:
+            labels.add(label.lower())
+            
+        if rid in child_to_parents:
+            for parent in child_to_parents[rid]:
+                labels.update(get_ancestor_labels(parent, visited))
+                
+        memo_ancestors[rid] = labels
+        visited.remove(rid)
+        return labels
+
+    def is_descendant_of(node_rid, target_set, memo):
+        if node_rid in target_set:
+            return True
+        if node_rid not in child_to_parents:
+            return False
+        if node_rid in memo:
+            return memo[node_rid]
+            
+        memo[node_rid] = False
+        for parent in child_to_parents[node_rid]:
+            if is_descendant_of(parent, target_set, memo):
+                memo[node_rid] = True
+                return True
+        return False
+
+    memo_target = {}
+    memo_exclude = {}
+
+    def check_term(rid) -> bool:
+        if rid in obsolete_rids:
+            return False
+            
+        # Get all ancestor labels (including self)
+        ancestors = get_ancestor_labels(rid)
+        
+        # Also get site ancestors
+        site_ancestors = set()
+        if rid in rid_to_sites:
+            for site in rid_to_sites[rid]:
+                site_ancestors.update(get_ancestor_labels(site))
+                
+        # Check if any exclude keyword is present in ancestors
+        all_related_labels = ancestors.union(site_ancestors)
+        for kw in EXCLUDE_KEYWORDS:
+            for lbl in all_related_labels:
+                if kw in lbl:
+                    return False
+                    
+        # Check if it descends from TARGET_ROOTS
+        if is_descendant_of(rid, TARGET_ROOTS, memo_target):
+            return True
+            
+        if rid in rid_to_sites:
+            for site in rid_to_sites[rid]:
+                if is_descendant_of(site, TARGET_ROOTS, memo_target):
+                    return True
+                    
+        # If it is a generic observation (under RID5), keep it
+        if is_descendant_of(rid, {"RID5"}, {}):
+            return True
+            
+        return False
+
+    filtered_terms = []
+    
+    # We preserve the order of all_terms
+    for term in all_terms:
+        term_lower = term.lower()
+        rids = label_to_rids.get(term_lower, [])
+        if not rids:
+            # Keep terms not found in radlex.csv (e.g. manual injected seeds) to be safe
+            filtered_terms.append(term)
+            continue
+            
+        # If any mapped RID is chest-relevant, keep the term
+        if any(check_term(rid) for rid in rids):
+            filtered_terms.append(term)
+            
+    print(f"RadLex Hierarchical Filtering: {len(all_terms)} terms -> {len(filtered_terms)} chest-relevant terms.")
+    return filtered_terms
+
+
 # ──────────────────────────────────────────────────────────────────────
 # Full pipeline orchestrator
 # ──────────────────────────────────────────────────────────────────────
@@ -272,7 +461,7 @@ def build_vocabulary_pipeline(
         3. Compute clinically defined macro-centroids (hard-clustering)
         4. Rank terms by max cosine similarity to any macro-centroid
         5. Select top-k input terms + NIH seed terms
-        6. Save vocabulary JSON and embeddings
+        6. Save vocabulary JSON and pre-computed embeddings
 
     Args:
         model: loaded BiomedCLIP model.
@@ -281,6 +470,13 @@ def build_vocabulary_pipeline(
         vocab_config (VocabularyConfig): vocabulary pipeline parameters.
         all_terms (List[str]): list of raw terms to filter from.
     """
+    # Filter terms hierarchically for the chest subdomain first
+    filtered = filter_cxr_relevant_terms(vocab_config.input_csv_path, all_terms)
+    
+    # Update all_terms in-place to preserve caller reference and pass unit tests
+    all_terms.clear()
+    all_terms.extend(filtered)
+
     input_terms_set = {t.lower() for t in all_terms}
     
     # Inject missing NIH seeds into CSV terms

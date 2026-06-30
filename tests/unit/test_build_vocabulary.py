@@ -29,7 +29,11 @@ from vocabulary_building.build_vocabulary import (
     rank_terms_by_relevance,
     build_final_vocabulary,
     build_vocabulary_pipeline,
-    filter_cxr_relevant_terms,
+)
+from vocabulary_building.radlex_support import (
+    filter_terms,
+    load_and_filter_radlex,
+    load_radlex_graph,
 )
 
 
@@ -243,6 +247,7 @@ class TestBuildFinalVocabulary:
 
 
 class TestBuildVocabularyPipeline:
+    @patch("vocabulary_building.build_vocabulary.load_and_filter_radlex")
     @patch("vocabulary_building.build_vocabulary.save_vocab_embeddings")
     @patch("vocabulary_building.build_vocabulary.save_vocabulary")
     @patch("vocabulary_building.build_vocabulary.build_final_vocabulary")
@@ -257,13 +262,15 @@ class TestBuildVocabularyPipeline:
         mock_build,
         mock_save_vocab,
         mock_save_embs,
+        mock_load_filter,
     ):
         vlm_config, vocab_config = _make_configs(Path("dummy"))
         vocab_config.nih_seed_terms = ["seed1", "seed2"]
 
-        all_terms = ["apple", "banana"]
-
-        mock_encode.return_value = torch.zeros((4, 512)) # 2 input + 2 injected
+        # The pipeline derives terms from RadLex internally; mock the loader to
+        # return a controlled list so the seed-injection assertions are deterministic.
+        mock_load_filter.return_value = ["apple", "banana"]
+        mock_encode.return_value = torch.zeros((4, 512))  # 2 input + 2 injected
         mock_centroid.return_value = torch.zeros(512)
         mock_rank.return_value = []
         mock_build.return_value = []
@@ -273,70 +280,99 @@ class TestBuildVocabularyPipeline:
             processor=MagicMock(),
             vlm_config=vlm_config,
             vocab_config=vocab_config,
-            all_terms=all_terms,
         )
 
-        # 1. Missing seeds should have been injected into all_terms
-        assert len(all_terms) == 4
-        assert "seed1" in all_terms
-        assert "seed2" in all_terms
+        # The RadLex loader is called once (no all_terms parameter anymore).
+        mock_load_filter.assert_called_once()
 
-        # 2. encode_texts should be called with 4 terms
-        assert len(mock_encode.call_args[1]["texts"]) == 4
+        # encode_texts receives the 2 input terms + the 2 injected NIH seeds.
+        encoded_texts = mock_encode.call_args[1]["texts"]
+        assert len(encoded_texts) == 4
+        assert "seed1" in encoded_texts
+        assert "seed2" in encoded_texts
 
-        # 3. Saves should be called
+        # Saves should be called
         mock_save_vocab.assert_called_once()
         mock_save_embs.assert_called_once()
 
 
 class TestCxrFiltering:
-    """Unit tests for the RadLex hierarchical chest filtering logic."""
+    """Unit tests for the RadLex hierarchical chest filtering logic (mock CSV)."""
 
-    def test_filter_cxr_relevant_terms(self, tmp_path):
-        # Create a mock radlex.csv file
+    def test_filter_terms(self, tmp_path):
+        # Mock radlex.csv exercising every keep/drop branch of the calibrated filter:
+        # thoracic anatomy (TARGET_ROOTS), clinical finding (FINDING_ROOTS),
+        # device (DEVICE_ROOTS), anatomical-site, exclude keywords, safety-net.
         csv_content = (
             "Class ID,Preferred Label,Synonyms,Definitions,Obsolete,CUI,Semantic Types,Parents,"
             "http://www.radlex.org/RID/Anatomical_Site\n"
             "http://www.radlex.org/RID/RID1243,thorax,,,FALSE,,,,\n"
             "http://www.radlex.org/RID/RID1301,lung,,,FALSE,,,http://www.radlex.org/RID/RID1243,\n"
             "http://www.radlex.org/RID/RID1385,heart,,,FALSE,,,http://www.radlex.org/RID/RID1243,\n"
-            "http://www.radlex.org/RID/RID5,imaging observation,,,FALSE,,,,\n"
-            "http://www.radlex.org/RID/RID50696,lung imaging observation,,,FALSE,,,http://www.radlex.org/RID/RID5,\n"
-            "http://www.radlex.org/RID/RID28530,opacity,,,FALSE,,,http://www.radlex.org/RID/RID5,\n"
+            "http://www.radlex.org/RID/RID34785,clinical finding,,,FALSE,,,,\n"
+            "http://www.radlex.org/RID/RID5554,tube or catheter,,,FALSE,,,,\n"
             "http://www.radlex.org/RID/RID56,abdomen,,,FALSE,,,,\n"
+            "http://www.radlex.org/RID/RID28530,opacity,,,FALSE,,,http://www.radlex.org/RID/RID34785,\n"
+            "http://www.radlex.org/RID/RID5557,endotracheal tube,,,FALSE,,,http://www.radlex.org/RID/RID5554,\n"
             "http://www.radlex.org/RID/RID5103,autoimmune pancreatitis,,,FALSE,,,http://www.radlex.org/RID/RID56,\n"
-            "http://www.radlex.org/RID/RID9999,pancreas,,,FALSE,,,http://www.radlex.org/RID/RID56,\n"
-            "http://www.radlex.org/RID/RID9998,pancreatic cyst,,,FALSE,,,http://www.radlex.org/RID/RID5,\n"
-            "http://www.radlex.org/RID/RID1000,mitral valve,,,FALSE,,,http://www.radlex.org/RID/RID5,http://www.radlex.org/RID/RID1385\n"
+            "http://www.radlex.org/RID/RID9998,pancreatic cyst,,,FALSE,,,http://www.radlex.org/RID/RID34785,\n"
+            "http://www.radlex.org/RID/RID1000,mitral valve,,,FALSE,,,,http://www.radlex.org/RID/RID1385\n"
         )
         csv_file = tmp_path / "mock_radlex.csv"
         with open(csv_file, "w", encoding="utf-8") as f:
             f.write(csv_content)
 
         input_terms = [
-            "thorax",                  # Target root
-            "lung",                    # Descends from thorax
-            "heart",                   # Descends from thorax
-            "opacity",                 # Descends from imaging observation (RID5) - generic, kept
-            "autoimmune pancreatitis", # Descends from abdomen - excluded
-            "pancreatic cyst",         # Descends from RID5 but has exclude keyword in label - excluded
-            "mitral valve",            # Site heart - kept
-            "non-radlex term",         # Not in CSV (e.g. manual seed) - kept
+            "thorax",                   # TARGET_ROOT
+            "lung",                     # descends from thorax
+            "heart",                    # descends from thorax
+            "opacity",                  # descends from clinical finding (RID34785)
+            "endotracheal tube",        # descends from tube or catheter (RID5554)
+            "mitral valve",             # anatomical site = heart -> kept
+            "non-radlex term",          # not in CSV -> safety-net kept
+            "autoimmune pancreatitis",  # descends from abdomen -> excluded
+            "pancreatic cyst",          # finding, but label has 'pancrea' kw -> excluded
         ]
 
-        filtered = filter_cxr_relevant_terms(str(csv_file), input_terms)
+        filtered = filter_terms(load_radlex_graph(str(csv_file)), input_terms)
 
-        # Verified terms
-        assert "thorax" in filtered
-        assert "lung" in filtered
-        assert "heart" in filtered
-        assert "opacity" in filtered
-        assert "mitral valve" in filtered
-        assert "non-radlex term" in filtered
-        
-        # Excluded terms
-        assert "autoimmune pancreatitis" not in filtered
-        assert "pancreatic cyst" not in filtered
+        for kept in ["thorax", "lung", "heart", "opacity", "endotracheal tube",
+                     "mitral valve", "non-radlex term"]:
+            assert kept in filtered, f"{kept!r} should be kept"
+        for dropped in ["autoimmune pancreatitis", "pancreatic cyst"]:
+            assert dropped not in filtered, f"{dropped!r} should be dropped"
+
+
+# Path to the committed real RadLex CSV (git-tracked -> the test is portable).
+_RADLEX_CSV = Path(__file__).resolve().parent.parent.parent / "data" / "radlex.csv"
+
+
+@pytest.mark.skipif(not _RADLEX_CSV.exists(), reason="data/radlex.csv not present")
+class TestRadlexCsvFilter:
+    """Regression test on the REAL RadLex CSV (data/radlex.csv).
+
+    Locks in the calibration: CXR-critical findings + devices that the anatomy-only
+    filter used to drop MUST be kept; an obviously non-CXR finding MUST be dropped.
+    """
+
+    def test_real_radlex_keeps_cxr_findings_and_devices(self):
+        terms = [
+            "pneumothorax", "consolidation", "granuloma",                       # clinical findings
+            "endotracheal tube", "central venous catheter", "swan-ganz catheter",  # devices
+        ]
+        kept = set(filter_terms(load_radlex_graph(str(_RADLEX_CSV)), terms))
+        for t in terms:
+            assert t in kept, f"CXR-critical term {t!r} was dropped by the filter"
+
+    def test_real_radlex_drops_non_cxr(self):
+        kept = set(filter_terms(load_radlex_graph(str(_RADLEX_CSV)), ["autoimmune pancreatitis"]))
+        assert "autoimmune pancreatitis" not in kept
+
+    def test_real_radlex_reduces_vocabulary(self):
+        # Sanity: load_and_filter_radlex must cut the ~46k RadLex terms down to a
+        # small CXR set.
+        kept = load_and_filter_radlex(str(_RADLEX_CSV))
+        assert 500 <= len(kept) <= 6000, f"unexpected kept count: {len(kept)}"
 
 
 # =========================================================================
@@ -359,7 +395,7 @@ class TestIntegrationVocabularyPipeline:
         del model
         torch.cuda.empty_cache()
 
-    def test_pipeline_end_to_end(self, model_and_processor, tmp_path):
+    def test_pipeline_end_to_end(self, model_and_processor, tmp_path, monkeypatch):
         model, processor = model_and_processor
 
         vlm_config = VLMConfig(device="cuda", batch_size=4)
@@ -370,16 +406,22 @@ class TestIntegrationVocabularyPipeline:
             anchor_groups={"group1": ["chest radiograph finding"]},
         )
 
-        all_terms = ["broken bone", "cardiomegaly", "headache"]
+        # The pipeline derives terms from RadLex internally; stub the loader to
+        # keep this end-to-end test fast (3 terms instead of ~46k). encode/
+        # centroid/ rank/ build still run on the REAL model.
+        monkeypatch.setattr(
+            "vocabulary_building.build_vocabulary.load_and_filter_radlex",
+            lambda *args, **kwargs: ["broken bone", "cardiomegaly", "headache"],
+        )
 
         result = build_vocabulary_pipeline(
-            model, processor, vlm_config, vocab_config, all_terms
+            model, processor, vlm_config, vocab_config
         )
 
         # Pipeline steps verification
         # The input list has 3 terms.
         # Missing seeds are 2.
-        # Expected all_terms size = 5 before encoding.
+        # Expected encoded terms = 5 before top-k selection (3 input + 2 seeds).
         
         # Result vocabulary size check:
         # Top-2 input terms (probably broken bone + cardiomegaly, or headache)

@@ -20,7 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from config import VLMConfig, VocabularyConfig
-from utils import load_vlm, load_radlex_terms
+from utils import load_vlm
 from vocabulary_building.build_vocabulary import build_vocabulary_pipeline
 
 
@@ -93,10 +93,9 @@ def main():
     # Load BiomedCLIP
     model, processor = load_vlm(vlm_config)
 
-    # Run the pipeline
-    all_terms = load_radlex_terms(vocab_config.input_csv_path)
+    # Run the pipeline (RadLex terms are loaded + filtered inside the pipeline).
     vocabulary = build_vocabulary_pipeline(
-        model, processor, vlm_config, vocab_config, all_terms
+        model, processor, vlm_config, vocab_config
     )
 
     print(f"\nDone. {len(vocabulary)} terms in final vocabulary.")

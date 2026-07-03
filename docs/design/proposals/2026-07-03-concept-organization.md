@@ -107,19 +107,20 @@ class ImageConcepts:
 - **Determinism:** agglomerative is deterministic given fixed input; no RNG. Tie-breaking by sorted name order so cluster ids are stable across runs.
 - **Output `Cluster`:** `{cluster_id: int, members: list[str], medoid: str}` — `medoid` = member whose embedding has max mean cosine to other members (label fallback).
 
-### 6.2 `annotate_radlex(clusters, radlex_graph, label_to_rid) -> list[AnnotatedCluster]`
+### 6.2 `annotate_radlex(clusters, graph) -> list[AnnotatedCluster]`
 
-- **Reuse** `vocabulary_building.radlex_support.load_radlex_graph` → `RadLexGraph` (exposes `child_to_parents`) and `ancestor_labels(rid)`.
-- **`label_to_rid` map:** built once from `radlex.csv` — `Preferred Label → RID` and each `Synonyms` (pipe/split) → RID, lowercased. Case-insensitive exact match.
-- **Per cluster — ancestor selection rule (root-degeneracy guard):**
-  1. For each resolved member, get `ancestor_labels(rid)` (set of ancestor labels).
-  2. Compute **support(label)** = number of resolved members whose ancestor set contains it.
-  3. Candidates = labels with `support ≥ ceil(0.5 × n_resolved)` (majority agreement).
-  4. **Reject ontology roots** (a stoplist of top-level RadLex RIDs/labels, e.g. the universal root) as trivially uninformative — without this guard every cluster inherits the root and all labels collapse to one.
-  5. Among remaining candidates pick the **most specific** = the candidate that is itself an ancestor of the fewest other candidates (deepest in the sub-DAG); tie-break by highest support, then shortest label.
-  6. If no candidate survives (only the root qualifies, or zero resolved members) → `radlex_label = None`; the cluster label falls back to the medoid term.
-- **Why not "most frequent":** every member's ancestor chain includes the root, so raw frequency always maximizes at the root → all clusters get the same useless label. Majority + specificity + root-stoplist avoids this.
+- **Reuse** `vocabulary_building.radlex_support.load_radlex_graph` → `RadLexGraph` (exposes `child_to_parents`, `rid_to_label`, `label_to_rids`). RID resolution uses `graph.label_to_rids` (lowercased preferred label → RIDs); pick the lexicographically smallest RID for determinism. (Synonym matching is YAGNI — preferred-label match gave 99.5% coverage on real data.)
+- **Per cluster — ancestor selection rule (two degeneracy guards):**
+  1. Resolve each member to a RID; collect `ancestor_rids(graph, rid)` (cycle-safe walk up `child_to_parents`, inclusive of `rid`) per resolved member.
+  2. Compute **support(r)** = number of resolved members whose ancestor set contains r.
+  3. Candidate threshold: `support(r) ≥ max(2, ceil(0.5 × n_resolved))` when `n_resolved ≥ 2` (a member's own RID alone never qualifies — it must be shared); threshold = 1 when `n_resolved == 1`.
+  4. **Guard A — leaf-root rejection:** reject candidates with no parents (`r not in graph.child_to_parents`).
+  5. **Guard B — subtree-size canopy (ontology-intrinsic):** reject candidates whose descendant count (RIDs reachable via child edges, inclusive) exceeds **1% of the graph's RIDs**. This catches not just the universal root ("RadLex entity", 98%) but mid-level generic terms ("anatomical entity" 81%, "anatomische Struktur" 73%, "organteil" 22%, "pathophysiologischer Befund" 4.7%) while keeping specific ancestors ("implantable device" 0.39%, "Lungenerkrankung" 0.10%, "lung imaging observation" 0.03%). The measured gap (canopy ≥2221 descendants vs specific ≤184) makes the 1% cut clean. **Active only for graphs with ≥ 1000 RIDs** so unit-test toy graphs (which would be all-or-nothing under 1%) are unaffected.
+  6. Among surviving candidates pick the **most specific** = the candidate with the most candidate-ancestors (deepest in the candidate sub-DAG); tie-break by highest support, then shortest label.
+  7. If no candidate survives → `radlex_label = None`; the cluster label falls back to the medoid term (honest — the cluster's members share no specific ancestor below the canopy).
+- **Why subtree-size over frequency:** an active-set-frequency canopy only catches ancestors shared by >X% of the *current* concepts, so it misses mid-level generic terms covering 30–45% of the active set. Subtree-size is ontology-intrinsic and independent of which concepts happen to be active — it rejects generic terms once and for all.
 - **Coverage tracked:** `n_resolved / n_members` per cluster and globally.
+- **Amendment history:** the original spec proposed a "most frequent ancestor" rule, amended to majority+root-stoplist after the contradiction surfaced in TDD, then to subtree-size canopy after the real-data run (T13) showed mid-level generic terms leaking. The code is authoritative; this section tracks it.
 
 ### 6.3 `build_structured_explanations(concept_set, clusters) -> list[StructuredExplanation]`
 

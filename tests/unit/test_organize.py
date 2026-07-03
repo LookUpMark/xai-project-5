@@ -192,3 +192,57 @@ class TestCluster:
         clusters = cluster_concepts(cs, distance_threshold=0.5, linkage="average")
         member_sets = {frozenset(c.members) for c in clusters}
         assert frozenset({"a", "b"}) in member_sets
+
+
+from concept_discovery.organize import ancestor_rids, annotate_radlex, Cluster
+from vocabulary_building.radlex_support import RadLexGraph
+
+
+def _graph():
+    """Tiny DAG: root <- mid <- leaf ; root <- sibling."""
+    g = RadLexGraph()
+    g.rid_to_label = {"RID0": "root", "RID1": "mid", "RID2": "leaf", "RID3": "sibling"}
+    g.label_to_rids = {"root": ["RID0"], "mid": ["RID1"], "leaf": ["RID2"], "sibling": ["RID3"]}
+    g.child_to_parents = {"RID2": ["RID1"], "RID1": ["RID0"], "RID3": ["RID0"]}
+    return g
+
+
+class TestAnnotate:
+    def test_ancestor_rids_walks_parents(self):
+        g = _graph()
+        assert ancestor_rids(g, "RID2") == {"RID2", "RID1", "RID0"}
+        assert ancestor_rids(g, "RID0") == {"RID0"}  # root has no parents
+
+    def test_cluster_gets_specific_common_ancestor(self):
+        g = _graph()
+        # two members resolving to RID2 (leaf) and RID1 (mid) share RID1 + RID0;
+        # most specific common = RID1 (not the root RID0).
+        clusters = [Cluster(cluster_id=0, members=["leaf", "mid"], medoid="leaf")]
+        annotated = annotate_radlex(clusters, g)
+        assert annotated[0].radlex_label == "mid"
+        assert annotated[0].radlex_rid == "RID1"
+        assert annotated[0].n_resolved == 2
+        assert annotated[0].n_members == 2
+
+    def test_root_only_common_falls_back_to_none(self):
+        g = _graph()
+        # leaf (under mid under root) and sibling (under root) share ONLY root.
+        # root is rejected as trivially uninformative -> radlex_label None.
+        clusters = [Cluster(cluster_id=0, members=["leaf", "sibling"], medoid="leaf")]
+        annotated = annotate_radlex(clusters, g)
+        assert annotated[0].radlex_label is None
+        assert annotated[0].radlex_rid is None
+
+    def test_unresolved_members_skipped(self):
+        g = _graph()
+        clusters = [Cluster(cluster_id=0, members=["leaf", "ghost"], medoid="leaf")]
+        annotated = annotate_radlex(clusters, g)
+        assert annotated[0].n_resolved == 1
+        assert annotated[0].n_members == 2
+        # single resolved member -> its own label is most specific common ancestor
+        assert annotated[0].radlex_label == "leaf"
+
+    def test_empty_cluster_no_crash(self):
+        g = _graph()
+        clusters: list[Cluster] = []
+        assert annotate_radlex(clusters, g) == []

@@ -216,3 +216,102 @@ def cluster_concepts(
             medoid=_medoid(members_sorted, concept_set.embeddings, concept_set.name_to_idx),
         ))
     return clusters
+
+
+def ancestor_rids(graph, rid: str, seen: set[str] | None = None) -> set[str]:
+    """Cycle-safe set of {rid} ∪ all ancestor RIDs via graph.child_to_parents."""
+    if seen is None:
+        seen = set()
+    if rid in seen:
+        return set()
+    seen.add(rid)
+    acc = {rid}
+    for parent in graph.child_to_parents.get(rid, []):
+        acc |= ancestor_rids(graph, parent, seen)
+    return acc
+
+
+def _resolve_member_rid(graph, name: str) -> str | None:
+    """Deterministically resolve a vocab term to one RadLex RID (or None).
+
+    graph.label_to_rids maps lowercased preferred label -> [RID, ...]; pick the
+    lexicographically smallest RID for determinism.
+    """
+    rids = graph.label_to_rids.get(name.lower())
+    if not rids:
+        return None
+    return min(rids)
+
+
+def annotate_radlex(clusters: list[Cluster], graph) -> list[AnnotatedCluster]:
+    """Annotate each cluster with a best-effort RadLex ancestor (root-degeneracy guard).
+
+    Selection rule (spec §6.2):
+      1. resolve each member to a RID; collect ancestor_rids per resolved member.
+      2. candidate = ancestor RID supported by >= ceil(0.5 * n_resolved) members.
+      3. reject roots (RIDs with no parents) as trivially uninformative.
+      4. pick the most specific candidate = the one with the most candidate-ancestors
+         (deepest); tie-break by support desc, then shortest label.
+      5. no surviving candidate -> radlex_label None (cluster falls back to medoid).
+    Never raises on unresolved members or empty clusters.
+    """
+    import math
+
+    out: list[AnnotatedCluster] = []
+    for c in clusters:
+        member_anc: list[set[str]] = []
+        for m in c.members:
+            rid = _resolve_member_rid(graph, m)
+            if rid is not None:
+                member_anc.append(ancestor_rids(graph, rid))
+        n_resolved = len(member_anc)
+        n_members = len(c.members)
+
+        radlex_rid: str | None = None
+        radlex_label: str | None = None
+        if n_resolved > 0:
+            threshold = math.ceil(0.5 * n_resolved)
+            support: dict[str, int] = {}
+            for anc_set in member_anc:
+                for r in anc_set:
+                    support[r] = support.get(r, 0) + 1
+
+            # Build the intersection of all member ancestor sets (true common ancestors)
+            common_ancestors: set[str] = set(member_anc[0])
+            for anc_set in member_anc[1:]:
+                common_ancestors &= anc_set
+
+            # Candidates must be in the intersection AND non-root
+            common_nonroot = [r for r in common_ancestors if r in graph.child_to_parents]
+            if common_nonroot:
+                candidates = common_nonroot
+            elif common_ancestors:
+                # Common ancestors exist but all are roots -> reject (degeneracy guard)
+                candidates = []
+            else:
+                # No common ancestor at all (empty intersection) -> fall back to majority
+                candidates = [r for r, cnt in support.items() if cnt >= threshold and r in graph.child_to_parents]
+
+            if candidates:
+                cand_set = set(candidates)
+                anc_of = {r: ancestor_rids(graph, r) for r in candidates}
+
+                def sort_key(r: str):
+                    specificity = len(anc_of[r] & cand_set)
+                    label = graph.rid_to_label.get(r, r)
+                    return (specificity, support[r], -len(label))
+
+                best = max(candidates, key=sort_key)
+                radlex_rid = best
+                radlex_label = graph.rid_to_label.get(best)
+
+        out.append(AnnotatedCluster(
+            cluster_id=c.cluster_id,
+            members=c.members,
+            medoid=c.medoid,
+            radlex_label=radlex_label,
+            radlex_rid=radlex_rid,
+            n_resolved=n_resolved,
+            n_members=n_members,
+        ))
+    return out

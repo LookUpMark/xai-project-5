@@ -47,10 +47,11 @@ PROJECTIONS_CSV_PATH = paths.data_dir / "iu_xray" / "indiana_projections.csv"
 OUTPUT_CSV_PATH = paths.results_dir / "aligned_scores.csv"
 CHECKPOINT_PATH = paths.results_dir / f"judge_checkpoint_{judge_cfg.model_name.replace('/', '_')}.json"
 SCORES_JSON_PATH = paths.results_dir / f"judge_scores_{judge_cfg.model_name.replace('/', '_')}.json"
-COVERAGE_JSON_PATH = paths.results_dir / f"judge_coverage_{judge_cfg.model_name.replace('/', '_')}.json"
 
 # Model config — sourced from config.judge 
 MODEL_NAME = judge_cfg.model_name
+USE_LM_STUDIO = False
+LM_STUDIO_URL = "http://localhost:1234/v1"
 
 # Prompt template — includes Rules block mapping verbs to labels 
 JUDGE_PROMPT_TEMPLATE = """You are a clinical AI evaluator specializing in radiology.
@@ -220,48 +221,89 @@ def build_judge_graph():
         if retries > 0:
             prompt_text = prompt_text + RETRY_SUFFIX
 
-        pipe = get_pipeline()
-
-        # F-008: fold system-role content into the user message to match
-        # the spec and avoid unverified system-turn behaviour in the
-        # MedGemma chat template.
-        messages = [
-            {
-                "role": "system",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": (
-                            "You are a clinical AI evaluator specializing in radiology. "
-                            "Answer in the exact format: <explanation> | Verdict: <label>"
-                        ),
-                    }
-                ],
-            },
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt_text},
-                ],
-            },
-        ]
-
-        # Greedy decoding on every attempt for full determinism
-        generation_kwargs = {
-            "max_new_tokens": judge_cfg.max_new_tokens,
-            "do_sample": False,
-        }
-
-        outputs = pipe(messages, **generation_kwargs)
-
-        # Extract the assistant's reply from the generated output
-        generated = outputs[0]["generated_text"]
-        # The pipeline returns the full conversation; the last message is the assistant's
-        if isinstance(generated, list):
-            raw = generated[-1]["content"].strip()
+        if USE_LM_STUDIO:
+            import urllib.request
+            import json
+            
+            messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a clinical AI evaluator specializing in radiology. "
+                        "Answer in the exact format: <explanation> | Verdict: <label>"
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": prompt_text
+                }
+            ]
+            
+            payload = {
+                "model": MODEL_NAME,
+                "messages": messages,
+                "temperature": 0.0,
+                "max_tokens": max(judge_cfg.max_new_tokens, 1024),
+            }
+            
+            url = f"{LM_STUDIO_URL.rstrip('/')}/chat/completions"
+            data = json.dumps(payload).encode("utf-8")
+            req = urllib.request.Request(
+                url,
+                data=data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            with urllib.request.urlopen(req) as response:
+                resp_data = json.loads(response.read().decode("utf-8"))
+                msg = resp_data["choices"][0]["message"]
+                raw = msg.get("content", "")
+                if not raw and "reasoning_content" in msg:
+                    raw = msg["reasoning_content"]
+                raw = raw.strip()
         else:
-            # Fallback: if it returns a plain string, strip the prompt
-            raw = str(generated).strip()
+            pipe = get_pipeline()
+
+            # F-008: fold system-role content into the user message to match
+            # the spec and avoid unverified system-turn behaviour in the
+            # MedGemma chat template.
+            messages = [
+                {
+                    "role": "system",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": (
+                                "You are a clinical AI evaluator specializing in radiology. "
+                                "Answer in the exact format: <explanation> | Verdict: <label>"
+                            ),
+                        }
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt_text},
+                    ],
+                },
+            ]
+
+            # Greedy decoding on every attempt for full determinism
+            generation_kwargs = {
+                "max_new_tokens": judge_cfg.max_new_tokens,
+                "do_sample": False,
+            }
+
+            outputs = pipe(messages, **generation_kwargs)
+
+            # Extract the assistant's reply from the generated output
+            generated = outputs[0]["generated_text"]
+            # The pipeline returns the full conversation; the last message is the assistant's
+            if isinstance(generated, list):
+                raw = generated[-1]["content"].strip()
+            else:
+                # Fallback: if it returns a plain string, strip the prompt
+                raw = str(generated).strip()
 
         return {"raw_response": raw}
 
@@ -514,11 +556,6 @@ def evaluate(
     if skipped_no_report > 0:
         logger.warning("Skipped %d samples with missing reports", skipped_no_report)
 
-    # persist skipped images for downstream coverage auditing
-    _save_coverage(
-        skipped_no_report, skipped_image_ids, len(explanations),
-    )
-
     total = len(eval_pairs)
     logger.info("Pairs to evaluate: %d", total)
 
@@ -528,7 +565,8 @@ def evaluate(
 
     # --- Load model and compile judge graph ---
     logger.info("Building LangGraph judge (model=%s)...", MODEL_NAME)
-    get_pipeline()  # pre-load the model
+    if not USE_LM_STUDIO:
+        get_pipeline()  # pre-load the model
     judge = build_judge_graph()
 
     # --- Run evaluation ---
@@ -605,25 +643,6 @@ def _save_final(records: list[dict], output_path: Path | None = None) -> Path:
     df[existing_cols].to_csv(dest, index=False)
     logger.info("Results saved to: %s", dest)
     return dest
-
-
-def _save_coverage(
-    skipped_count: int,
-    skipped_ids: list[str],
-    total_images: int,
-) -> None:
-    """Persist coverage statistics to ``results/judge_coverage.json`` (F-006)."""
-    COVERAGE_JSON_PATH.parent.mkdir(parents=True, exist_ok=True)
-    exclusion_rate = skipped_count / max(total_images, 1)
-    payload = {
-        "skipped_no_report_count": skipped_count,
-        "skipped_image_ids": skipped_ids,
-        "total_images": total_images,
-        "exclusion_rate": round(exclusion_rate, 4),
-    }
-    with open(COVERAGE_JSON_PATH, "w") as f:
-        json.dump(payload, f, indent=2)
-    logger.info("Coverage stats saved to: %s", COVERAGE_JSON_PATH)
 
 
 def _print_summary(records: list[dict], elapsed: float, errors: int):
@@ -724,17 +743,48 @@ Examples:
         default=25,
         help="Save checkpoint every N evaluations (default: 25)",
     )
+    parser.add_argument(
+        "--lm-studio",
+        action="store_true",
+        help="Use LM Studio (OpenAI compatible endpoint at localhost:1234) instead of local transformers",
+    )
+    parser.add_argument(
+        "--lm-studio-url",
+        type=str,
+        default="http://localhost:1234/v1",
+        help="URL for LM Studio (default: http://localhost:1234/v1)",
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default=None,
+        help="Override model name (e.g. for LM studio)",
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
 
-    logger.info("LLM Judge — model=%s", MODEL_NAME)
+    global MODEL_NAME, USE_LM_STUDIO, LM_STUDIO_URL
+    global CHECKPOINT_PATH, SCORES_JSON_PATH
+    
+    if args.model:
+        MODEL_NAME = args.model
+        safe_name = MODEL_NAME.replace('/', '_').replace(':', '_')
+        CHECKPOINT_PATH = paths.results_dir / f"judge_checkpoint_{safe_name}.json"
+        SCORES_JSON_PATH = paths.results_dir / f"judge_scores_{safe_name}.json"
+        
+    if args.lm_studio:
+        USE_LM_STUDIO = True
+        LM_STUDIO_URL = args.lm_studio_url
+
+    logger.info("LLM Judge — model=%s (LM Studio: %s)", MODEL_NAME, USE_LM_STUDIO)
     logger.info("  Explanations : %s", EXPLANATIONS_PATH)
     logger.info("  Reports      : %s", REPORTS_CSV_PATH)
     logger.info("  Projections  : %s", PROJECTIONS_CSV_PATH)
     logger.info("  Output       : %s", OUTPUT_CSV_PATH)
+    logger.info("  Checkpoint   : %s", CHECKPOINT_PATH)
 
     output_csv = evaluate(
         resume=args.resume,

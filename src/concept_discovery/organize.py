@@ -22,6 +22,7 @@ from pathlib import Path
 
 sys.path.insert(0, "src/")
 
+import config  # noqa: E402
 import torch  # noqa: E402
 
 
@@ -474,3 +475,36 @@ def run(
         json.dumps(metrics, indent=2)
     )
     return metrics
+
+
+if __name__ == "__main__":
+    """Self-check on synthetic data: never clobbers production output (writes /tmp)."""
+    import json
+    from dataclasses import replace
+
+    print("🔍 organize self-check running...")
+    V = 30
+    torch.manual_seed(0)
+    vocab_emb = torch.eye(V, 512)
+    vocab_terms = [{"term": f"t{i}"} for i in range(V)]
+    explanations = [{
+        "image_id": f"img_{i}",
+        "top_k_concepts": [
+            {"feature_id": (2 * i) % V, "name": f"t{(2*i)%V}", "activation": 1.0},
+            {"feature_id": (2 * i + 1) % V, "name": f"t{(2*i+1)%V}", "activation": 0.5},
+        ],
+    } for i in range(8)]
+
+    cs = from_spliece_explanations(explanations, vocab_terms, vocab_emb)
+    print(f"   active concepts: {len(cs.names)} across {len(cs.per_image)} images")
+    assert len(cs.names) > 0
+
+    selfcheck_cfg = replace(
+        config.organize, n_clusters=3,
+        output_dir=Path("/tmp/organize_selfcheck"),
+        radlex_csv_path=Path("/tmp/nonexistent_radlex.csv"),
+    )
+    metrics = run(selfcheck_cfg, cs, graph=None)
+    print(f"   clusters: {metrics['n_clusters']}  redundancy_reduction: {metrics['redundancy_reduction']:.2f}")
+    assert metrics["n_clusters"] >= 1
+    print(f"✅ Self-check passed. Output: /tmp/organize_selfcheck/")

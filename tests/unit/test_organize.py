@@ -6,6 +6,7 @@ sys.path.insert(0, "src/")
 
 import torch
 from concept_discovery.organize import ConceptSet, ImageConcepts, from_spliece_explanations
+from concept_discovery.organize import from_sae_explanations
 
 
 class TestDataclasses:
@@ -71,3 +72,65 @@ class TestSpliCEAdapter:
         explanations = [{"top_k_concepts": [{"feature_id": 0, "name": "term_0", "activation": 1.0}]}]
         cs = from_spliece_explanations(explanations, terms, emb)
         assert cs.per_image[0].image_id == "img_0"
+
+
+class TestSAEAdapter:
+    def _inputs(self):
+        terms = [{"term": f"term_{i}"} for i in range(10)]
+        emb = torch.eye(10, 512)
+        concept_names = {
+            "3": {"name": "term_3", "score": 0.4, "is_dead": False},
+            "7": {"name": "term_7", "score": 0.3, "is_dead": False},
+            "9": {"name": "DEAD_FEATURE", "score": 0.0, "is_dead": True},
+        }
+        return terms, emb, concept_names
+
+    def test_excludes_dead_features(self):
+        terms, emb, concept_names = self._inputs()
+        explanations = [{
+            "image_id": "img0",
+            "top_k_concepts": [
+                {"feature_id": 3, "name": "term_3", "activation": 1.5},   # live
+                {"feature_id": 9, "name": "DEAD_FEATURE", "activation": 9.9},  # dead -> dropped
+            ],
+        }]
+        cs = from_sae_explanations(explanations, concept_names, terms, emb)
+        assert cs.names == ["term_3"]
+        assert cs.per_image[0].activations == {"term_3": 1.5}
+
+    def test_fid_key_type_coercion(self):
+        """concept_names keys are str; explanations feature_id is int -> coerce."""
+        terms, emb, concept_names = self._inputs()
+        explanations = [{
+            "image_id": "img0",
+            "top_k_concepts": [
+                {"feature_id": 7, "name": "term_7", "activation": 2.0},
+            ],
+        }]
+        cs = from_sae_explanations(explanations, concept_names, terms, emb)
+        assert cs.names == ["term_7"]
+
+    def test_unresolved_name_skipped(self):
+        terms, emb, concept_names = self._inputs()
+        explanations = [{
+            "image_id": "img0",
+            "top_k_concepts": [
+                {"feature_id": 3, "name": "term_3", "activation": 1.0},
+                {"feature_id": 5, "name": "ghost", "activation": 5.0},  # not in vocab
+            ],
+        }]
+        cs = from_sae_explanations(explanations, concept_names, terms, emb)
+        assert cs.names == ["term_3"]
+
+    def test_missing_concept_names_keeps_all_named(self):
+        """If concept_names is empty, no feature is known-dead -> keep all resolvable."""
+        terms, emb, _ = self._inputs()
+        concept_names = {}
+        explanations = [{
+            "image_id": "img0",
+            "top_k_concepts": [
+                {"feature_id": 3, "name": "term_3", "activation": 1.0},
+            ],
+        }]
+        cs = from_sae_explanations(explanations, concept_names, terms, emb)
+        assert cs.names == ["term_3"]

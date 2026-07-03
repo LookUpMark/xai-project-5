@@ -119,3 +119,40 @@ def from_spliece_explanations(
         image_id = img.get("image_id") or f"img_{i}"
         per_image.append(ImageConcepts(image_id=image_id, activations=activations))
     return _finalize_concept_set(per_image, term_to_idx, vocab_emb)
+
+
+def from_sae_explanations(
+    explanations: list[dict],
+    concept_names: dict,
+    vocab_terms: list[dict],
+    vocab_emb: torch.Tensor,
+) -> ConceptSet:
+    """Normalize SAE sample_explanations.json (+ concept_names.json) into a ConceptSet.
+
+    SAE feature_id == SAE feature index; name is the assigned vocab term. Excludes
+    features flagged is_dead (or named 'DEAD_FEATURE') in concept_names. concept_names
+    keys are strings; explanations feature_id are ints -> coerce to str. Drops names
+    absent from the vocabulary (graceful).
+    """
+    term_to_idx = _build_term_to_idx(vocab_terms, vocab_emb)
+    dead_fids: set[str] = set()
+    for fid, info in (concept_names or {}).items():
+        if not isinstance(info, dict):
+            continue
+        if info.get("is_dead") or info.get("name") == "DEAD_FEATURE":
+            dead_fids.add(str(fid))
+
+    per_image: list[ImageConcepts] = []
+    for i, img in enumerate(explanations):
+        activations: dict[str, float] = {}
+        for c in img.get("top_k_concepts", []):
+            fid = str(c.get("feature_id"))
+            if fid in dead_fids:
+                continue
+            name = c.get("name")
+            act = float(c.get("activation", 0.0))
+            if act > 0 and name in term_to_idx:
+                activations[name] = max(activations.get(name, 0.0), act)
+        image_id = img.get("image_id") or f"img_{i}"
+        per_image.append(ImageConcepts(image_id=image_id, activations=activations))
+    return _finalize_concept_set(per_image, term_to_idx, vocab_emb)

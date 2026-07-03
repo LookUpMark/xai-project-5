@@ -245,47 +245,69 @@ def _resolve_member_rid(graph, name: str) -> str | None:
     return min(rids)
 
 
+def _build_children_map(graph) -> dict[str, list[str]]:
+    """Invert graph.child_to_parents (child->parents) into parent->children."""
+    children: dict[str, list[str]] = {}
+    for child, parents in graph.child_to_parents.items():
+        for p in parents:
+            children.setdefault(p, []).append(child)
+    return children
+
+
+def _descendant_count(rid: str, children: dict[str, list[str]], memo: dict[str, int]) -> int:
+    """Number of RIDs reachable from ``rid`` via child edges (inclusive of rid).
+
+    BFS over the (acyclic) RadLex DAG, memoized per annotate_radlex call.
+    """
+    if rid in memo:
+        return memo[rid]
+    from collections import deque
+    seen = {rid}
+    dq = deque([rid])
+    n = 0
+    while dq:
+        x = dq.popleft()
+        n += 1
+        for c in children.get(x, []):
+            if c not in seen:
+                seen.add(c)
+                dq.append(c)
+    memo[rid] = n
+    return n
+
+
 def annotate_radlex(
     clusters: list[Cluster],
     graph,
-    active_names: list[str] | None = None,
 ) -> list[AnnotatedCluster]:
     """Annotate each cluster with a best-effort RadLex ancestor.
 
     Two degeneracy guards (spec §6.2, amended):
       1. Leaf-root rejection: candidate RIDs with no parents are rejected.
-      2. Canopy rejection: RIDs that are ancestors of > 50% of ALL active
-         concepts (the ontology's generic canopy — e.g. 'RadLex entity',
-         'anatomical entity') are rejected as trivially uninformative. This is
-         only active when ``active_names`` (the full active concept-name list)
-         is provided AND contains >= 10 names; otherwise skipped (so small
-         inputs behave like the pure intersection/majority rule).
+      2. Canopy rejection (ontology-intrinsic): candidate RIDs whose descendant
+         count exceeds 1% of the graph are rejected as trivially generic (e.g.
+         'RadLex entity', 'anatomical entity', 'pathophysiologischer Befund').
+         Only active when the graph has >= 1000 RIDs (so tiny synthetic graphs
+         used in unit tests are unaffected — their canopy would be all-or-nothing
+         under a 1% threshold).
 
     Candidate selection: an ancestor must be supported by >= ceil(0.5 * n_resolved)
     members (and >= 2 when n_resolved >= 2, so a member's own RID alone never
-    qualifies unless it is shared). Among surviving candidates pick the most
-    specific (deepest in the candidate sub-DAG); tie-break by support desc, then
-    shortest label. None -> cluster label falls back to the medoid.
+    qualifies unless shared). Among surviving candidates pick the most specific
+    (deepest in the candidate sub-DAG); tie-break by support desc, then shortest
+    label. None -> cluster label falls back to the medoid.
     Never raises on unresolved members or empty clusters.
     """
     import math
 
-    # --- global canopy (only when enough active concepts are known) ---
-    canopy: set[str] = set()
-    if active_names and len(active_names) >= 10:
-        global_support: dict[str, int] = {}
-        for name in active_names:
-            rid = _resolve_member_rid(graph, name)
-            if rid is None:
-                continue
-            for r in ancestor_rids(graph, rid):
-                global_support[r] = global_support.get(r, 0) + 1
-        g_thresh = 0.5 * len(active_names)
-        canopy = {r for r, cnt in global_support.items() if cnt > g_thresh}
+    total_rids = len(graph.rid_to_label)
+    use_canopy = total_rids >= 1000
+    canopy_max = 0.01 * total_rids if use_canopy else float("inf")
+    children = _build_children_map(graph) if use_canopy else {}
+    desc_memo: dict[str, int] = {}
 
     out: list[AnnotatedCluster] = []
     for c in clusters:
-        # resolve each member once
         resolved: list[tuple[str, set[str]]] = []
         for m in c.members:
             rid = _resolve_member_rid(graph, m)
@@ -305,8 +327,8 @@ def annotate_radlex(
             candidates = [
                 r for r, cnt in support.items()
                 if cnt >= threshold
-                and r in graph.child_to_parents   # not a leaf-root
-                and r not in canopy                # not canopy-generic
+                and r in graph.child_to_parents                     # not a leaf-root
+                and (not use_canopy or _descendant_count(r, children, desc_memo) <= canopy_max)
             ]
             if candidates:
                 cand_set = set(candidates)
@@ -468,7 +490,7 @@ def run(
         linkage=cfg.linkage,
     )
     if graph is not None:
-        annotated = annotate_radlex(raw_clusters, graph, active_names=concept_set.names)
+        annotated = annotate_radlex(raw_clusters, graph)
     else:
         annotated = [AnnotatedCluster(
             cluster_id=c.cluster_id, members=c.members, medoid=c.medoid,

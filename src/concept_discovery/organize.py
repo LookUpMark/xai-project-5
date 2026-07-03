@@ -362,3 +362,59 @@ def build_structured_explanations(
             "redundancy_score": redundancy,
         })
     return out
+
+
+def compute_metrics(
+    concept_set: ConceptSet,
+    clusters: list[AnnotatedCluster],
+    structured: list[dict],
+) -> dict:
+    """Quantify organization: cluster sizes, silhouette, redundancy reduction,
+    RadLex coverage, empty-image count. Silhouette is None when < 2 clusters or
+    a single non-empty cluster (sklearn requirement).
+    """
+    import numpy as np
+    from sklearn.metrics import silhouette_score
+
+    n_active = len(concept_set.names)
+    n_clusters = len(clusters)
+    sizes = [len(c.members) for c in clusters]
+    mean_size = (sum(sizes) / n_clusters) if n_clusters else 0.0
+
+    silhouette = None
+    if n_active >= 2 and n_clusters >= 2:
+        labels = [-1] * n_active
+        for c in clusters:
+            for m in c.members:
+                labels[concept_set.name_to_idx[m]] = c.cluster_id
+        if len(set(labels)) >= 2:
+            try:
+                silhouette = float(silhouette_score(
+                    concept_set.embeddings.numpy(), np.array(labels), metric="cosine"
+                ))
+            except Exception:
+                silhouette = None
+
+    raw_counts = [len(img.activations) for img in concept_set.per_image]
+    fam_counts = [len(ex["families"]) for ex in structured]
+    mean_raw = (sum(raw_counts) / len(raw_counts)) if raw_counts else 0.0
+    mean_fam = (sum(fam_counts) / len(fam_counts)) if fam_counts else 0.0
+    redundancy_reduction = (mean_raw / mean_fam) if mean_fam > 0 else 0.0
+
+    resolved = sum(c.n_resolved for c in clusters)
+    members_total = sum(c.n_members for c in clusters)
+    coverage = (resolved / members_total * 100.0) if members_total else 0.0
+
+    n_empty = sum(1 for img in concept_set.per_image if not img.activations)
+
+    return {
+        "n_concepts_active": n_active,
+        "n_clusters": n_clusters,
+        "mean_cluster_size": mean_size,
+        "silhouette_cosine": silhouette,
+        "redundancy_reduction": redundancy_reduction,
+        "mean_raw_concepts_per_image": mean_raw,
+        "mean_families_per_image": mean_fam,
+        "radlex_coverage_pct": coverage,
+        "n_empty_images": n_empty,
+    }

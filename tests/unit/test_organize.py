@@ -286,3 +286,48 @@ class TestStructured:
         out = build_structured_explanations(cs, clusters)
         assert out[0]["families"] == []
         assert out[0]["redundancy_score"] == 0
+
+
+from concept_discovery.organize import compute_metrics
+
+
+class TestMetrics:
+    def test_basic_metrics_and_redundancy_reduction(self):
+        clusters = [
+            AnnotatedCluster(cluster_id=0, members=["a", "b"], medoid="a",
+                             radlex_label="famA", n_resolved=2, n_members=2),
+            AnnotatedCluster(cluster_id=1, members=["c"], medoid="c",
+                             radlex_label=None, n_resolved=0, n_members=1),
+        ]
+        cs = ConceptSet(
+            names=["a", "b", "c"],
+            embeddings=torch.tensor([[1.0] + [0.0] * 511,
+                                      [1.0] + [0.0] * 511,
+                                      [0.0, 1.0] + [0.0] * 510], dtype=torch.float32),
+            name_to_idx={"a": 0, "b": 1, "c": 2},
+            per_image=[
+                ImageConcepts(image_id="i0", activations={"a": 1.0, "b": 1.0, "c": 1.0}),
+                ImageConcepts(image_id="i1", activations={"a": 1.0, "c": 1.0}),
+            ],
+        )
+        structured = [
+            {"image_id": "i0", "families": [{}, {}], "redundancy_score": 1.5},
+            {"image_id": "i1", "families": [{}], "redundancy_score": 2.0},
+        ]
+        m = compute_metrics(cs, clusters, structured)
+        assert m["n_concepts_active"] == 3
+        assert m["n_clusters"] == 2
+        assert m["mean_cluster_size"] == 1.5
+        assert m["radlex_coverage_pct"] == (2 / 3) * 100
+        assert m["n_empty_images"] == 0
+        # mean raw = (3+2)/2 = 2.5 ; mean families = (2+1)/2 = 1.5 -> 2.5/1.5
+        assert abs(m["redundancy_reduction"] - (2.5 / 1.5)) < 1e-9
+
+    def test_silhouette_none_below_two_clusters(self):
+        clusters = [AnnotatedCluster(cluster_id=0, members=["a"], medoid="a")]
+        cs = ConceptSet(
+            names=["a"], embeddings=torch.zeros((1, 512)),
+            name_to_idx={"a": 0}, per_image=[],
+        )
+        m = compute_metrics(cs, clusters, [])
+        assert m["silhouette_cosine"] is None

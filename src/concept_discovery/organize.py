@@ -168,7 +168,7 @@ def _medoid(members: list[str], embeddings: torch.Tensor, name_to_idx: dict[str,
     rows = embeddings[idx]                              # (k, D)
     rows = rows / rows.norm(dim=1, keepdim=True).clamp_min(1e-12)
     sim = rows @ rows.T                                 # (k, k)
-    mean_sim = sim.sum(dim=1) / (len(members) - 1)      # exclude self via off-diagonal avg
+    mean_sim = sim.sum(dim=1) / (len(members) - 1)      # diagonal (self) is constant across rows -> argmax unaffected
     return members[int(mean_sim.argmax())]
 
 
@@ -245,55 +245,69 @@ def _resolve_member_rid(graph, name: str) -> str | None:
     return min(rids)
 
 
-def annotate_radlex(clusters: list[Cluster], graph) -> list[AnnotatedCluster]:
-    """Annotate each cluster with a best-effort RadLex ancestor (root-degeneracy guard).
+def annotate_radlex(
+    clusters: list[Cluster],
+    graph,
+    active_names: list[str] | None = None,
+) -> list[AnnotatedCluster]:
+    """Annotate each cluster with a best-effort RadLex ancestor.
 
-    Selection rule (spec §6.2):
-      1. resolve each member to a RID; collect ancestor_rids per resolved member.
-      2. candidate = ancestor RID supported by >= ceil(0.5 * n_resolved) members.
-      3. reject roots (RIDs with no parents) as trivially uninformative.
-      4. pick the most specific candidate = the one with the most candidate-ancestors
-         (deepest); tie-break by support desc, then shortest label.
-      5. no surviving candidate -> radlex_label None (cluster falls back to medoid).
+    Two degeneracy guards (spec §6.2, amended):
+      1. Leaf-root rejection: candidate RIDs with no parents are rejected.
+      2. Canopy rejection: RIDs that are ancestors of > 50% of ALL active
+         concepts (the ontology's generic canopy — e.g. 'RadLex entity',
+         'anatomical entity') are rejected as trivially uninformative. This is
+         only active when ``active_names`` (the full active concept-name list)
+         is provided AND contains >= 10 names; otherwise skipped (so small
+         inputs behave like the pure intersection/majority rule).
+
+    Candidate selection: an ancestor must be supported by >= ceil(0.5 * n_resolved)
+    members (and >= 2 when n_resolved >= 2, so a member's own RID alone never
+    qualifies unless it is shared). Among surviving candidates pick the most
+    specific (deepest in the candidate sub-DAG); tie-break by support desc, then
+    shortest label. None -> cluster label falls back to the medoid.
     Never raises on unresolved members or empty clusters.
     """
     import math
 
+    # --- global canopy (only when enough active concepts are known) ---
+    canopy: set[str] = set()
+    if active_names and len(active_names) >= 10:
+        global_support: dict[str, int] = {}
+        for name in active_names:
+            rid = _resolve_member_rid(graph, name)
+            if rid is None:
+                continue
+            for r in ancestor_rids(graph, rid):
+                global_support[r] = global_support.get(r, 0) + 1
+        g_thresh = 0.5 * len(active_names)
+        canopy = {r for r, cnt in global_support.items() if cnt > g_thresh}
+
     out: list[AnnotatedCluster] = []
     for c in clusters:
-        member_anc: list[set[str]] = []
+        # resolve each member once
+        resolved: list[tuple[str, set[str]]] = []
         for m in c.members:
             rid = _resolve_member_rid(graph, m)
             if rid is not None:
-                member_anc.append(ancestor_rids(graph, rid))
-        n_resolved = len(member_anc)
+                resolved.append((rid, ancestor_rids(graph, rid)))
+        n_resolved = len(resolved)
         n_members = len(c.members)
 
         radlex_rid: str | None = None
         radlex_label: str | None = None
         if n_resolved > 0:
-            threshold = math.ceil(0.5 * n_resolved)
+            threshold = max(2, math.ceil(0.5 * n_resolved)) if n_resolved >= 2 else 1
             support: dict[str, int] = {}
-            for anc_set in member_anc:
+            for _, anc_set in resolved:
                 for r in anc_set:
                     support[r] = support.get(r, 0) + 1
-
-            # Build the intersection of all member ancestor sets (true common ancestors)
-            common_ancestors: set[str] = set(member_anc[0])
-            for anc_set in member_anc[1:]:
-                common_ancestors &= anc_set
-
-            # Candidates must be in the intersection AND non-root
-            common_nonroot = [r for r in common_ancestors if r in graph.child_to_parents]
-            if common_nonroot:
-                candidates = common_nonroot
-            elif common_ancestors:
-                # Common ancestors exist but all are roots -> reject (degeneracy guard)
-                candidates = []
-            else:
-                # No common ancestor at all (empty intersection) -> fall back to majority
-                candidates = [r for r, cnt in support.items() if cnt >= threshold and r in graph.child_to_parents]
-
+            candidates = [
+                r for r, cnt in support.items()
+                if cnt >= threshold
+                and r in graph.child_to_parents   # not a leaf-root
+                and r not in canopy                # not canopy-generic
+            ]
             if candidates:
                 cand_set = set(candidates)
                 anc_of = {r: ancestor_rids(graph, r) for r in candidates}
@@ -454,7 +468,7 @@ def run(
         linkage=cfg.linkage,
     )
     if graph is not None:
-        annotated = annotate_radlex(raw_clusters, graph)
+        annotated = annotate_radlex(raw_clusters, graph, active_names=concept_set.names)
     else:
         annotated = [AnnotatedCluster(
             cluster_id=c.cluster_id, members=c.members, medoid=c.medoid,

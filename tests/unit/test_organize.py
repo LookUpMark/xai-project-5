@@ -247,6 +247,53 @@ class TestAnnotate:
         clusters: list[Cluster] = []
         assert annotate_radlex(clusters, g) == []
 
+    def test_canopy_rejected_when_active_names_provided(self):
+        """A generic 'canopy' node (has parents, so not a leaf-root) shared by
+        >50% of all active concepts must be rejected when active_names is given."""
+        g = RadLexGraph()
+        # 12 leaf terms under a canopy node 'canopy' (which itself sits under 'root');
+        # two specialty branches midA, midB under canopy for variety.
+        g.rid_to_label = {"RIDroot": "root", "RIDcanopy": "canopy",
+                          "RIDa": "midA", "RIDb": "midB"}
+        g.label_to_rids = {"root": ["RIDroot"], "canopy": ["RIDcanopy"],
+                           "mida": ["RIDa"], "midb": ["RIDb"]}
+        # leaves term_0..term_11: first 6 under midA, next 6 under midB; midA/midB under canopy; canopy under root
+        for i in range(12):
+            rid = f"RIDt{i}"
+            g.rid_to_label[rid] = f"term_{i}"
+            g.label_to_rids[f"term_{i}"] = [rid]
+            parent = "RIDa" if i < 6 else "RIDb"
+            g.child_to_parents[rid] = [parent]
+        g.child_to_parents["RIDa"] = ["RIDcanopy"]
+        g.child_to_parents["RIDb"] = ["RIDcanopy"]
+        g.child_to_parents["RIDcanopy"] = ["RIDroot"]
+        # RIDroot has no parents (leaf-root)
+
+        active_names = [f"term_{i}" for i in range(12)]
+        # one cluster of the first 6 (all under midA)
+        clusters = [Cluster(cluster_id=0, members=active_names[:6], medoid="term_0")]
+
+        # WITHOUT active_names: canopy guard inactive; threshold=max(2,3)=3.
+        # members term_0..5 share RIDa(6), RIDcanopy(6), RIDroot(6). Non-root, shared>=3:
+        #   RIDa (6), RIDcanopy (6). Most specific = RIDa (deeper). -> "midA"
+        ann_no_canopy = annotate_radlex(clusters, g, active_names=None)
+        assert ann_no_canopy[0].radlex_label == "midA"
+
+        # WITH active_names (12 concepts): RIDcanopy is ancestor of all 12 -> global
+        # support 12/12 > 50% -> canopy -> rejected. RIDa ancestor of only first 6
+        # -> 6/12 = 0.5, NOT > 0.5 -> kept. So label still "midA" (canopy correctly
+        # rejected, specific label retained).
+        ann_canopy = annotate_radlex(clusters, g, active_names=active_names)
+        assert ann_canopy[0].radlex_label == "midA"
+        assert ann_canopy[0].radlex_rid != "RIDcanopy"
+
+        # Now a cluster that ONLY has canopy as a shared ancestor: members from both
+        # midA and midB groups share only RIDcanopy + RIDroot. With canopy rejection
+        # active, RIDcanopy is rejected -> no candidate -> None.
+        clusters2 = [Cluster(cluster_id=0, members=["term_0", "term_6"], medoid="term_0")]
+        ann2 = annotate_radlex(clusters2, g, active_names=active_names)
+        assert ann2[0].radlex_label is None
+
 
 from concept_discovery.organize import build_structured_explanations, AnnotatedCluster
 

@@ -331,3 +331,35 @@ class TestMetrics:
         )
         m = compute_metrics(cs, clusters, [])
         assert m["silhouette_cosine"] is None
+
+
+from dataclasses import replace
+import config
+from concept_discovery.organize import run as organize_run
+
+
+class TestRun:
+    def test_run_writes_three_output_files(self, tmp_path):
+        terms = [{"term": f"t{i}"} for i in range(6)]
+        emb = torch.eye(6, 512)
+        explanations = [
+            {"image_id": "i0", "top_k_concepts": [
+                {"feature_id": 0, "name": "t0", "activation": 0.5},
+                {"feature_id": 1, "name": "t1", "activation": 0.5}]},
+            {"image_id": "i1", "top_k_concepts": [
+                {"feature_id": 2, "name": "t2", "activation": 0.5},
+                {"feature_id": 3, "name": "t3", "activation": 0.5}]},
+            {"image_id": "i2", "top_k_concepts": [
+                {"feature_id": 4, "name": "t4", "activation": 0.5},
+                {"feature_id": 5, "name": "t5", "activation": 0.5}]},
+        ]
+        cs = from_spliece_explanations(explanations, terms, emb)
+        cfg = replace(config.organize, n_clusters=2, output_dir=tmp_path, radlex_csv_path=tmp_path / "no.csv")
+        metrics = organize_run(cfg, cs, graph=None)
+        assert (tmp_path / "concept_clusters.json").exists()
+        assert (tmp_path / "structured_explanations.json").exists()
+        assert (tmp_path / "organization_metrics.json").exists()
+        assert "n_clusters" in metrics
+        import json
+        clusters_json = json.loads((tmp_path / "concept_clusters.json").read_text())
+        assert all("display_label" in c or "label" in c for c in clusters_json)

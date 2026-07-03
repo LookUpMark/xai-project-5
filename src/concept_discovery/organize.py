@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass, field
+from pathlib import Path
 
 sys.path.insert(0, "src/")
 
@@ -418,3 +419,58 @@ def compute_metrics(
         "radlex_coverage_pct": coverage,
         "n_empty_images": n_empty,
     }
+
+
+def _clusters_to_dicts(clusters: list[AnnotatedCluster]) -> list[dict]:
+    return [{
+        "cluster_id": c.cluster_id,
+        "label": c.display_label,
+        "radlex_label": c.radlex_label,
+        "radlex_rid": c.radlex_rid,
+        "medoid": c.medoid,
+        "members": c.members,
+        "size": len(c.members),
+        "n_resolved": c.n_resolved,
+    } for c in clusters]
+
+
+def run(
+    cfg,
+    concept_set: ConceptSet,
+    graph=None,
+) -> dict:
+    """Orchestrate cluster -> annotate -> structured -> metrics; write outputs.
+
+    If graph is None, RadLex annotation is skipped (all radlex_label None).
+    Returns the metrics dict.
+    """
+    import json
+
+    raw_clusters = cluster_concepts(
+        concept_set,
+        n_clusters=cfg.n_clusters,
+        distance_threshold=cfg.distance_threshold,
+        linkage=cfg.linkage,
+    )
+    if graph is not None:
+        annotated = annotate_radlex(raw_clusters, graph)
+    else:
+        annotated = [AnnotatedCluster(
+            cluster_id=c.cluster_id, members=c.members, medoid=c.medoid,
+            radlex_label=None, radlex_rid=None, n_resolved=0, n_members=len(c.members),
+        ) for c in raw_clusters]
+
+    structured = build_structured_explanations(concept_set, annotated)
+    metrics = compute_metrics(concept_set, annotated, structured)
+
+    cfg.output_dir.mkdir(parents=True, exist_ok=True)
+    (cfg.output_dir / "concept_clusters.json").write_text(
+        json.dumps(_clusters_to_dicts(annotated), indent=2)
+    )
+    (cfg.output_dir / "structured_explanations.json").write_text(
+        json.dumps(structured, indent=2)
+    )
+    (cfg.output_dir / "organization_metrics.json").write_text(
+        json.dumps(metrics, indent=2)
+    )
+    return metrics

@@ -365,6 +365,7 @@ class TestMetrics:
 from dataclasses import replace
 import config
 from concept_discovery.organize import run as organize_run
+from vocabulary_building.radlex_support import RadLexGraph
 
 
 class TestRun:
@@ -392,3 +393,27 @@ class TestRun:
         import json
         clusters_json = json.loads((tmp_path / "concept_clusters.json").read_text())
         assert all("display_label" in c or "label" in c for c in clusters_json)
+
+    def test_run_emits_unresolved_terms_when_graph_given(self, tmp_path):
+        """I-1: metrics include unresolved_terms (active names not in RadLex)."""
+        import json
+        from vocabulary_building.radlex_support import RadLexGraph
+
+        # vocab: 'inrad' resolves, 'ghost' does not
+        terms = [{"term": "inrad"}, {"term": "ghost"}]
+        emb = torch.eye(2, 512)
+        explanations = [{"image_id": "i0", "top_k_concepts": [
+            {"feature_id": 0, "name": "inrad", "activation": 1.0},
+            {"feature_id": 1, "name": "ghost", "activation": 1.0}]}]
+        cs = from_spliece_explanations(explanations, terms, emb)
+
+        g = RadLexGraph()
+        g.rid_to_label = {"RID1": "inrad"}
+        g.label_to_rids = {"inrad": ["RID1"]}      # 'ghost' absent -> unresolved
+        g.child_to_parents = {}                      # no parents (leaf-root)
+
+        cfg = replace(config.organize, n_clusters=1, output_dir=tmp_path,
+                       radlex_csv_path=tmp_path / "no.csv")
+        metrics = organize_run(cfg, cs, graph=g)
+        assert metrics["unresolved_terms"] == ["ghost"]
+        assert metrics["n_unresolved_terms"] == 1

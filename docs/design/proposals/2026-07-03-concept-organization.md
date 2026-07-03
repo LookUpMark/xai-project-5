@@ -166,7 +166,7 @@ class OrganizeConfig:
     metric: str = "cosine"
     radlex_csv_path: Path = field(default_factory=lambda: paths.data_dir / "radlex.csv")
     vocab_path: Path = field(default_factory=lambda: paths.vocab_labels_path)
-    vocab_emb_path: Path = field(default_factory=lambda: spliece.vocab_emb_path)  # reuse
+    vocab_emb_path: Path = field(default_factory=lambda: paths.vocab_embeddings_path)  # reuse
     output_dir: Path = field(default_factory=lambda: paths.results_dir / "concept_organization")
 ```
 

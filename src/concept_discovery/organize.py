@@ -17,7 +17,7 @@ Standalone output: does NOT feed the LLM judge.
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 sys.path.insert(0, "src/")
@@ -257,7 +257,7 @@ def _build_children_map(graph) -> dict[str, list[str]]:
 def _descendant_count(rid: str, children: dict[str, list[str]], memo: dict[str, int]) -> int:
     """Number of RIDs reachable from ``rid`` via child edges (inclusive of rid).
 
-    BFS over the (acyclic) RadLex DAG, memoized per annotate_radlex call.
+    Cycle-safe BFS (``seen`` set) over the RadLex DAG, memoized per annotate_radlex call.
     """
     if rid in memo:
         return memo[rid]
@@ -305,6 +305,12 @@ def annotate_radlex(
     canopy_max = 0.01 * total_rids if use_canopy else float("inf")
     children = _build_children_map(graph) if use_canopy else {}
     desc_memo: dict[str, int] = {}
+    _anc_memo: dict[str, set[str]] = {}
+
+    def _anc(rid: str) -> set[str]:
+        if rid not in _anc_memo:
+            _anc_memo[rid] = ancestor_rids(graph, rid)
+        return _anc_memo[rid]
 
     out: list[AnnotatedCluster] = []
     for c in clusters:
@@ -312,7 +318,7 @@ def annotate_radlex(
         for m in c.members:
             rid = _resolve_member_rid(graph, m)
             if rid is not None:
-                resolved.append((rid, ancestor_rids(graph, rid)))
+                resolved.append((rid, _anc(rid)))
         n_resolved = len(resolved)
         n_members = len(c.members)
 
@@ -332,7 +338,7 @@ def annotate_radlex(
             ]
             if candidates:
                 cand_set = set(candidates)
-                anc_of = {r: ancestor_rids(graph, r) for r in candidates}
+                anc_of = {r: _anc(r) for r in candidates}
 
                 def sort_key(r: str):
                     specificity = len(anc_of[r] & cand_set)
@@ -499,6 +505,15 @@ def run(
 
     structured = build_structured_explanations(concept_set, annotated)
     metrics = compute_metrics(concept_set, annotated, structured)
+
+    # I-1: surface active concept names that did not resolve to a RadLex RID
+    # (diagnostic for vocab/RadLex drift). Only meaningful when a graph is present.
+    if graph is not None:
+        unresolved = sorted(
+            n for n in concept_set.names if _resolve_member_rid(graph, n) is None
+        )
+        metrics["unresolved_terms"] = unresolved[:20]
+        metrics["n_unresolved_terms"] = len(unresolved)
 
     cfg.output_dir.mkdir(parents=True, exist_ok=True)
     (cfg.output_dir / "concept_clusters.json").write_text(

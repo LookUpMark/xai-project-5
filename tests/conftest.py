@@ -13,8 +13,9 @@ from unittest.mock import MagicMock
 import pytest
 import torch
 
-# Add src/ to path
+# Add src/ and repo root to path (repo root -> xai_datasets)
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import config  # noqa: E402  (must follow the sys.path insert above)
 

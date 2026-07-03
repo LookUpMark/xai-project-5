@@ -285,6 +285,20 @@ class AugmentationConfig:
 
 
 @dataclass(frozen=True)
+class DatasetSelection:
+    """Active dataset selector (Phase 0 of the multi-dataset refactor).
+
+    ``name`` keys into ``xai_datasets.spec.DATASETS``. Stages resolve the active
+    spec via ``get_dataset(active_dataset.name)``. The per-dataset output-path
+    dimension (``embeddings/<dataset>/...``) lands in Phase 2 with PadChest;
+    Phase 0 keeps the existing ``embeddings/<standard|augmented>/`` layout so IU
+    X-Ray artifacts stay byte-identical.
+    """
+
+    name: str = "iu_xray"
+
+
+@dataclass(frozen=True)
 class SAEConfig:
     """Sparse Autoencoder (Top-K) hyperparameters.
 
@@ -472,6 +486,7 @@ class SpliCEConfig:
 # ── Instantiate configs ──────────────────────────────────────────────
 
 augmentation = AugmentationConfig()
+active_dataset = DatasetSelection()
 paths = PathsConfig()
 backbone = BackboneConfig()
 vlm = VLMConfig()

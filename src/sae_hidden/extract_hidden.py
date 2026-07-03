@@ -32,7 +32,7 @@ import utils
 from augmentation.transforms import get_safe_cxr_transforms
 from config import EmbeddingConfig
 from sae_hidden.reports import md_table, write_report
-from xai_datasets.iu_xray import IUXrayImageDataset
+from xai_datasets.iu_xray import IUXrayImageDataset, study_key_from_basename
 
 log = utils.setup_logging(__name__)
 
@@ -140,6 +140,7 @@ def run(augmented: bool = False) -> Path:
         test_path=config.paths.hidden_test_embeddings_path,
         train_ratio=config.training.train_split_ratio,
         seed=config.training.split_seed,
+        group_key_fn=study_key_from_basename,
         source_ids_path=ids_path,
         train_ids_path=config.paths.hidden_train_image_ids_path,
         test_ids_path=config.paths.hidden_test_image_ids_path,

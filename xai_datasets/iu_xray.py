@@ -67,3 +67,30 @@ class IUXrayTextDataset(Dataset):
         text = self._build_text(row)
         uid = row.get(self._UID_COL, str(idx))
         return text, uid
+
+
+def study_key_from_basename(name: str) -> str:
+    """Derive the radiograph-study group key from an image-id basename.
+
+    IU X-Ray filenames follow ``{patient}_IM-{study}-{view}.dcm.png``, where the
+    same study (patient + exam) is captured across multiple views (frontal /
+    lateral). Grouping the train/test split on the study key keeps every view of
+    one exam in a single partition, preventing patient/study leakage.
+
+    Unrecognised names (no ``_IM-`` marker) are returned unchanged so they become
+    singleton groups rather than crashing the split.
+
+    Args:
+        name: Image id as stored in the sidecar (a PNG basename).
+
+    Returns:
+        ``"{patient}_IM-{study}"`` for well-formed names, else ``name`` verbatim.
+    """
+    marker = "_IM-"
+    idx = name.find(marker)
+    if idx < 0:
+        return name
+    patient = name[:idx]
+    rest = name[idx + len(marker):]
+    study = rest.split("-", 1)[0]
+    return f"{patient}_IM-{study}"

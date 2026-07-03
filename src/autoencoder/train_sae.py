@@ -34,12 +34,17 @@ from autoencoder.sae_module import SAEManager
 logger = utils.setup_logging(__name__)
 
 
-def prepare_split() -> None:
+def prepare_split(group_key_fn=None) -> None:
     """Create the train/test split from visual_embeddings.pt.
 
-    Delegates to :func:`utils.split_embeddings`, which groups by radiograph
-    study (derived from the image-id basename) so no study straddles train and
-    test, and recomputes the partition deterministically on every call.
+    Delegates to :func:`utils.split_embeddings`, grouping by the active
+    dataset's group key (IU X-Ray: radiograph study, so no study straddles train
+    and test) and recomputing the partition deterministically on every call.
+
+    Args:
+        group_key_fn: Optional anti-leakage group-key. When None, resolved from
+            the active dataset spec (``config.active_dataset.name``) — lazy import
+            so this module stays importable without the repo root on ``sys.path``.
     """
     source = config.paths.visual_embeddings_path
     if not source.exists():
@@ -47,6 +52,10 @@ def prepare_split() -> None:
             f"Embeddings not found: {source}. "
             f"Run first: python src/embedding_extraction/extract_embeddings.py"
         )
+
+    if group_key_fn is None:
+        from xai_datasets.spec import get_dataset
+        group_key_fn = get_dataset(config.active_dataset.name).make_group_key_fn()
 
     logger.info(
         f"Creating {config.training.train_split_ratio:.0%} / "
@@ -59,6 +68,7 @@ def prepare_split() -> None:
         test_path=config.paths.test_embeddings_path,
         train_ratio=config.training.train_split_ratio,
         seed=config.training.split_seed,
+        group_key_fn=group_key_fn,
         source_ids_path=config.paths.visual_image_ids_path,
         train_ids_path=config.paths.train_image_ids_path,
         test_ids_path=config.paths.test_image_ids_path,

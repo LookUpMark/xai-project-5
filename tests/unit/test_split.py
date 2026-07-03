@@ -13,7 +13,8 @@ import json
 
 import torch
 
-from utils import split_embeddings, study_key_from_basename
+from utils import split_embeddings
+from xai_datasets.iu_xray import study_key_from_basename
 
 
 def _study_ids(n_studies, views_per_study=2, start=1):
@@ -41,22 +42,6 @@ def _write_source(tmp_path, image_ids, dim=4, seed=0):
     return src, sidecar, embeddings
 
 
-class TestStudyKeyFromBasename:
-    def test_well_formed_names(self):
-        assert study_key_from_basename("1_IM-0001-4001.dcm.png") == "1_IM-0001"
-        assert study_key_from_basename("3222_IM-1522-2001.dcm.png") == "3222_IM-1522"
-        assert study_key_from_basename("2_IM-0652-1001.dcm.png") == "2_IM-0652"
-
-    def test_views_of_same_study_collapse(self):
-        frontal = study_key_from_basename("1_IM-0001-4001.dcm.png")
-        lateral = study_key_from_basename("1_IM-0001-3001.dcm.png")
-        assert frontal == lateral == "1_IM-0001"
-
-    def test_malformed_returns_input_unchanged(self):
-        for bad in ["no_marker_here.png", "plain", ""]:
-            assert study_key_from_basename(bad) == bad
-
-
 class TestGroupAwareSplit:
     def _run(self, tmp_path, ids):
         src, sidecar, _ = _write_source(tmp_path, ids)
@@ -68,6 +53,7 @@ class TestGroupAwareSplit:
             test_path=out / "test.pt",
             train_ratio=0.8,
             seed=42,
+            group_key_fn=study_key_from_basename,
             source_ids_path=sidecar,
             train_ids_path=out / "train_ids.json",
             test_ids_path=out / "test_ids.json",
@@ -136,6 +122,7 @@ class TestNoCacheAlwaysRecomputed:
             test_path=test_p,
             train_ratio=0.8,
             seed=42,
+            group_key_fn=study_key_from_basename,
             source_ids_path=sidecar,
             train_ids_path=tmp_path / "train_ids.json",
             test_ids_path=tmp_path / "test_ids.json",
@@ -154,6 +141,7 @@ class TestNoCacheAlwaysRecomputed:
             test_path=tmp_path / "a_te.pt",
             train_ratio=0.8,
             seed=42,
+            group_key_fn=study_key_from_basename,
             source_ids_path=sidecar,
             train_ids_path=tmp_path / "a_ti.json",
             test_ids_path=tmp_path / "a_te_ids.json",
@@ -164,6 +152,7 @@ class TestNoCacheAlwaysRecomputed:
             test_path=tmp_path / "b_te.pt",
             train_ratio=0.8,
             seed=42,
+            group_key_fn=study_key_from_basename,
             source_ids_path=sidecar,
             train_ids_path=tmp_path / "b_ti.json",
             test_ids_path=tmp_path / "b_te_ids.json",

@@ -199,39 +199,13 @@ def _split_ids(
         json.dump(test_ids, f)
 
 
-def study_key_from_basename(name: str) -> str:
-    """Derive the radiograph-study group key from an image-id basename.
-
-    IU X-Ray filenames follow ``{patient}_IM-{study}-{view}.dcm.png``, where the
-    same study (patient + exam) is captured across multiple views (frontal /
-    lateral). Grouping the train/test split on the study key keeps every view of
-    one exam in a single partition, preventing patient/study leakage.
-
-    Unrecognised names (no ``_IM-`` marker) are returned unchanged so they become
-    singleton groups rather than crashing the split.
-
-    Args:
-        name: Image id as stored in the sidecar (a PNG basename).
-
-    Returns:
-        ``"{patient}_IM-{study}"`` for well-formed names, else ``name`` verbatim.
-    """
-    marker = "_IM-"
-    idx = name.find(marker)
-    if idx < 0:
-        return name
-    patient = name[:idx]
-    rest = name[idx + len(marker):]
-    study = rest.split("-", 1)[0]
-    return f"{patient}_IM-{study}"
-
-
 def split_embeddings(
     source_path: Path,
     train_path: Path,
     test_path: Path,
     train_ratio: float = 0.8,
     seed: int = 42,
+    group_key_fn: Callable[[str], str] | None = None,
     source_ids_path: Path | None = None,
     train_ids_path: Path | None = None,
     test_ids_path: Path | None = None,
@@ -245,6 +219,12 @@ def split_embeddings(
         train_ratio: Fraction of *groups* (with a sidecar) or *samples* (without)
             assigned to train. Defaults to 0.8.
         seed: Random seed for reproducible splitting. Defaults to 42.
+        group_key_fn: Optional function mapping an image-id basename to a group
+            key, so all views / augmented copies of one exam land in one
+            partition (no patient/study leakage). When None (or no sidecar), each
+            image is its own group => a random, sidecar-aligned split (e.g.
+            ROCOv2's independent figures). Callers pass the active dataset's
+            group-key via ``DatasetSpec.make_group_key_fn``.
         source_ids_path: Optional source sidecar JSON of image ids. Treated as
             absent when the file does not exist.
         train_ids_path: Optional destination for the train split of ids.
@@ -273,9 +253,12 @@ def split_embeddings(
         if len(image_ids) != len(embeddings):
             raise ValueError("ID sidecar length does not match embeddings length")
 
-        # Group by study key
-        study_keys = [study_key_from_basename(img_id) for img_id in image_ids]
-        unique_groups = sorted(set(study_keys))
+        # Group by the dataset's group key. ``group_key_fn=None`` (or identity)
+        # => each image its own group => a random split, but still sidecar-aligned
+        # (augmented copies share a basename, so they stay in one partition).
+        group_fn = group_key_fn if group_key_fn is not None else (lambda name: name)
+        group_keys = [group_fn(img_id) for img_id in image_ids]
+        unique_groups = sorted(set(group_keys))
         train_groups, test_groups = _sklearn_split(
             unique_groups,
             train_size=train_ratio,
@@ -283,20 +266,20 @@ def split_embeddings(
         )
 
         train_set = set(train_groups)
-        train_idx = [i for i, key in enumerate(study_keys) if key in train_set]
-        test_idx = [i for i, key in enumerate(study_keys) if key not in train_set]
+        train_idx = [i for i, key in enumerate(group_keys) if key in train_set]
+        test_idx = [i for i, key in enumerate(group_keys) if key not in train_set]
 
-        # Safety net: no study may straddle both partitions.
-        train_keys = {study_keys[i] for i in train_idx}
-        test_keys = {study_keys[i] for i in test_idx}
-        assert not (train_keys & test_keys), "study leakage across train/test"
+        # Safety net: no group may straddle both partitions.
+        train_keys = {group_keys[i] for i in train_idx}
+        test_keys = {group_keys[i] for i in test_idx}
+        assert not (train_keys & test_keys), "group leakage across train/test"
 
         n_total = len(embeddings)
         logger.info(
             f"Group-aware split: {len(train_idx)}/{len(test_idx)} samples "
             f"({len(train_idx) / n_total:.1%}/{len(test_idx) / n_total:.1%}) "
             f"across {len(train_groups)}/{len(test_groups)} of {len(unique_groups)} "
-            f"studies (group overlap = 0)."
+            f"groups (group overlap = 0)."
         )
     else:
         indices = np.arange(len(embeddings))

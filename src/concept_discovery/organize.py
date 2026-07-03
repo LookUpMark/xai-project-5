@@ -315,3 +315,50 @@ def annotate_radlex(clusters: list[Cluster], graph) -> list[AnnotatedCluster]:
             n_members=n_members,
         ))
     return out
+
+
+def build_structured_explanations(
+    concept_set: ConceptSet, clusters: list[AnnotatedCluster]
+) -> list[dict]:
+    """Re-express per-image explanations as concept families + redundancy score.
+
+    Each family = the subset of an image's active concepts that fall in one cluster.
+    redundancy_score (image) = n_raw_concepts / n_distinct_families (>=1, or 0 if empty).
+    """
+    name_to_cluster: dict[str, AnnotatedCluster] = {}
+    for c in clusters:
+        for m in c.members:
+            name_to_cluster[m] = c
+
+    out: list[dict] = []
+    for img in concept_set.per_image:
+        fam_acc: dict[int, dict] = {}
+        for name, act in img.activations.items():
+            c = name_to_cluster.get(name)
+            if c is None:
+                continue  # name not in any cluster (shouldn't happen post-adapter)
+            fam = fam_acc.setdefault(c.cluster_id, {
+                "cluster_id": c.cluster_id,
+                "label": c.display_label,
+                "radlex_label": c.radlex_label,
+                "concepts": [],
+                "aggregate_activation": 0.0,
+            })
+            fam["concepts"].append({"name": name, "activation": act})
+            fam["aggregate_activation"] += act
+
+        families = []
+        for fam in fam_acc.values():
+            fam["intra_redundancy"] = len(fam["concepts"])
+            families.append(fam)
+        families.sort(key=lambda f: f["cluster_id"])
+
+        n_raw = len(img.activations)
+        n_fam = len(families)
+        redundancy = (n_raw / n_fam) if n_fam > 0 else 0
+        out.append({
+            "image_id": img.image_id,
+            "families": families,
+            "redundancy_score": redundancy,
+        })
+    return out

@@ -246,3 +246,43 @@ class TestAnnotate:
         g = _graph()
         clusters: list[Cluster] = []
         assert annotate_radlex(clusters, g) == []
+
+
+from concept_discovery.organize import build_structured_explanations, AnnotatedCluster
+
+
+class TestStructured:
+    def test_family_aggregation_and_redundancy(self):
+        clusters = [
+            AnnotatedCluster(cluster_id=0, members=["a", "b"], medoid="a", radlex_label="famA"),
+            AnnotatedCluster(cluster_id=1, members=["c"], medoid="c", radlex_label=None),
+        ]
+        cs = ConceptSet(
+            names=["a", "b", "c"],
+            embeddings=torch.zeros((3, 512)),
+            name_to_idx={"a": 0, "b": 1, "c": 2},
+            per_image=[ImageConcepts(image_id="img0", activations={"a": 1.0, "b": 2.0, "c": 4.0})],
+        )
+        out = build_structured_explanations(cs, clusters)
+        assert len(out) == 1
+        ex = out[0]
+        assert ex["image_id"] == "img0"
+        fam_by_label = {f["label"]: f for f in ex["families"]}
+        assert set(fam_by_label) == {"famA", "c"}  # cluster1 radlex None -> medoid "c"
+        assert fam_by_label["famA"]["aggregate_activation"] == 3.0
+        assert fam_by_label["famA"]["intra_redundancy"] == 2
+        assert len(fam_by_label["famA"]["concepts"]) == 2
+        # 3 raw concepts / 2 families = 1.5
+        assert ex["redundancy_score"] == 1.5
+
+    def test_image_with_no_active_concepts(self):
+        clusters = [AnnotatedCluster(cluster_id=0, members=["a"], medoid="a")]
+        cs = ConceptSet(
+            names=["a"],
+            embeddings=torch.zeros((1, 512)),
+            name_to_idx={"a": 0},
+            per_image=[ImageConcepts(image_id="empty", activations={})],
+        )
+        out = build_structured_explanations(cs, clusters)
+        assert out[0]["families"] == []
+        assert out[0]["redundancy_score"] == 0

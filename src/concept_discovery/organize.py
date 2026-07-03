@@ -156,3 +156,63 @@ def from_sae_explanations(
         image_id = img.get("image_id") or f"img_{i}"
         per_image.append(ImageConcepts(image_id=image_id, activations=activations))
     return _finalize_concept_set(per_image, term_to_idx, vocab_emb)
+
+
+def _medoid(members: list[str], embeddings: torch.Tensor, name_to_idx: dict[str, int]) -> str:
+    """Member whose embedding has max mean cosine similarity to the others."""
+    if len(members) == 1:
+        return members[0]
+    idx = [name_to_idx[m] for m in members]
+    rows = embeddings[idx]                              # (k, D)
+    rows = rows / rows.norm(dim=1, keepdim=True).clamp_min(1e-12)
+    sim = rows @ rows.T                                 # (k, k)
+    mean_sim = sim.sum(dim=1) / (len(members) - 1)      # exclude self via off-diagonal avg
+    return members[int(mean_sim.argmax())]
+
+
+def cluster_concepts(
+    concept_set: ConceptSet,
+    n_clusters: int | None = None,
+    distance_threshold: float | None = None,
+    linkage: str = "average",
+) -> list[Cluster]:
+    """Agglomerative cosine clustering of concept-name embeddings.
+
+    Deterministic: cluster ids are assigned after sorting clusters by their
+    sorted member tuples. Stopping rule: n_clusters OR distance_threshold
+    (compute_full_tree=True); if neither given, n_clusters = max(2, round(sqrt(M))).
+    No post-hoc merging.
+    """
+    from sklearn.cluster import AgglomerativeClustering
+
+    names = concept_set.names
+    M = len(names)
+    if M == 0:
+        return []
+    if M == 1:
+        return [Cluster(cluster_id=0, members=list(names), medoid=names[0])]
+
+    if n_clusters is None and distance_threshold is None:
+        n_clusters = max(2, round(M ** 0.5))
+
+    kwargs: dict = dict(metric="cosine", linkage=linkage)
+    if distance_threshold is not None:
+        kwargs.update(n_clusters=None, distance_threshold=distance_threshold, compute_full_tree=True)
+    else:
+        kwargs.update(n_clusters=min(n_clusters, M))
+
+    labels = AgglomerativeClustering(**kwargs).fit_predict(concept_set.embeddings.numpy())
+
+    groups: dict[int, list[str]] = {}
+    for name, lbl in zip(names, labels):
+        groups.setdefault(int(lbl), []).append(name)
+    ordered = sorted(groups.values(), key=lambda members: sorted(members))
+    clusters: list[Cluster] = []
+    for cid, members in enumerate(ordered):
+        members_sorted = sorted(members)
+        clusters.append(Cluster(
+            cluster_id=cid,
+            members=members_sorted,
+            medoid=_medoid(members_sorted, concept_set.embeddings, concept_set.name_to_idx),
+        ))
+    return clusters

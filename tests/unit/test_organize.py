@@ -134,3 +134,61 @@ class TestSAEAdapter:
         }]
         cs = from_sae_explanations(explanations, concept_names, terms, emb)
         assert cs.names == ["term_3"]
+
+
+from concept_discovery.organize import cluster_concepts
+
+
+def _cs(names_embs, per_image=None):
+    names, embs = names_embs
+    return ConceptSet(
+        names=names,
+        embeddings=torch.tensor(embs, dtype=torch.float32),
+        name_to_idx={n: i for i, n in enumerate(names)},
+        per_image=per_image or [],
+    )
+
+
+class TestCluster:
+    def test_two_well_separated_groups(self):
+        # two clusters in 2D (padded to 512): {a,b} near (1,0), {c,d} near (0,1)
+        z1 = [1.0] + [0.0] * 511      # a, b
+        z2 = [0.0, 1.0] + [0.0] * 510  # c, d
+        cs = _cs((["a", "b", "c", "d"], [z1, z1, z2, z2]))
+        clusters = cluster_concepts(cs, n_clusters=2)
+        assert len(clusters) == 2
+        ids = {frozenset(c.members) for c in clusters}
+        assert frozenset({"a", "b"}) in ids
+        assert frozenset({"c", "d"}) in ids
+        for c in clusters:
+            assert c.medoid in c.members
+
+    def test_deterministic_same_input_same_ids(self):
+        import random
+        rows = [[float(random.random())] + [0.0] * 511 for _ in range(8)]
+        names = [f"n{i}" for i in range(8)]
+        cs = _cs((names, rows))
+        c1 = cluster_concepts(cs, n_clusters=3)
+        c2 = cluster_concepts(cs, n_clusters=3)
+        assert [c.members for c in c1] == [c.members for c in c2]
+        assert [c.cluster_id for c in c1] == [0, 1, 2]
+
+    def test_singleton_input(self):
+        cs = _cs((["only"], [[0.0] * 512]))
+        clusters = cluster_concepts(cs, n_clusters=1)
+        assert len(clusters) == 1
+        assert clusters[0].members == ["only"]
+        assert clusters[0].medoid == "only"
+
+    def test_empty_input(self):
+        cs = ConceptSet(names=[], embeddings=torch.empty((0, 512)), name_to_idx={}, per_image=[])
+        clusters = cluster_concepts(cs)
+        assert clusters == []
+
+    def test_distance_threshold_mode(self):
+        z1 = [1.0] + [0.0] * 511
+        z2 = [0.0, 1.0] + [0.0] * 510
+        cs = _cs((["a", "b", "c"], [z1, z1, z2]))
+        clusters = cluster_concepts(cs, distance_threshold=0.5, linkage="average")
+        member_sets = {frozenset(c.members) for c in clusters}
+        assert frozenset({"a", "b"}) in member_sets

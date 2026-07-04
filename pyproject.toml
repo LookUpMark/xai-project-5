@@ -10,8 +10,23 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 py-modules = ["config", "utils", "evaluate_llm_judge"]
-packages = ["xai_datasets", "vocabulary_building", "embedding_extraction", "augmentation", "autoencoder"]
+packages = ["xai_datasets", "vocabulary_building", "embedding_extraction",
+            "augmentation", "autoencoder", "concept_discovery", "sae_hidden"]
 
 [tool.setuptools.package-dir]
 "" = "src"
 "xai_datasets" = "xai_datasets"
+
+# E/W = pycodestyle, F = pyflakes, I = isort. E402 (module import not at top
+# of file) is unavoidable given the load-bearing sys.path hack in every script.
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E402"]
+
+[tool.pytest.ini_options]
+addopts = "--import-mode=importlib -q"
+testpaths = ["tests"]

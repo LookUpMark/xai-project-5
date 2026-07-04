@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""41_judge.py — numbered entry point for the LLM judge.
+"""07_judge.py — numbered entry point for the LLM judge.
 
 Thin wrapper around ``src/evaluate_llm_judge.py`` so the concept-discovery
 pipeline has one ordered entry per stage. All CLI arguments are forwarded,
@@ -10,8 +10,8 @@ The judge requires a GPU + HuggingFace credentials for the configured model
 (``config.judge.model_name``); see ``docs/LLM-JUDGE-COMPLETE-GUIDE.md``.
 
 Examples:
-    python scripts/41_judge.py --input baseline --dataset iu_xray
-    python scripts/41_judge.py --input spliece --resume
+    python scripts/07_judge.py --input baseline --dataset iu_xray
+    python scripts/07_judge.py --input spliece --resume
 """
 from __future__ import annotations
 

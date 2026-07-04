@@ -1,4 +1,4 @@
-"""40_generate_null.py — random-k chance-floor baseline for the LLM judge (F-005).
+"""06_generate_null.py — random-k chance-floor baseline for the LLM judge (F-005).
 
 For each test image, sample N random vocabulary terms and emit them in the
 SAE-compatible schema. Run the LLM judge on this output exactly like any method;
@@ -11,8 +11,8 @@ By default N mirrors SPLiCE's per-image concept count (matched "lottery tickets"
 pass --k for a fixed count.
 
 Usage:
-    python scripts/40_generate_null.py
-    python scripts/40_generate_null.py --k 18          # fixed count
+    python scripts/06_generate_null.py
+    python scripts/06_generate_null.py --k 18          # fixed count
 """
 from __future__ import annotations
 
@@ -63,7 +63,7 @@ def main() -> None:
     if args.k is None:
         if not spliece_path.exists():
             raise FileNotFoundError(
-                f"{spliece_path} missing; run `python scripts/20_spliece.py` first, "
+                f"{spliece_path} missing; run `python scripts/04_spliece.py` first, "
                 "or pass --k to use a fixed count."
             )
         with open(spliece_path) as f:

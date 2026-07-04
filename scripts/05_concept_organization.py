@@ -1,14 +1,14 @@
-"""30_concept_organization.py — orchestrate the concept-organization extension.
+"""05_concept_organization.py — orchestrate the concept-organization extension.
 
 Thin driver over ``src.concept_discovery.organize``. Clusters discovered concepts
 (SPLiCE or SAE) by RadLex text-embedding cosine, annotates clusters with a
 best-effort RadLex ancestor, and emits structured per-image explanations.
 
 Usage:
-    python scripts/30_concept_organization.py --source spliece
-    python scripts/30_concept_organization.py --source sae-hidden --tag run2
-    python scripts/30_concept_organization.py --source spliece --no-radlex
-    python scripts/30_concept_organization.py --source spliece --n-clusters 25
+    python scripts/05_concept_organization.py --source spliece
+    python scripts/05_concept_organization.py --source sae-hidden --tag run2
+    python scripts/05_concept_organization.py --source spliece --no-radlex
+    python scripts/05_concept_organization.py --source spliece --n-clusters 25
 """
 from __future__ import annotations
 

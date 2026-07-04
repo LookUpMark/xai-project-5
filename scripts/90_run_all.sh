@@ -35,20 +35,20 @@ echo "=== 00 vocabulary ===";          "$PY" scripts/00_build_vocab.py
 if [ "$SKIP_EXTRACT" = 0 ]; then
   echo "=== 01 embeddings (512-d) ==="; "$PY" scripts/01_extract_embeddings.py
 fi
-echo "=== 10 baseline SAE ===";        "$PY" scripts/10_baseline.py $(train_flag)
-echo "=== 11 Path A hidden SAE ===";   "$PY" scripts/11_hidden.py --skip-extract $(train_flag)
-echo "=== 20 SPLiCE ===";              "$PY" scripts/20_spliece.py
-echo "=== 30 concept organization ==="
+echo "=== 02 baseline SAE ===";        "$PY" scripts/02_baseline.py $(train_flag)
+echo "=== 03 Path A hidden SAE ===";   "$PY" scripts/03_hidden.py --skip-extract $(train_flag)
+echo "=== 04 SPLiCE ===";              "$PY" scripts/04_spliece.py
+echo "=== 05 concept organization ==="
 for src in spliece sae-baseline sae-hidden; do
-  "$PY" scripts/30_concept_organization.py --source "$src"
+  "$PY" scripts/05_concept_organization.py --source "$src"
 done
-echo "=== 40 null explanations ==="
-"$PY" scripts/40_generate_null.py --k 13
-"$PY" scripts/40_generate_null.py --k 5 --output results/iu_xray/null_k5
+echo "=== 06 null explanations ==="
+"$PY" scripts/06_generate_null.py --k 13
+"$PY" scripts/06_generate_null.py --k 5 --output results/iu_xray/null_k5
 if [ "$SKIP_JUDGE" = 0 ]; then
-  echo "=== 41 LLM judge (needs GPU + HF creds) ==="
+  echo "=== 07 LLM judge (needs GPU + HF creds) ==="
   for m in baseline hidden spliece null_k5 null_k13; do
-    "$PY" scripts/41_judge.py --input "$m"
+    "$PY" scripts/07_judge.py --input "$m"
   done
 fi
 echo "=== pipeline complete ==="

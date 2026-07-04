@@ -1,4 +1,4 @@
-"""11_hidden.py — orchestrate the full Path A (SAE on 768-d hidden state) pipeline.
+"""03_hidden.py — orchestrate the full Path A (SAE on 768-d hidden state) pipeline.
 
 Thin driver over the existing ``src/sae_hidden`` stage ``run()`` functions (each
 already writes its own ``REPORT_*.md``). Adds: standard vs augmented variant,
@@ -9,10 +9,10 @@ Reuses stages unchanged via ``sae_hidden.variant.hidden_variant`` (swaps
 on exit).
 
 Usage:
-    python scripts/11_hidden.py                              # standard, full
-    python scripts/11_hidden.py --variant augmented          # augmented (slow extract)
-    python scripts/11_hidden.py --skip-extract --skip-train  # regen reports from cache
-    python scripts/11_hidden.py --dict-size 1024 --k 16 --tag sm1024
+    python scripts/03_hidden.py                              # standard, full
+    python scripts/03_hidden.py --variant augmented          # augmented (slow extract)
+    python scripts/03_hidden.py --skip-extract --skip-train  # regen reports from cache
+    python scripts/03_hidden.py --dict-size 1024 --k 16 --tag sm1024
 """
 from __future__ import annotations
 

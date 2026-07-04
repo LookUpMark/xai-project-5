@@ -1,4 +1,4 @@
-"""10_baseline.py — orchestrate the full baseline (512-d SAE) pipeline.
+"""02_baseline.py — orchestrate the full baseline (512-d SAE) pipeline.
 
 Thin driver over the existing ``src/autoencoder`` stage ``run()`` / ``main()``
 functions (each writes its own JSON). Adds: optional hyperparameter overrides,
@@ -11,9 +11,9 @@ variant, restores on exit). The default run writes results to
 ``--skip-train`` reuses an existing retrain with zero waste.
 
 Usage:
-    python scripts/10_baseline.py                          # full (train + stages)
-    python scripts/10_baseline.py --skip-train             # regen naming/stability/explain from cached models
-    python scripts/10_baseline.py --dict-size 1024 --k 16 --tag sm1024
+    python scripts/02_baseline.py                          # full (train + stages)
+    python scripts/02_baseline.py --skip-train             # regen naming/stability/explain from cached models
+    python scripts/02_baseline.py --dict-size 1024 --k 16 --tag sm1024
 """
 from __future__ import annotations
 

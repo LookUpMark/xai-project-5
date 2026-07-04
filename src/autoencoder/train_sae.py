@@ -5,7 +5,7 @@ Library module with the SAE-training building blocks: group-aware train/test
 split, modality-gap computation, and per-seed Top-K SAE training + held-out
 sanity checks.
 
-The CLI entry point lives in ``scripts/10_baseline.py`` (argparse-driven;
+The CLI entry point lives in ``scripts/02_baseline.py`` (argparse-driven;
 can override hyperparameters without editing ``config.py``). This module is
 imported by that script and by the baseline notebooks, so its functions read
 the ``config`` singletons at call time.
@@ -15,7 +15,7 @@ Prerequisites:
       (output of embedding_extraction/extract_embeddings.py)
 
 Run:
-    python scripts/10_baseline.py
+    python scripts/02_baseline.py
 """
 
 import sys
@@ -28,7 +28,7 @@ import config
 import utils
 from autoencoder.sae_module import SAEManager
 # NOTE: autoencoder.tracking was removed (dead-code cut 6c53328); the wandb hooks
-# were never called here, so the import is gone. scripts/10_baseline.py still
+# were never called here, so the import is gone. scripts/02_baseline.py still
 # references tracking and is broken until restored/stubbed — it is off the judge path.
 
 logger = utils.setup_logging(__name__)
@@ -127,4 +127,4 @@ def train_single(seed: int) -> Path:
 
 
 # The CLI entry point (argparse, hyperparameter overrides) lives in
-# scripts/10_baseline.py, which imports the functions above.
+# scripts/02_baseline.py, which imports the functions above.

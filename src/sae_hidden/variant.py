@@ -2,7 +2,7 @@
 
 One context manager swaps the module-global ``config.sae_hidden`` (frozen, so it is
 replaced wholesale) and the ``config.paths.hidden_*`` I/O attributes, restoring
-both on exit. This lets ``scripts/11_hidden.py`` and the ablation harness drive
+both on exit. This lets ``scripts/03_hidden.py`` and the ablation harness drive
 the existing ``src/sae_hidden`` stage ``run()`` functions verbatim under a different
 dict_size / k / steps or a different output directory (standard vs augmented, or a
 per-preset ablation dir).

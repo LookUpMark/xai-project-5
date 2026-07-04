@@ -512,6 +512,52 @@ class SpliCEConfig:
     output_dir: Path = field(default_factory=lambda: paths.results_dir / "spliece")
 
 
+@dataclass(frozen=True)
+class OrganizeConfig:
+    """Configuration for the concept-organization extension (brief §3).
+
+    Clusters discovered concepts (SPLiCE or SAE) by cosine similarity of their
+    RadLex text embeddings, annotates each cluster with a best-effort RadLex
+    anatomical ancestor, and re-expresses per-image explanations as concept
+    families with a redundancy metric. Method-agnostic and dataset-portable.
+
+    Args:
+        n_clusters: Target number of clusters. If None and distance_threshold is
+            None, defaults to max(2, round(sqrt(M))) at runtime.
+        distance_threshold: Agglomerative linkage-distance cut. Mutually exclusive
+            with n_clusters (enforced in __post_init__).
+        linkage: Agglomerative linkage criterion ('average' | 'complete' | 'single').
+        metric: Distance metric; 'cosine' is the only supported value for this design.
+        radlex_csv_path: Path to the RadLex ontology CSV (for ancestor annotation).
+        vocab_path: Path to vocabulary.json (list of {"term": str, ...} dicts).
+        vocab_emb_path: Path to text_vocab_embeddings.pt (V, 512).
+        output_dir: Directory for output artifacts.
+    """
+
+    n_clusters: Optional[int] = None
+    distance_threshold: Optional[float] = None
+    linkage: str = "average"
+    metric: str = "cosine"
+    radlex_csv_path: Path = field(default_factory=lambda: paths.data_dir / "radlex.csv")
+    vocab_path: Path = field(default_factory=lambda: paths.vocab_labels_path)
+    vocab_emb_path: Path = field(default_factory=lambda: paths.vocab_embeddings_path)
+    output_dir: Path = field(default_factory=lambda: paths.results_dir / "concept_organization")
+
+    def __post_init__(self):
+        if self.n_clusters is not None and self.distance_threshold is not None:
+            raise ValueError(
+                "n_clusters and distance_threshold are mutually exclusive in OrganizeConfig"
+            )
+        if self.linkage not in {"average", "complete", "single"}:
+            raise ValueError(
+                f"OrganizeConfig.linkage must be average|complete|single, got {self.linkage}"
+            )
+        if self.metric != "cosine":
+            raise ValueError(
+                f"OrganizeConfig.metric must be 'cosine', got {self.metric}"
+            )
+
+
 # ── Instantiate configs ──────────────────────────────────────────────
 
 augmentation = AugmentationConfig()
@@ -526,6 +572,7 @@ explanation = ExplanationConfig()
 judge = JudgeConfig()
 hardware = HardwareConfig()
 spliece = SpliCEConfig()
+organize = OrganizeConfig()
 
 # Backward compatibility alias
 DEVICE = hardware.device

@@ -1,4 +1,4 @@
-"""run_baseline_ablation.py — baseline (512-d) hyperparameter sweep (dict_size x k).
+"""08_baseline_ablation.py — baseline (512-d) hyperparameter sweep (dict_size x k).
 
 Runs ``train -> naming -> stability`` for each preset under ``baseline_variant``,
 **reusing the cached ``embeddings/standard/`` tensors** (dict_size/k don't change
@@ -6,7 +6,7 @@ the input). Harvests dead%, reconstruction cosine, L0, naming mean, and
 cross-seed mean Jaccard into one comparison report.
 
 Usage:
-    python scripts/run_baseline_ablation.py
+    python scripts/08_baseline_ablation.py
 """
 from __future__ import annotations
 

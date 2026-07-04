@@ -1,4 +1,4 @@
-"""run_path_a_ablation.py — Path A hyperparameter sweep (dict_size x k).
+"""09_hidden_ablation.py — Path A hyperparameter sweep (dict_size x k).
 
 Runs the existing ``train -> naming -> stability`` stages under ``hidden_variant``
 for each preset, **reusing the cached ``embeddings/standard_hidden/`` tensors**
@@ -6,7 +6,7 @@ for each preset, **reusing the cached ``embeddings/standard_hidden/`` tensors**
 and matched-stability into one comparison report.
 
 Usage:
-    python scripts/run_path_a_ablation.py
+    python scripts/09_hidden_ablation.py
 """
 from __future__ import annotations
 

@@ -2,7 +2,7 @@
 
 One context manager swaps the module-global ``config.sae`` (frozen, so replaced
 wholesale) and the ``config.paths.{models,results,figures}_dir`` attributes,
-restoring both on exit. This lets ``scripts/run_baseline.py`` and the ablation
+restoring both on exit. This lets ``scripts/10_baseline.py`` and the ablation
 harness drive the existing ``src/autoencoder`` stage ``run()`` / ``main()``
 functions verbatim under a different dict_size / k / steps or an isolated output
 directory (per-tag or per-preset ablation).

@@ -1,5 +1,5 @@
 """
-run_vocab_building_pipeline.py — Build CXR-relevant medical vocabulary from RadLex.
+00_build_vocab.py — Build CXR-relevant medical vocabulary from RadLex.
 
 Pipeline:
     1. Load RadLex CSV (~47K terms) and filter obsolete entries
@@ -10,8 +10,8 @@ Pipeline:
     6. Save vocabulary JSON and pre-computed embeddings
 
 Usage:
-    python scripts/run_vocab_building_pipeline.py
-    python scripts/run_vocab_building_pipeline.py --csv data/radlex.csv --topk 300 --device cuda
+    python scripts/00_build_vocab.py
+    python scripts/00_build_vocab.py --csv data/radlex.csv --topk 300 --device cuda
 """
 import argparse
 import sys

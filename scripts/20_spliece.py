@@ -1,13 +1,13 @@
-"""run_spliece.py — orchestrate the full SPLiCE (Path B) sparse decomposition pipeline.
+"""20_spliece.py — orchestrate the full SPLiCE (Path B) sparse decomposition pipeline.
 
 Thin driver over ``src.concept_discovery.spliece`` that runs deterministic sparse
 decomposition on the RadLex vocabulary. No training, no seeds, CPU-only.
 
 Usage:
-    python scripts/run_spliece.py                              # standard, full
-    python scripts/run_spliece.py --no-gap-correction         # skip modality gap correction
-    python scripts/run_spliece.py --k 64 --tag high-k         # custom k with isolation
-    python scripts/run_spliece.py --analyze                   # run vocabulary coverage analysis
+    python scripts/20_spliece.py                              # standard, full
+    python scripts/20_spliece.py --no-gap-correction         # skip modality gap correction
+    python scripts/20_spliece.py --k 64 --tag high-k         # custom k with isolation
+    python scripts/20_spliece.py --analyze                   # run vocabulary coverage analysis
 """
 from __future__ import annotations
 

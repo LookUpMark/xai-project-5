@@ -1,14 +1,14 @@
-"""run_concept_organization.py — orchestrate the concept-organization extension.
+"""30_concept_organization.py — orchestrate the concept-organization extension.
 
 Thin driver over ``src.concept_discovery.organize``. Clusters discovered concepts
 (SPLiCE or SAE) by RadLex text-embedding cosine, annotates clusters with a
 best-effort RadLex ancestor, and emits structured per-image explanations.
 
 Usage:
-    python scripts/run_concept_organization.py --source spliece
-    python scripts/run_concept_organization.py --source sae-hidden --tag run2
-    python scripts/run_concept_organization.py --source spliece --no-radlex
-    python scripts/run_concept_organization.py --source spliece --n-clusters 25
+    python scripts/30_concept_organization.py --source spliece
+    python scripts/30_concept_organization.py --source sae-hidden --tag run2
+    python scripts/30_concept_organization.py --source spliece --no-radlex
+    python scripts/30_concept_organization.py --source spliece --n-clusters 25
 """
 from __future__ import annotations
 
@@ -135,8 +135,10 @@ def _write_report(output_dir: Path, args, cfg, metrics, inputs, total) -> None:
 def main() -> None:
     args = parse_args()
     root = config.paths.project_root
-    output_dir = config.paths.results_dir / f"concept_organization_{args.tag}" if args.tag \
-        else config.paths.results_dir / "concept_organization"
+    # Output dir always carries the source (or an explicit --tag), so every
+    # concept_organization_* dir is self-describing (no ambiguous unsuffixed dir).
+    tag = args.tag or args.source
+    output_dir = config.paths.results_dir / f"concept_organization_{tag}"
 
     defaults = _SOURCE_DEFAULTS[args.source]
     explanations_path = args.explanations or defaults["explanations"]()

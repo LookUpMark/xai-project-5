@@ -1,14 +1,14 @@
-"""run_extraction.py — Extract BiomedCLIP visual + text embeddings (CLI).
+"""01_extract_embeddings.py — Extract BiomedCLIP visual + text embeddings (CLI).
 
 Prerequisites:
     - The active dataset is staged (e.g. ``data/iu_xray/...`` or
       ``data/padchest/...``); see ``xai_datasets/download_*.py``.
 
 Usage:
-    python scripts/run_extraction.py                           # IU X-Ray, defaults
-    python scripts/run_extraction.py --dataset padchest        # PadChest
-    python scripts/run_extraction.py --dataset padchest --skip-text --batch-size 64
-    python scripts/run_extraction.py --augmentation            # augmented views
+    python scripts/01_extract_embeddings.py                           # IU X-Ray, defaults
+    python scripts/01_extract_embeddings.py --dataset padchest        # PadChest
+    python scripts/01_extract_embeddings.py --dataset padchest --skip-text --batch-size 64
+    python scripts/01_extract_embeddings.py --augmentation            # augmented views
 """
 
 from __future__ import annotations

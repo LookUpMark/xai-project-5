@@ -9,7 +9,7 @@ Three layers:
   - Adapters (from_spliece_explanations / from_sae_explanations) -> ConceptSet
   - Core (cluster_concepts / annotate_radlex / build_structured_explanations /
     compute_metrics / run) operates only on ConceptSet
-  - scripts/run_concept_organization.py drives end-to-end
+  - scripts/30_concept_organization.py drives end-to-end
 
 Standalone output: does NOT feed the LLM judge.
 """

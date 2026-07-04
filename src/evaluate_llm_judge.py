@@ -399,6 +399,8 @@ def save_checkpoint(records: list[dict]):
 def evaluate(
     resume: bool = False,
     batch_save_every: int = 25,
+    explanations_path: Path | None = None,
+    output_tag: str | None = None,
 ) -> Path:
     """
     Run the LLM judge on all (concept, report) pairs from sample_explanations.json.
@@ -411,6 +413,10 @@ def evaluate(
 
     Args:
         resume: if True, skip already-evaluated pairs from checkpoint.
+        explanations_path: explicit sample_explanations.json to judge (e.g. for
+            ``--input spliece``). ``None`` => the active dataset's baseline dir.
+        output_tag: names the output CSV/checkpoint (e.g. ``aligned_scores_spliece.csv``).
+            ``None`` => the legacy ``aligned_scores.csv`` name.
         batch_save_every: save checkpoint every N evaluations.
 
     Returns:
@@ -425,10 +431,20 @@ def evaluate(
     spec: DatasetSpec = get_dataset(config.active_dataset.name)
     safe_model = MODEL_NAME.replace("/", "_").replace(":", "_")
     JUDGE_PROMPT = spec.judge_prompt
-    EXPLANATIONS_PATH = config.paths.baseline_results_dir / "sample_explanations.json"
-    OUTPUT_CSV_PATH = config.paths.results_dir / "aligned_scores.csv"
-    CHECKPOINT_PATH = config.paths.results_dir / f"judge_checkpoint_{safe_model}.json"
-    SCORES_JSON_PATH = config.paths.results_dir / f"judge_scores_{safe_model}.json"
+    EXPLANATIONS_PATH = explanations_path or (
+        config.paths.baseline_results_dir / "sample_explanations.json"
+    )
+    OUTPUT_CSV_PATH = config.paths.results_dir / (
+        f"aligned_scores_{output_tag}.csv" if output_tag else "aligned_scores.csv"
+    )
+    CHECKPOINT_PATH = config.paths.results_dir / (
+        f"judge_checkpoint_{output_tag}_{safe_model}.json"
+        if output_tag else f"judge_checkpoint_{safe_model}.json"
+    )
+    SCORES_JSON_PATH = config.paths.results_dir / (
+        f"judge_scores_{output_tag}_{safe_model}.json"
+        if output_tag else f"judge_scores_{safe_model}.json"
+    )
     logger.info(
         "Active dataset: %s (%s) | model=%s", spec.name, spec.language, MODEL_NAME
     )
@@ -678,6 +694,16 @@ Examples:
         help="Save checkpoint every N evaluations (default: 25)",
     )
     parser.add_argument(
+        "--input",
+        type=str,
+        default=None,
+        choices=["baseline", "hidden", "spliece", "null_k5", "null_k13"],
+        help=(
+            "Which method's sample_explanations.json to judge. Names the output "
+            "aligned_scores_<input>.csv. Default: legacy baseline path + aligned_scores.csv."
+        ),
+    )
+    parser.add_argument(
         "--dataset",
         type=str,
         default=config.active_dataset.name,
@@ -726,9 +752,22 @@ def main():
         args.dataset, MODEL_NAME, USE_LM_STUDIO,
     )
 
+    # Map --input to the method's sample_explanations.json + a namespaced output tag.
+    input_paths = {
+        "baseline": config.paths.baseline_results_dir / "sample_explanations.json",
+        "hidden":   config.paths.results_dir / "sae_hidden" / "sample_explanations.json",
+        "spliece":  config.paths.results_dir / "spliece" / "sample_explanations.json",
+        "null_k5":  config.paths.results_dir / "null_k5" / "sample_explanations.json",
+        "null_k13": config.paths.results_dir / "null" / "sample_explanations.json",
+    }
+    explanations_path = input_paths.get(args.input) if args.input else None
+    output_tag = args.input  # None => legacy aligned_scores.csv
+
     output_csv = evaluate(
         resume=args.resume,
         batch_save_every=args.checkpoint_every,
+        explanations_path=explanations_path,
+        output_tag=output_tag,
     )
     logger.info("Done. Results at: %s", output_csv)
 

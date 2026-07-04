@@ -111,11 +111,24 @@ def parse_args() -> argparse.Namespace:
         default=config.hardware.device,
         help=f"Device (default: {config.hardware.device}).",
     )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default=config.active_dataset.name,
+        help=(
+            f"Active dataset (default: {config.active_dataset.name}); re-routes "
+            "embedding paths to embeddings/<dataset>/. Must be a key in "
+            "xai_datasets.spec.DATASETS (e.g. iu_xray, padchest)."
+        ),
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+
+    # Re-route embedding paths to the selected dataset BEFORE any path is read.
+    config.select_dataset(args.dataset)
 
     # Apply overrides by rebuilding the frozen, __post_init__-validated
     # singletons (SAEConfig/TrainingConfig are frozen, so we reconstruct them

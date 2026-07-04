@@ -23,6 +23,10 @@ import time
 from pathlib import Path
 from typing import Literal, TypedDict
 
+# Repo root on sys.path so xai_datasets.spec is importable when run as
+# `python src/evaluate_llm_judge.py` (src/ is already sys.path[0]).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from langgraph.graph import StateGraph, END
 
 import pandas as pd
@@ -35,61 +39,30 @@ from transformers import (
     pipeline,
 )
 
-from config import paths, judge as judge_cfg, training as training_cfg
+import config
+from config import judge as judge_cfg, training as training_cfg
 from utils import setup_logging, set_global_seed
+from xai_datasets.spec import DatasetSpec, get_dataset
 
 logger = setup_logging(__name__)
 
-# Paths
-EXPLANATIONS_PATH = paths.baseline_results_dir / "sample_explanations.json"
-REPORTS_CSV_PATH = paths.data_dir / "iu_xray" / "indiana_reports.csv"
-PROJECTIONS_CSV_PATH = paths.data_dir / "iu_xray" / "indiana_projections.csv"
-OUTPUT_CSV_PATH = paths.results_dir / "aligned_scores.csv"
-CHECKPOINT_PATH = paths.results_dir / f"judge_checkpoint_{judge_cfg.model_name.replace('/', '_')}.json"
-SCORES_JSON_PATH = paths.results_dir / f"judge_scores_{judge_cfg.model_name.replace('/', '_')}.json"
-
-# Model config — sourced from config.judge 
+# Model config — sourced from config.judge (overridable via --model).
 MODEL_NAME = judge_cfg.model_name
 USE_LM_STUDIO = False
 LM_STUDIO_URL = "http://localhost:1234/v1"
 
-# Prompt template — includes Rules block mapping verbs to labels 
-JUDGE_PROMPT_TEMPLATE = """You are a clinical AI evaluator specializing in radiology.
+# Per-dataset paths + prompt. (Re)resolved by evaluate() from the active
+# DatasetSpec after config.select_dataset(); the helpers below read these module
+# globals, so evaluate() MUST set them before any checkpoint/score call.
+JUDGE_PROMPT: str = ""
+EXPLANATIONS_PATH: Path = Path()
+OUTPUT_CSV_PATH: Path = Path()
+CHECKPOINT_PATH: Path = Path()
+SCORES_JSON_PATH: Path = Path()
 
-Given a radiology report and an AI-generated pseudo-report based on discovered concepts,
-determine whether the original report supports the findings in the pseudo-report.
-Focus your evaluation primarily on the **dominant concept** mentioned at the end of the pseudo-report.
-
-Rules:
-- SUPPORTS (Aligned): The original report explicitly mentions or implies the findings/concepts in the pseudo-report.
-- CONTRADICTS (Unaligned): 
-    1. The original report explicitly denies these concepts.
-    2. OR the pseudo-report mentions a pathology/abnormality (e.g., pneumonia, mass, fracture) and the original report does NOT mention it. In radiology, unmentioned pathologies are assumed absent.
-- AMBIGUOUS (Uncertain): The pseudo-report mentions normal anatomical structures or artifacts (e.g., ribs, spine, devices) that might be in the image but are simply not mentioned by the radiologist because they are normal or irrelevant.
-
-Examples:
-
-Radiology report: "There is an increased opacity in the right upper lobe with associated atelectasis."
-AI-generated pseudo-report: "The model identifies the following visual concepts in this radiograph: bronchopulmonary lymph node, flexible Spule, twin peak sign. The dominant concept is 'flexible Spule' (activation=0.161)."
-Answer format: The report discusses lung opacities, but the dominant concept flexible Spule (coil) is a completely unrelated artifact. | Verdict: Uncertain
-
-Radiology report: "The heart is top normal in size. The lungs are clear. No acute disease."
-AI-generated pseudo-report: "The model identifies the following visual concepts in this radiograph: cardiomegaly, strap muscle of neck, thin rim. The dominant concept is 'cardiomegaly' (activation=0.180)."
-Answer format: The report states the heart is normal size, which explicitly contradicts cardiomegaly (enlarged heart). | Verdict: Unaligned
-
-Radiology report: "There is an increased opacity in the right upper lobe with possible mass."
-AI-generated pseudo-report: "The model identifies the following visual concepts in this radiograph: mass lesion, navicular fat stripe sign, bare orbit sign. The dominant concept is 'mass lesion' (activation=0.150)."
-Answer format: The report explicitly mentions a possible mass, which aligns with the dominant concept of a mass lesion. | Verdict: Aligned
-
-Now evaluate the following:
-
-Radiology report:
-"{report}"
-
-AI-generated pseudo-report:
-"{pseudo_report}"
-
-Answer format: <max 25 words explanation> | Verdict: <Aligned/Unaligned/Uncertain>"""
+# The judge prompt is dataset-specific (English chest for IU X-Ray, Spanish for
+# PadChest) and is loaded from the active DatasetSpec (``JUDGE_PROMPT``) inside
+# evaluate(). It exposes ``{report}`` and ``{pseudo_report}`` placeholders.
 
 # Appended to the prompt on retries to reinforce the expected format
 RETRY_SUFFIX = (
@@ -203,7 +176,7 @@ def build_judge_graph():
 
     # --- Node: prepare_prompt ---
     def prepare_prompt(state: JudgeState) -> dict:
-        prompt = JUDGE_PROMPT_TEMPLATE.format(
+        prompt = JUDGE_PROMPT.format(
             report=state["report"],
             pseudo_report=state["pseudo_report"],
         )
@@ -426,95 +399,59 @@ def save_checkpoint(records: list[dict]):
 def evaluate(
     resume: bool = False,
     batch_save_every: int = 25,
-    explanations_path: Path | None = None,
-    reports_path: Path | None = None,
-    projections_path: Path | None = None,
-    output_path: Path | None = None,
 ) -> Path:
     """
     Run the LLM judge on all (concept, report) pairs from sample_explanations.json.
 
+    Reads the active dataset's judge prompt + report lookup from the DatasetSpec
+    (resolved via ``config.active_dataset.name`` after ``config.select_dataset``)
+    and routes all I/O — explanations in, scores/checkpoints out — under
+    ``results/<dataset>/``. Call ``config.select_dataset(name)`` (or the CLI
+    ``--dataset`` flag) before this so the paths point at the right dataset.
+
     Args:
         resume: if True, skip already-evaluated pairs from checkpoint.
         batch_save_every: save checkpoint every N evaluations.
-        explanations_path: Override for the explanations JSON path.
-            Defaults to ``results/baseline/sample_explanations.json``.
-        reports_path: Override for the reports CSV path.
-            Defaults to ``data/iu_xray/indiana_reports.csv``.
-        projections_path: Override for the projections CSV path.
-            Defaults to ``data/iu_xray/indiana_projections.csv``.
-        output_path: Override for the output CSV path.
-            Defaults to ``results/aligned_scores.csv``.
 
     Returns:
         Path to the saved output CSV.
     """
-    # Set all random seeds for full reproducibility before any
-    # model inference.  Reuses the existing helper and primary_seed.
+    global JUDGE_PROMPT, EXPLANATIONS_PATH, OUTPUT_CSV_PATH, CHECKPOINT_PATH, SCORES_JSON_PATH
+
     set_global_seed(training_cfg.primary_seed)
     logger.info("Global seed set to %d", training_cfg.primary_seed)
 
-    eff_explanations = explanations_path or EXPLANATIONS_PATH
-    eff_reports = reports_path or REPORTS_CSV_PATH
-    eff_projections = projections_path or PROJECTIONS_CSV_PATH
-    eff_output = output_path or OUTPUT_CSV_PATH
+    # --- Resolve the active dataset spec + per-dataset paths/prompt ---
+    spec: DatasetSpec = get_dataset(config.active_dataset.name)
+    safe_model = MODEL_NAME.replace("/", "_").replace(":", "_")
+    JUDGE_PROMPT = spec.judge_prompt
+    EXPLANATIONS_PATH = config.paths.baseline_results_dir / "sample_explanations.json"
+    OUTPUT_CSV_PATH = config.paths.results_dir / "aligned_scores.csv"
+    CHECKPOINT_PATH = config.paths.results_dir / f"judge_checkpoint_{safe_model}.json"
+    SCORES_JSON_PATH = config.paths.results_dir / f"judge_scores_{safe_model}.json"
+    logger.info(
+        "Active dataset: %s (%s) | model=%s", spec.name, spec.language, MODEL_NAME
+    )
 
-    # --- Load inputs ---
-    if not eff_explanations.exists():
-        logger.error("Explanations file not found: %s", eff_explanations)
-        logger.error("Generate explanations first.")
+    if not JUDGE_PROMPT:
+        raise ValueError(
+            f"Dataset {spec.name!r} has no judge_prompt — set it in its DatasetSpec."
+        )
+
+    # --- Load explanations + the dataset's report lookup ---
+    if not EXPLANATIONS_PATH.exists():
+        logger.error("Explanations file not found: %s", EXPLANATIONS_PATH)
+        logger.error("Run generate_explanations for dataset %r first.", spec.name)
         sys.exit(1)
 
-    if not eff_reports.exists():
-        logger.error("Reports CSV not found: %s", eff_reports)
-        logger.error("Ensure data/iu_xray/indiana_reports.csv exists.")
-        sys.exit(1)
-
-    if not eff_projections.exists():
-        logger.error("Projections CSV not found: %s", eff_projections)
-        logger.error("Ensure data/iu_xray/indiana_projections.csv exists.")
-        sys.exit(1)
-
-    with open(eff_explanations, "r") as f:
+    with open(EXPLANATIONS_PATH, "r") as f:
         explanations = json.load(f)
-
-    reports_df = pd.read_csv(eff_reports)
-    projections_df = pd.read_csv(eff_projections)
     logger.info("Loaded %d sample explanations", len(explanations))
-    logger.info("Loaded %d reports, %d projections", len(reports_df), len(projections_df))
 
-    # Build a fast lookup: filename → report text.
-    #
-    # The explanations JSON uses image filenames (e.g. "3222_IM-1522-2001.dcm.png")
-    # as image_id.  The indiana_reports.csv uses a numeric `uid` key and stores
-    # the report text in `findings` and `impression` columns.  We bridge them
-    # via indiana_projections.csv which maps filename → uid.
-    #
-    # Step 1: Build uid → combined report text (findings + impression)
-    def _combine_report(row) -> str:
-        parts = []
-        if pd.notna(row.get("findings")):
-            parts.append(str(row["findings"]).strip())
-        if pd.notna(row.get("impression")):
-            parts.append(str(row["impression"]).strip())
-        return " ".join(parts) if parts else ""
-
-    reports_df["combined_text"] = reports_df.apply(_combine_report, axis=1)
-    uid_to_report = dict(
-        zip(reports_df["uid"].astype(str), reports_df["combined_text"])
+    report_lookup = spec.build_report_lookup()
+    logger.info(
+        "Loaded %d report-lookup entries (dataset=%s)", len(report_lookup), spec.name
     )
-
-    # Step 2: Build filename → uid mapping from projections
-    filename_to_uid = dict(
-        zip(projections_df["filename"], projections_df["uid"].astype(str))
-    )
-
-    # Step 3: Build the final filename → report text lookup
-    report_lookup = {}
-    for filename, uid in filename_to_uid.items():
-        report_text = uid_to_report.get(uid)
-        if report_text:
-            report_lookup[filename] = report_text
 
     # --- Resume support ---
     if resume:
@@ -528,18 +465,15 @@ def evaluate(
     # --- Build evaluation pairs ---
     eval_pairs = []
     skipped_no_report = 0
-    skipped_image_ids: list[str] = []  # track which images were dropped
     for item in explanations:
-        # image_id in the explanations JSON is the image filename
-        # (e.g. "3222_IM-1522-2001.dcm.png")
+        # image_id is the image filename used as the sidecar/lookup key
+        # (IU X-Ray: "3222_IM-1522-2001.dcm.png"; PadChest: "..._rarh4r.png").
         image_id = item.get("image_id", "")
         report = report_lookup.get(image_id)
         if not report:
             skipped_no_report += 1
-            skipped_image_ids.append(image_id)
             continue
 
-        # We evaluate the pseudo-report
         pseudo_report = item.get("pseudo_report", "")
         if not pseudo_report:
             continue
@@ -561,7 +495,7 @@ def evaluate(
 
     if total == 0:
         logger.info("Nothing to evaluate. Saving final results.")
-        return _save_final(records, eff_output)
+        return _save_final(records, OUTPUT_CSV_PATH)
 
     # --- Load model and compile judge graph ---
     logger.info("Building LangGraph judge (model=%s)...", MODEL_NAME)
@@ -613,7 +547,7 @@ def evaluate(
 
     # --- Save final results ---
     save_checkpoint(records)
-    output_csv = _save_final(records, eff_output)
+    output_csv = _save_final(records, OUTPUT_CSV_PATH)
 
     # --- Print summary statistics ---
     _print_summary(records, elapsed, errors)
@@ -744,6 +678,16 @@ Examples:
         help="Save checkpoint every N evaluations (default: 25)",
     )
     parser.add_argument(
+        "--dataset",
+        type=str,
+        default=config.active_dataset.name,
+        help=(
+            f"Active dataset (default: {config.active_dataset.name}); must be a key "
+            "in xai_datasets.spec.DATASETS (e.g. iu_xray, padchest). Re-routes "
+            "results/checkpoints to results/<dataset>/."
+        ),
+    )
+    parser.add_argument(
         "--lm-studio",
         action="store_true",
         help="Use LM Studio (OpenAI compatible endpoint at localhost:1234) instead of local transformers",
@@ -767,24 +711,20 @@ def main():
     args = parse_args()
 
     global MODEL_NAME, USE_LM_STUDIO, LM_STUDIO_URL
-    global CHECKPOINT_PATH, SCORES_JSON_PATH
-    
+
     if args.model:
         MODEL_NAME = args.model
-        safe_name = MODEL_NAME.replace('/', '_').replace(':', '_')
-        CHECKPOINT_PATH = paths.results_dir / f"judge_checkpoint_{safe_name}.json"
-        SCORES_JSON_PATH = paths.results_dir / f"judge_scores_{safe_name}.json"
-        
     if args.lm_studio:
         USE_LM_STUDIO = True
         LM_STUDIO_URL = args.lm_studio_url
 
-    logger.info("LLM Judge — model=%s (LM Studio: %s)", MODEL_NAME, USE_LM_STUDIO)
-    logger.info("  Explanations : %s", EXPLANATIONS_PATH)
-    logger.info("  Reports      : %s", REPORTS_CSV_PATH)
-    logger.info("  Projections  : %s", PROJECTIONS_CSV_PATH)
-    logger.info("  Output       : %s", OUTPUT_CSV_PATH)
-    logger.info("  Checkpoint   : %s", CHECKPOINT_PATH)
+    # Re-route paths to the selected dataset BEFORE evaluate() resolves them.
+    config.select_dataset(args.dataset)
+
+    logger.info(
+        "LLM Judge — dataset=%s model=%s (LM Studio: %s)",
+        args.dataset, MODEL_NAME, USE_LM_STUDIO,
+    )
 
     output_csv = evaluate(
         resume=args.resume,

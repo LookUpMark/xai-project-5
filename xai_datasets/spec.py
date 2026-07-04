@@ -25,9 +25,18 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from xai_datasets.iu_xray import (
+    IU_XRAY_JUDGE_PROMPT,
     IUXrayImageDataset,
     IUXrayTextDataset,
+    build_iu_xray_report_lookup,
     study_key_from_basename,
+)
+from xai_datasets.padchest import (
+    PADCHEST_JUDGE_PROMPT,
+    PadChestImageDataset,
+    PadChestTextDataset,
+    _load_padchest_reports,
+    make_padchest_group_key,
 )
 
 # Maps an image-id basename to a group key so the train/test split keeps every
@@ -65,6 +74,7 @@ class DatasetSpec:
 # IU X-Ray (chest X-ray, English) — the existing reference dataset.
 # ---------------------------------------------------------------------------
 _REPO_ROOT = Path(__file__).resolve().parent.parent
+_IU_XRAY_DIR = _REPO_ROOT / "data" / "iu_xray"
 
 IU_XRAY_SPEC = DatasetSpec(
     name="iu_xray",
@@ -72,17 +82,44 @@ IU_XRAY_SPEC = DatasetSpec(
     domain="chest_xray",
     image_dataset_cls=IUXrayImageDataset,
     text_dataset_cls=IUXrayTextDataset,
-    image_dir=_REPO_ROOT / "data" / "iu_xray" / "images" / "images_normalized",
-    text_source=_REPO_ROOT / "data" / "iu_xray" / "reports",
+    image_dir=_IU_XRAY_DIR / "images" / "images_normalized",
+    # text_source is the iu_xray ROOT: indiana_reports.csv + indiana_projections.csv
+    # live here (the reports/ subdir is empty); IUXrayTextDataset reads
+    # <text_source>/indiana_reports.csv and the 2-hop lookup reads both CSVs.
+    text_source=_IU_XRAY_DIR,
     make_group_key_fn=lambda: study_key_from_basename,
-    # judge_prompt / build_report_lookup: populated in Phase 2/3 when
-    # evaluate_llm_judge.py is refactored to consume the spec.
+    judge_prompt=IU_XRAY_JUDGE_PROMPT,
+    build_report_lookup=lambda: build_iu_xray_report_lookup(_IU_XRAY_DIR),
+)
+
+
+# ---------------------------------------------------------------------------
+# PadChest (chest X-ray, Spanish) — Phase 2 scale-test dataset.
+# ---------------------------------------------------------------------------
+_PADCHEST_DIR = _REPO_ROOT / "data" / "padchest"
+_PADCHEST_CSV = _PADCHEST_DIR / "PADCHEST_chest_x_ray_images_labels_160K_01.02.19.csv"
+_PADCHEST_IMAGES = _PADCHEST_DIR / "images"
+
+PADCHEST_SPEC = DatasetSpec(
+    name="padchest",
+    language="es",
+    domain="chest_xray",
+    image_dataset_cls=PadChestImageDataset,
+    text_dataset_cls=PadChestTextDataset,
+    image_dir=_PADCHEST_IMAGES,
+    text_source=_PADCHEST_CSV,
+    # PatientID is a CSV column (not the filename prefix) -> closure lookup.
+    make_group_key_fn=lambda: make_padchest_group_key(_PADCHEST_CSV),
+    # Direct ImageID -> Report join (ImageID carries ".png", like the sidecar).
+    build_report_lookup=lambda: _load_padchest_reports(_PADCHEST_CSV, _PADCHEST_IMAGES),
+    judge_prompt=PADCHEST_JUDGE_PROMPT,
 )
 
 
 # Central registry — the single place new datasets are declared.
 DATASETS: dict[str, DatasetSpec] = {
     IU_XRAY_SPEC.name: IU_XRAY_SPEC,
+    PADCHEST_SPEC.name: PADCHEST_SPEC,
 }
 
 

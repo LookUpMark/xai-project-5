@@ -46,11 +46,23 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="isolate to models/sae_baseline_{tag} + results/sae_baseline_{tag}",
     )
+    p.add_argument(
+        "--dataset",
+        type=str,
+        default=config.active_dataset.name,
+        help=(
+            f"Active dataset (default: {config.active_dataset.name}); re-routes "
+            "embedding paths to embeddings/<dataset>/. Must be a key in "
+            "xai_datasets.spec.DATASETS (e.g. iu_xray, padchest)."
+        ),
+    )
     return p.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    # Re-route embedding paths to the selected dataset BEFORE any path is read.
+    config.select_dataset(args.dataset)
     root = config.paths.project_root
     models_dir = root / "models" / f"sae_baseline_{args.tag}" if args.tag else config.paths.models_dir
     results_dir = root / "results" / f"sae_baseline_{args.tag}" if args.tag else config.paths.baseline_results_dir

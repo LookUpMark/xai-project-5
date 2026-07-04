@@ -51,29 +51,50 @@ class PathsConfig:
 
     def __post_init__(self):
         self.data_dir = self.project_root / "data"
-        subfolder = "augmented" if augmentation.enabled else "standard"
-        self.embeddings_dir = self.project_root / "embeddings" / subfolder
-        self.models_dir = self.project_root / "models"
-        self.results_dir = self.project_root / "results"
-        self.figures_dir = self.results_dir / "figures"
-        # Baseline (512-d) outputs live in their own subdir (mirror Path A's
-        # hidden_results_dir) so results/ root stays clean.
-        self.baseline_results_dir = self.results_dir / "baseline"
+        # vocabulary.json stays shared under data/ for now: IU & PadChest reuse the
+        # same RadLex-chest vocab; per-dataset vocab lands with ROCOv2 (Phase 3).
+        self.vocab_labels_path = self.data_dir / "vocabulary.json"
+        # Every other artifact path is dataset-routed (re-derived by
+        # _set_dataset_paths so config.select_dataset can re-route in place).
+        self._set_dataset_paths()
+
+    def _set_dataset_paths(self) -> None:
+        """(Re)derive the dataset- + augmentation-routed artifact paths.
+
+        Reads the ``active_dataset`` and ``augmentation`` singletons live, so
+        :func:`config.select_dataset` can re-route in place (PathsConfig is
+        mutable; the variant swap also sets these fields directly). Each dataset's
+        artifacts are isolated under their own segment so PadChest never overwrites
+        IU X-Ray::
+
+            embeddings/<dataset>/<standard|augmented>/  tensors + sidecars + vocab emb
+            embeddings/<dataset>/standard_hidden/        Path A (768-d)
+            models/<dataset>/                            SAE weights + modality_gap
+            models/<dataset>/sae_hidden/                 Path A models
+            results/<dataset>/{baseline,sae_hidden,figures}/
+        """
+        aug = "augmented" if augmentation.enabled else "standard"
+        ds = active_dataset.name
+        emb_root = self.project_root / "embeddings" / ds
+        models_root = self.project_root / "models" / ds
+        results_root = self.project_root / "results" / ds
+
+        # Embeddings (tensors + sidecars + vocab embeddings).
+        self.embeddings_dir = emb_root / aug
         self.visual_embeddings_path = self.embeddings_dir / "visual_embeddings.pt"
         self.train_embeddings_path = self.embeddings_dir / "train_embeddings.pt"
         self.test_embeddings_path = self.embeddings_dir / "test_embeddings.pt"
         # Sidecar image-id lists (basename per row) kept in lockstep with the
-        # embedding tensors so downstream stages can recover the image identity
-        # (the tensors are bare (N, 512) with no row metadata).
+        # embedding tensors so downstream stages recover image identity (the
+        # tensors are bare (N, 512) with no row metadata).
         self.visual_image_ids_path = self.embeddings_dir / "visual_image_ids.json"
         self.train_image_ids_path = self.embeddings_dir / "train_image_ids.json"
         self.test_image_ids_path = self.embeddings_dir / "test_image_ids.json"
         self.vocab_embeddings_path = self.embeddings_dir / "text_vocab_embeddings.pt"
-        self.vocab_labels_path = self.data_dir / "vocabulary.json"
 
         # Path A (768-d pre-projection hidden state). Raw CLS tokens, no per-sample
         # L2 norm (SAE-on-residual-stream literature trains on raw activations).
-        self.hidden_embeddings_dir = self.project_root / "embeddings" / "standard_hidden"
+        self.hidden_embeddings_dir = emb_root / "standard_hidden"
         self.hidden_visual_embeddings_path = (
             self.hidden_embeddings_dir / "visual_embeddings_768.pt"
         )
@@ -92,8 +113,16 @@ class PathsConfig:
         self.hidden_test_image_ids_path = (
             self.hidden_embeddings_dir / "test_image_ids.json"
         )
-        self.hidden_models_dir = self.project_root / "models" / "sae_hidden"
-        self.hidden_results_dir = self.project_root / "results" / "sae_hidden"
+
+        # Models + results (per-dataset isolation).
+        self.models_dir = models_root
+        self.hidden_models_dir = models_root / "sae_hidden"
+        self.results_dir = results_root
+        self.figures_dir = results_root / "figures"
+        # Baseline (512-d) outputs live in their own subdir so results/<dataset>/
+        # root stays clean.
+        self.baseline_results_dir = results_root / "baseline"
+        self.hidden_results_dir = results_root / "sae_hidden"
 
 
 @dataclass(frozen=True)
@@ -131,7 +160,7 @@ class EmbeddingConfig:
     @property
     def output_dir(self) -> str:
         subfolder = "augmented" if augmentation.enabled else "standard"
-        return f"{self.output_base}/{subfolder}"
+        return f"{self.output_base}/{active_dataset.name}/{subfolder}"
     visual_output_filename: str = "visual_embeddings.pt"
     text_output_filename: str = "text_embeddings.pt"
 
@@ -156,7 +185,7 @@ class VocabularyConfig:
     @property
     def embeddings_output_path(self) -> str:
         subfolder = "augmented" if augmentation.enabled else "standard"
-        return f"embeddings/{subfolder}/text_vocab_embeddings.pt"
+        return f"embeddings/{active_dataset.name}/{subfolder}/text_vocab_embeddings.pt"
 
     # Filtering parameters
     top_k: int = 1024
@@ -500,3 +529,21 @@ spliece = SpliCEConfig()
 
 # Backward compatibility alias
 DEVICE = hardware.device
+
+
+def select_dataset(name: str) -> None:
+    """Switch the active dataset and re-route the embedding paths to match.
+
+    Reassigns the ``active_dataset`` singleton and re-derives ``paths``'
+    embedding/hidden paths in place (PathsConfig is mutable). The lazy
+    ``@property`` paths (``EmbeddingConfig.output_dir``,
+    ``VocabularyConfig.embeddings_output_path``) pick up the new value on next
+    access. Call this BEFORE reading any path. Unknown names surface as a
+    ``KeyError`` when ``get_dataset`` is next called (e.g. by ``prepare_split``).
+
+    Args:
+        name: dataset key in ``xai_datasets.spec.DATASETS`` (e.g. ``"padchest"``).
+    """
+    global active_dataset
+    active_dataset = DatasetSelection(name=name)
+    paths._set_dataset_paths()

@@ -28,3 +28,4 @@ kagglehub==0.3.13
 tqdm==4.67.3
 nbformat
 pytest
+dotenv

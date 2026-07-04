@@ -1,15 +1,15 @@
 # SPLiCE — Pipeline Run
 
 **Status**: Complete ✅
-**Total time**: 2.7s
-**Date**: 2026-06-27 17:19:24
+**Total time**: 2.8s
+**Date**: 2026-07-04 18:02:53
 
 ## Run config
 
 | param | value |
 |-------|-------|
 | tag | — |
-| output dir | /Users/marcantoniolopez/Documents/github/xai-project-5/results/spliece |
+| output dir | /Users/marcantoniolopez/Documents/github/xai-project-5/results/iu_xray/spliece |
 | k | 32 |
 | gap correction | True |
 | images decomposed | 1515 |
@@ -27,18 +27,16 @@
 
 | stage | status | seconds |
 |-------|--------|--------|
-| decompose | ok | 2.7 |
-| coverage | ok | 0.0 |
+| decompose | ok | 2.8 |
 
 ## Output files
 
 - `sample_explanations.json` — Per-image concept lists (SAE-compatible schema)
-- `REPORT_coverage.md` — Vocabulary coverage analysis
 
 
 ## Reproducibility
 
-- git commit: `772d55b20bd5fb9cd2a406f0e1b479f2e8a4a998`
+- git commit: `2070144ce66b594f113085730bdc22dc74622819`
 - versions: scikit-learn 1.8.0 | torch 2.12.0 | numpy 2.4.6
 - sha256(test_embeddings) [test_embeddings.pt]: `f266e54366f3fb5e`
 - sha256(text_vocab_embeddings) [text_vocab_embeddings.pt]: `922ee9509eb06e70`

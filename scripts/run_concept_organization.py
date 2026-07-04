@@ -135,8 +135,8 @@ def _write_report(output_dir: Path, args, cfg, metrics, inputs, total) -> None:
 def main() -> None:
     args = parse_args()
     root = config.paths.project_root
-    output_dir = root / "results" / f"concept_organization_{args.tag}" if args.tag \
-        else root / "results" / "concept_organization"
+    output_dir = config.paths.results_dir / f"concept_organization_{args.tag}" if args.tag \
+        else config.paths.results_dir / "concept_organization"
 
     defaults = _SOURCE_DEFAULTS[args.source]
     explanations_path = args.explanations or defaults["explanations"]()

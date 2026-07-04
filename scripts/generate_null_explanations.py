@@ -45,8 +45,7 @@ def main() -> None:
     args = parse_args()
     random.seed(args.seed)
 
-    root = config.paths.project_root
-    output_dir = args.output or (root / "results" / "null")
+    output_dir = args.output or (config.paths.results_dir / "null")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Vocabulary terms (canonical ordering == text_vocab_embeddings.pt rows).

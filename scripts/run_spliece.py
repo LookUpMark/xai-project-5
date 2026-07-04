@@ -155,7 +155,7 @@ def _analyze_coverage(
 def main() -> None:
     args = parse_args()
     root = config.paths.project_root
-    output_dir = root / "results" / f"spliece_{args.tag}" if args.tag else root / "results" / "spliece"
+    output_dir = config.paths.results_dir / f"spliece_{args.tag}" if args.tag else config.paths.results_dir / "spliece"
 
     overrides = {}
     if args.k is not None:

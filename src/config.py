@@ -51,11 +51,8 @@ class PathsConfig:
 
     def __post_init__(self):
         self.data_dir = self.project_root / "data"
-        # vocabulary.json stays shared under data/ for now: IU & PadChest reuse the
-        # same RadLex-chest vocab; per-dataset vocab lands with ROCOv2 (Phase 3).
-        self.vocab_labels_path = self.data_dir / "vocabulary.json"
-        # Every other artifact path is dataset-routed (re-derived by
-        # _set_dataset_paths so config.select_dataset can re-route in place).
+        # All artifact paths (incl. vocabulary.json) are dataset-routed (re-derived
+        # by _set_dataset_paths so config.select_dataset can re-route in place).
         self._set_dataset_paths()
 
     def _set_dataset_paths(self) -> None:
@@ -91,6 +88,9 @@ class PathsConfig:
         self.train_image_ids_path = self.embeddings_dir / "train_image_ids.json"
         self.test_image_ids_path = self.embeddings_dir / "test_image_ids.json"
         self.vocab_embeddings_path = self.embeddings_dir / "text_vocab_embeddings.pt"
+        # vocabulary.json is per-dataset (RadLex-chest for IU/PadChest, UMLS for
+        # ROCOv2) so a UMLS build never overwrites a RadLex one.
+        self.vocab_labels_path = emb_root / "vocabulary.json"
 
         # Path A (768-d pre-projection hidden state). Raw CLS tokens, no per-sample
         # L2 norm (SAE-on-residual-stream literature trains on raw activations).
@@ -179,9 +179,9 @@ class VocabularyConfig:
     """Configuration for the vocabulary building pipeline."""
     # I/O paths
     input_csv_path: str = "data/radlex.csv"
-    # Aligned to PathsConfig.vocab_labels_path / vocab_embeddings_path (the
-    # canonical consumer names) so the builder writes where concept_naming reads.
-    output_path: str = "data/vocabulary.json"
+    # None => per-dataset vocabulary.json (paths.vocab_labels_path); set this to
+    # write to a custom location (e.g. tests redirect to a tmp path).
+    output_path: str | None = None
     @property
     def embeddings_output_path(self) -> str:
         subfolder = "augmented" if augmentation.enabled else "standard"
@@ -291,7 +291,10 @@ class VocabularyConfig:
 
     @property
     def output_file(self) -> Path:
-        return Path(self.output_path)
+        # Explicit override (e.g. tests) wins; otherwise the per-dataset
+        # vocabulary.json (RadLex-chest vs UMLS-multimodal), so the builder writes
+        # where concept_naming reads.
+        return Path(self.output_path) if self.output_path is not None else paths.vocab_labels_path
 
     @property
     def embeddings_file(self) -> Path:

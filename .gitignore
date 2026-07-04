@@ -234,6 +234,21 @@ models/*
 # Literature PDFs (copyrighted)
 docs/literature/*.pdf
 
+# LaTeX build artifacts (keep sources: .tex/.bib/.cls/.bst/.bbx/.cbx + deliverable .pdf)
+docs/latex/*.aux
+docs/latex/*.bbl
+docs/latex/*.blg
+docs/latex/*.fdb_latexmk
+docs/latex/*.fls
+docs/latex/*.out
+docs/latex/*.synctex.gz
+docs/latex/*.toc
+docs/latex/*.lof
+docs/latex/*.lot
+docs/latex/*.nav
+docs/latex/*.snm
+docs/latex/*.vrb
+
 # Visual Studio Code
 #   Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore 
 #   that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore

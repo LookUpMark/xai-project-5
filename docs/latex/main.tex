@@ -1,0 +1,197 @@
+\documentclass[sigconf, nonacm]{acmart}
+
+\usepackage{booktabs}
+
+%%
+%% \BibTeX command to typeset BibTeX logo in the docs
+\AtBeginDocument{%
+  \providecommand\BibTeX{{%
+    Bib\TeX}}}
+
+%% These commands are for a PROCEEDINGS abstract or paper.
+\acmConference[Explainable and Trustworthy AI - Project]{}{}{}
+
+\begin{document}
+
+\title{Unsupervised Concept Discovery for Medical Vision--Language Models:\\A Rigorous Characterization of Sparse-Autoencoder Failure and Deterministic Alternatives}
+
+\author{Marc'Antonio Lopez}
+\affiliation{%
+  \institution{Politecnico di Torino}
+  \city{Turin}
+  \country{Italy}
+}
+
+\author{Name Surname}
+\affiliation{%
+  \institution{Politecnico di Torino}
+  \city{Turin}
+  \country{Italy}
+}
+
+\author{Name Surname}
+\affiliation{%
+  \institution{Politecnico di Torino}
+  \city{Turin}
+  \country{Italy}
+}
+
+\begin{abstract}
+Medical Vision--Language Models (VLMs) are accurate but opaque, and concept-based explainability promises to expose their internal knowledge as human-readable units. We re-implement the MedConcept pipeline~\cite{haque2026medconcept}---sparse autoencoder (SAE) decomposition of a frozen VLM's image embeddings, alignment to a curated radiology vocabulary, and LLM-as-judge evaluation---on BiomedCLIP~\cite{zhang2023biomedclip} and the IU X-Ray collection~\cite{demner2016iuxray}. The discovered concepts sit at the analytical chance floor of cross-seed stability (slot-wise Jaccard $0.0084$ against a floor of $0.0079$), are barely distinguishable from random in naming, and suffer a high dead-feature rate: a non-identifiability failure of learned sparse factorisation at small data scale. We diagnose this failure and pursue three mitigations. (i)~Operating the SAE on the 768-d pre-projection hidden state instead of the 512-d projected space reduces dead features from ${\sim}16\%$ to $1.7\%$ and raises naming cosine from $0.42$ to $0.47$, but cross-seed stability remains at the floor---a result we reframe, via a permutation-invariant matched metric, as weak universality (matched-cosine observed/null ${\approx}2.6{\times}$). (ii)~SPLiCE~\cite{bhalla2024spliece}, a deterministic sparse decomposition over a fixed RadLex dictionary, is reproducible, covers $95\%$ of the vocabulary, and runs in seconds, with faithfulness measurable once the converged judge run is performed. (iii)~A concept-organisation extension clusters flat concept lists into structured families (redundancy reduction $1.52{\times}$). A faithfulness ablation shows that, despite global instability, ${\sim}13\%$ of live features correlate significantly with held-out clinical labels. We report these outcomes honestly---including an incomplete LLM-judge evaluation---as a reproducibility study of where unsupervised concept discovery breaks and why.
+\end{abstract}
+
+\keywords{Concept-based explainability, sparse autoencoders, medical vision--language models, interpretability evaluation, reproducibility}
+
+\maketitle
+
+\section{Introduction}
+Medical VLMs attain strong performance on pathology classification, segmentation, and report generation, yet their internal representations are high-dimensional, polysemic, and opaque---a serious concern in safety-critical clinical use. Classical post-hoc tools such as saliency maps and attention visualisations produce local explanations that seldom reveal the semantic structure the model has actually learned.
+
+Concept-based explainability reframes an explanation in terms of human-interpretable units. Where supervised approaches such as Concept Bottleneck Models~\cite{koh2020concept} and TCAV~\cite{kim2018tcav} require a pre-defined, labelled concept set, recent work attempts \emph{unsupervised} discovery: decomposing a frozen model's representations into sparse features, naming each feature against a clinical vocabulary, and validating the result quantitatively. MedConcept~\cite{haque2026medconcept} instantiates this as a three-stage pipeline (sparse-activation extraction, vocabulary alignment, LLM-judge evaluation) and introduces the Aligned/Unaligned/Uncertain metrics for quantitative interpretability assessment.
+
+A central but under-reported question is whether the concepts such pipelines discover are \emph{reproducible} and \emph{clinically valid}. In this work we re-implement the MedConcept paradigm faithfully, and find---rigorously, and against analytical nulls---that on a small medical corpus the learned sparse decomposition is essentially non-identifiable: independently seeded SAEs share no more active feature slots than random subsets, the naming signal barely exceeds chance, and a large fraction of features never fire.
+
+We then investigate three directions intended to address the root causes, and an organisational extension:
+\begin{itemize}
+  \item \textbf{Baseline} (512-d projected SAE): a faithful re-implementation of MedConcept, characterised as a documented failure case.
+  \item \textbf{Path A} (768-d pre-projection hidden state SAE): targets the representation-location mismatch hypothesised to drive non-identifiability.
+  \item \textbf{Path B} (SPLiCE): replaces the learned dictionary with a fixed RadLex dictionary, removing the estimation problem entirely.
+  \item \textbf{Extension} (concept organisation): clusters flat concept lists into structured, hierarchy-grounded families.
+\end{itemize}
+
+\noindent\textbf{Contributions.} (1)~A null-calibrated diagnosis showing that learned SAE concepts on ${\sim}6$k medical images are at the chance floor of cross-seed stability and naming, quantified with analytical floors. (2)~A permutation-invariant \emph{matched-stability} metric that distinguishes genuine weak universality (shared subspace) from index-level noise, and a count-matched null for LLM-judge faithfulness. (3)~An evaluation of three mitigation strategies with honest, partially-negative outcomes---including an explicitly reported incomplete judge evaluation---rather than a curated success story.
+
+\section{Related work}
+\textbf{Concept-based explainability.} Concept Bottleneck Models~\cite{koh2020concept} restructure a network to predict an explicit concept layer before the classifier, trading minor accuracy for auditable, concept-level intervention. TCAV~\cite{kim2018tcav} tests directional sensitivity of a logit to user-defined Concept Activation Vectors. Both presuppose supervised, pre-defined concepts---precisely the limitation unsupervised discovery targets.
+
+\textbf{Sparse autoencoders for monosemantic decomposition.} Bricken et al.~\cite{bricken2023monosemanticity} showed that overcomplete dictionary-learning autoencoders trained on transformer activations yield individual latents that activate on coherent, human-nameable features. Gao et al.~\cite{gao2024scaling} introduced the k-sparse (Top-K) autoencoder, which fixes sparsity exactly via top-$k$ gating, eliminates the reconstruction--sparsity trade-off, and reduces dead latents; we adopt this architecture.
+
+\textbf{SAE stability and universality.} A growing line asks whether SAE features are canonical. Lan et al.~\cite{lan2024universality} showed that SAE feature spaces across language models are similar only up to rotation, sharing a subspace rather than identical features. Leask et al.~\cite{leask2025canonical} argued SAEs are simultaneously incomplete and non-atomic, and therefore ``do not find canonical units of analysis.'' This weak-vs-strong universality distinction motivates our matched-stability metric: we no longer expect identical features across seeds, only a shared subspace.
+
+\textbf{Sparse concept decomposition.} SPLiCE~\cite{bhalla2024spliece} bypasses a learned dictionary and decomposes a frozen CLIP embedding directly into a sparse, non-negative combination over a fixed, interpretable concept dictionary. Because the dictionary is fixed and the method deterministic, it sidesteps the non-identifiability of learned factorisation---a property we exploit as a data-frugal baseline.
+
+\textbf{Medical VLMs and the reference framework.} BiomedCLIP~\cite{zhang2023biomedclip} is a domain-specific contrastive VLM (ViT image encoder + PubMedBERT text encoder) pretrained on PMC-15M; it supplies both the shared 512-d space and the pre-projection 768-d hidden states our pipeline decomposes. MedConcept~\cite{haque2026medconcept} provides the methodological template---sparse extraction, vocabulary alignment, and LLM-judge evaluation with the Aligned/Unaligned/Uncertain metrics---which we re-implement and stress-test. RadLex~\cite{langlotz2006radlex} provides the curated radiology lexicon used for naming and organisation.
+
+\section{Research gaps}
+From the literature and the project brief we identify six gaps that this work addresses:
+\begin{enumerate}
+  \item \textbf{Concept instability / non-identifiability.} Learned sparse factorisations are not guaranteed to be reproducible across seeds, and in the small-data regime the decomposition is provably non-identifiable. No prior medical-VLM concept work we are aware of reports seed-stability against an analytical null.
+  \item \textbf{Clinical validity of discovered concepts.} A cosine-assigned name is cosmetic unless it tracks real pathology; concepts are rarely validated against held-out ground-truth labels.
+  \item \textbf{Representation-location mismatch.} The SAE-interpretability literature operates on raw hidden states, yet reference pipelines fit the SAE on the already-projected, modality-gap-bearing CLIP space---a structurally poorer target.
+  \item \textbf{Small-data robustness vs.\ learned dictionaries.} Learned SAEs require $10^5$--$10^6$ activations; medical corpora are 2--3 orders of magnitude smaller, yielding large dead-feature fractions.
+  \item \textbf{Concepts treated as independent.} Concept explanations are typically flat top-$k$ lists, ignoring natural anatomical/hierarchical structure.
+  \item \textbf{Non-reproducible, qualitative evaluation.} Interpretability is often judged by subjective inspection, and---as we found in our own pipeline---train/test splits that leak studies silently inflate every held-out metric.
+\end{enumerate}
+
+\section{Methodology}
+\subsection{Backbone, vocabulary, and split}
+We use BiomedCLIP (ViT-B/16 image encoder with a 768-d hidden state, projected by a frozen $\mathrm{visual\_projection}: \mathbb{R}^{768}\!\to\!\mathbb{R}^{512}$ into a shared contrastive space). Images are resized to $224{\times}224$; both image and text embeddings are L2-normalised at extraction. The concept vocabulary is built from RadLex: terms are encoded with BiomedCLIP's text encoder, ranked by cosine similarity to a multi-centroid relevance score computed from 39 anchor queries across 13 clinical sub-domains, and the top terms plus 14 NIH ChestX-ray14 seed terms are retained, yielding ${\sim}1{,}030$ chest-radiography-relevant terms cached as 512-d text embeddings.
+
+The shared 512-d space exhibits a \emph{modality gap}~\cite{liang2022mindthegap}: a systematic offset between the image and text cones (cross-modal image--text cosine ${\approx}0.27$, centroid L2 distance ${\approx}0.95$). Following prior work we estimate it as the difference of the mean image and vocabulary embeddings and subtract it before cosine naming/decomposition.
+
+All experiments use the IU X-Ray collection (7,470 frontal/lateral chest X-rays, 3,955 reports). Crucially for Gap~6, we split \emph{by radiographic study} (key $=\texttt{patient\_IM-study}$), so that no study appears in both partitions. This yields 5,955 train / 1,515 test images (3,081 / 771 studies) with verified group overlap $=0$. The split is recomputed deterministically on every run (sorted study set, fixed seed), eliminating a previous leakage bug that had placed ${\sim}75\%$ of test images in a study shared with train.
+
+\subsection{Baseline: Top-K SAE on the 512-d projected space}
+We train a Top-K SAE~\cite{gao2024scaling} ($\mathrm{ReLU}(W_{\mathrm{enc}}(x-b_{\mathrm{dec}})+b_{\mathrm{enc}})$, hard top-$k$ sparsification, $b_{\mathrm{dec}}$ initialised to the geometric median of training data) on the 512-d image embeddings. Configuration: dictionary size $D{=}2048$, $k{=}32$, 8,000 steps, $\mathrm{lr}{=}5{\times}10^{-5}$, batch size 256, five seeds $(0,42,123,456,789)$. Concept naming assigns each \emph{live} (non-dead) decoder row to its closest RadLex term by cosine similarity, after gap correction ($W_{\mathrm{dec}}\!\leftarrow\!W_{\mathrm{dec}}-\mathrm{gap}$). Per-image pseudo-reports list the top-5 active concepts with a stated dominant concept.
+
+\subsection{Path A: Top-K SAE on the 768-d hidden state}
+Path A addresses Gap~3. Instead of $\mathrm{visual\_projection}(\cdot)$, we extract the 768-d CLS token \emph{before} the projection and train an identical Top-K SAE on these raw (un-normalised) hidden states. Because RadLex text lives in 512-d, we bridge the two spaces with the \emph{frozen} projection: $\hat W_{\mathrm{dec}}^{512}=W_{\mathrm{dec}}^{768}W_{\mathrm{proj}}^{\top}$, gap-correct $\hat W_{\mathrm{dec}}^{512}$, then name against RadLex as in the baseline. Dead features are detected pre-projection (a zero 768-d row projects to $-\mathrm{gap}$ with non-zero norm) and cross-checked with an activation-based mask.
+
+\subsection{Path B: SPLiCE on the RadLex dictionary}
+Path B addresses Gaps~1 and~4. We decompose each gap-corrected 512-d image embedding into a sparse, non-negative combination over the fixed RadLex text dictionary using Orthogonal Matching Pursuit to select $k{=}32$ atoms, followed by a non-negative least-squares re-solve on the selected support. The dictionary is never estimated from the ${\sim}6$k samples, so the method is deterministic by construction and has no cross-seed instability. The output schema mirrors the SAE explanations so the same judge can score it.
+
+\subsection{Concept-organisation extension}
+Addressing Gap~5, we cluster the active vocabulary into concept families by agglomerative clustering (average linkage, cosine metric). Each cluster is annotated with the most specific shared RadLex anatomical ancestor, with two degeneracy guards: leaf-root rejection and a \emph{subtree-size canopy} that rejects candidate ancestors whose descendant count exceeds 1\% of the ontology (e.g.\ the trivially generic ``anatomical entity'' node), so labels are honest rather than vacuously generic. The stage emits structured per-image families plus organisation metrics (silhouette, redundancy reduction, RadLex coverage). It is standalone and does not feed the judge.
+
+\subsection{Evaluation metrics}
+\textbf{Stability.} Slot-wise cross-seed Jaccard of top-$k$ active-feature sets has an analytical chance floor $k/(2D-k)$. Because it is not invariant to the arbitrary per-seed feature permutation, we additionally report a \emph{matched} (permutation-invariant) metric: for each decoder row in seed~$i$, the best cosine match across all rows of seed~$j$, compared against an isotropic random-vector null ($n{=}200$ draws). \textbf{Naming.} Mean cosine of the assigned term, against a random-baseline of ${\approx}0.372$. \textbf{Faithfulness.} Point-biserial correlation of feature activations with in-distribution IU X-Ray MeSH/Problems labels, with a per-feature shuffle null. \textbf{LLM judge.} Each concept is scored Aligned/Unaligned/Uncertain against the reference report by a prompted LLM; faithfulness is reported as a \emph{LIFT} (method \%Aligned over a count-matched null's \%Aligned) to control for methods emitting different concept counts.
+
+\section{Experiments and analysis}
+
+\subsection{The baseline is a failure case (Gap 1)}
+Two baseline configurations circulate; we report both to be explicit. The \emph{historical} configuration ($D{=}4096$, 50k steps) yields cross-seed Jaccard $0.0038$ against an analytical floor of $0.0039$ ($k/(2D{-}k)$ with $D{=}4096,k{=}32$)---i.e.\ exactly at the mathematical chance floor. Dead features reach $41\%$ (standard) and $60\%$ (with augmentation), and naming cosine is $0.395$ against a random baseline of $0.372$. The \emph{parity} configuration ($D{=}2048$, 8k steps, matched to Path~A for fair comparison) sits at its own floor: Jaccard $0.0084$ vs.\ floor $0.0079$, dead $16\%$ (328/2048), naming $0.42$. In both cases independently seeded SAEs share no more active feature slots than random subsets. We read this as non-identifiability of the sparse factorisation at this data scale, not a training bug.
+
+\subsection{Path A localises the failure to data scale}
+Table~\ref{tab:patha} contrasts Path~A with the baseline. Operating on the 768-d hidden state markedly reduces dead features ($1.7\%$ vs.\ $16\%$) and improves naming cosine ($0.47$ vs.\ $0.42$, random $0.372$). However, slot-wise Jaccard remains at the floor ($0.0083$ vs.\ $0.0079$). The permutation-invariant matched metric reframes this: both methods share a decoder subspace well above the isotropic null (Path~A $2.6{\times}$, baseline $2.0{\times}$), yet almost no features match strongly ($0\%$ at cosine $\geq0.9$). This is \emph{weak universality}~\cite{lan2024universality,leask2025canonical}: a shared subspace exists, but not canonical, reproducible features. The improvement in naming and dead-rate without an improvement in stability points to data scale (Gap~4), not representation location, as the binding constraint.
+
+\begin{table}[t]
+\caption{Baseline (512-d) vs.\ Path~A (768-d), parity configuration. Matched-cosine is permutation-invariant; ``obs/null'' is observed best-match cosine over the isotropic null.}
+\label{tab:patha}
+\small
+\begin{tabular}{lcc}
+\toprule
+ & Baseline 512-d & Path A 768-d \\
+\midrule
+Slot-wise Jaccard & 0.0084 & 0.0083 \\
+Analytical floor & 0.0079 & 0.0079 \\
+Dead features (full test) & 16.0\% & 1.7\% \\
+Naming cosine (live) & 0.42 & 0.47 \\
+Matched cosine (obs) & 0.299 & 0.325 \\
+Matched cosine (null) & 0.151 & 0.124 \\
+obs/null & 1.97$\times$ & 2.63$\times$ \\
+Frac.\ matched $\geq0.9$ & $\approx$0\% & $\approx$0\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A dictionary/$k$ sweep on Path~A (Table~\ref{tab:ablation}) confirms the pattern: a more conservative ($D{=}1024,k{=}16$) configuration shows the strongest subspace signal (matched obs/null $2.78{\times}$) and lowest naming noise, while aggressive overcompleteness ($D{=}4096,k{=}64$) dilutes it ($2.00{\times}$)---but no setting escapes weak universality.
+
+\begin{table}[t]
+\caption{Path~A dictionary/$k$ sweep (768-d, 8k steps).}
+\label{tab:ablation}
+\small
+\begin{tabular}{lcccc}
+\toprule
+Preset & $D$ & $k$ & Dead & Matched obs/null \\
+\midrule
+Conservative & 1024 & 16 & 41.7\% & 2.78$\times$ \\
+Default & 2048 & 32 & 12.9\% & 2.63$\times$ \\
+Aggressive & 4096 & 64 & 6.6\% & 2.00$\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Path B is deterministic and judge-ready}
+SPLiCE decomposes all 1,515 test images in 2.7\,s (CPU), uses 981/1,030 vocabulary terms (95.2\% coverage), and is byte-identical across runs. Concepts per image average 12.89 (range 6--20). The most frequent terms are clinically plausible (chronic obstructive pulmonary disease, myocardial infarction), and modality-gap correction raises the maximum atom cosine from $0.44$ to $0.83$. The output uses the SAE-compatible schema (\texttt{feature\_id}/\texttt{name}/\texttt{activation}), so the judge reads SPLiCE concepts directly; the solver selects the support with Orthogonal Matching Pursuit and re-solves non-negative coefficients by least squares---replacing an earlier post-hoc clamp that inflated reconstruction error $8$--$14{\times}$. Faithfulness is therefore measurable, and the committed artifact is regenerated from the fixed solver before the final evaluation (its run report still describes the superseded clamp).
+
+\subsection{Concept organisation is informative only for SPLiCE}
+Applied to all three sources (Table~\ref{tab:org}), the extension behaves as designed but is only non-trivial for SPLiCE, the sole source with dense concept activity. There it groups 981 active concepts into 31 families, reduces mean concepts-per-image from 12.89 to 8.50 (redundancy reduction $1.52{\times}$), and labels 10/31 clusters with specific RadLex ancestors (e.g.\ \emph{lung disease}, \emph{implantable device}, \emph{spine degeneration}) while honestly returning no label for the rest. The SAE sources are mostly silent on the test set (1,430 and 1,260 empty images respectively), so organisation is degenerate there---a direct downstream symptom of the dead/low-activation features characterised above.
+
+\begin{table}[t]
+\caption{Concept organisation across sources.}
+\label{tab:org}
+\small
+\begin{tabular}{lcccc}
+\toprule
+Source & Active & Clusters & Silhouette & Empty img.\ (/1515) \\
+\midrule
+SPLiCE & 981 & 31 & 0.095 & 0 \\
+SAE baseline & 8 & 3 & 0.100 & 1430 \\
+SAE hidden & 14 & 4 & 0.284 & 1260 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{A small upper tail of features is genuinely faithful}
+Despite global instability, a faithfulness ablation (historical $D{=}4096$ baseline) finds that $13.4\%$ of live features exceed the shuffle-null $95$th percentile in point-biserial correlation with IU X-Ray MeSH/Problems labels, and $1.2\%$ reach $|r|>0.30$ (strongest $|r|=0.405$, on a lung/hyperlucent feature). This is a real but small upper-tail signal atop an otherwise degenerate dictionary: concepts are simultaneously \emph{unstable cross-seed} (consensus shuffle-null $p=0.19$) and \emph{partially faithful} (Gap~2).
+
+\subsection{The LLM-judge evaluation is incomplete}
+The judge is fully implemented and unit-tested (verb/label mapping, resume deduplication, temperature$=0$, count-matched null); the only remaining step is a converged GPU run over the five inputs. We report the current, non-final state honestly: the committed output consists entirely of infrastructure-error placeholders (every row ``Uncertain'' with an \texttt{openai}-module error). Partial checkpoint runs on the \emph{baseline} explanations across three judge models disagree violently and none is complete: MedGemma-4B~\cite{sellergren2025medgemma} labels $84.5\%$ Aligned ($n{=}200$, over-permissive), Llama-3.1-8B~\cite{meta2024llama3} $0\%$ Aligned ($95\%$ Uncertain, $n{=}175$), and a 26B Gemma model~\cite{gemma2024} $4\%$ Aligned ($82\%$ Unaligned, $n{=}50$). No run covers SPLiCE or Path~A, so no method-level faithfulness ranking can be stated. The judge machinery itself (verb/label mapping, resume deduplication, temperature$=0$, the count-matched null) is implemented and unit-tested, and a per-method LIFT protocol is defined; completing a converged run on all methods is the immediate next step.
+
+\section{Conclusions}
+We set out to discover interpretable concepts in a medical VLM without supervision, and instead produced a rigorous characterisation of where and why this fails. A faithful re-implementation of the MedConcept pipeline yields concepts at the analytical chance floor of cross-seed stability---a non-identifiability failure of learned sparse factorisation on ${\sim}6$k images. Moving the SAE to the pre-projection hidden state (Path~A) fixes dead features and improves naming but does not restore feature-level stability; a permutation-invariant metric reveals this as weak universality, localising the binding constraint to data scale. SPLiCE removes the estimation problem and is deterministic and fast, but its faithfulness remains unmeasured pending judge-side fixes. A concept-organisation extension meaningfully structures SPLiCE output, and a faithfulness ablation shows a small (${\sim}13\%$) but real upper tail of clinically-correlated features.
+
+Three lessons generalise beyond our setting. First, interpretability claims about discovered concepts must be calibrated against analytical nulls---slot-wise stability alone is degenerate. Second, the representation location (hidden state vs.\ projected space) matters for naming and liveness, but not for the identifiability of the factorisation at small scale. Third, an incomplete evaluation reported plainly is more scientifically useful than a curated one: the honest state of the LLM-judge ranking is that it does not yet exist.
+
+\textbf{Limitations and future work.} The judge evaluation must be completed on all methods with a converged run and bootstrap confidence intervals on LIFT; SPLiCE's output schema and non-negativity handling must be corrected before it can be judged; and the data-scale hypothesis (Path~A's reframing) should be tested directly on PadChest~\cite{bustos2020padchest} ($>160$k images), whose support is already implemented in the pipeline.
+
+%%
+%% The next two lines define the bibliography style to be used, and
+%% the bibliography file.
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{biblio}
+
+
+\end{document}
+\endinput
+%%

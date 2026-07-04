@@ -215,6 +215,7 @@ data/medical_vocabulary.json
 data/iu_xray/*
 data/iu_xray/*.zip
 !data/iu_xray/images/.gitkeep
+data/mesh/*
 
 # PadChest (BIMCV) — license forbids redistribution: data + URLs never committed.
 data/padchest/*

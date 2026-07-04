@@ -15,7 +15,7 @@ Field population by phase:
     text_dataset_cls, image_dir, text_source, make_group_key_fn.
   - Phase 2/3: judge_prompt, build_report_lookup (wired when
     ``evaluate_llm_judge.py`` is refactored to read from the spec).
-  - Phase 3: vocab_config (RadLex chest vs UMLS multimodal dispatch).
+  - Phase 3: vocab_source (RadLex chest vs external MeSH multimodal dispatch).
 """
 
 from __future__ import annotations
@@ -37,6 +37,12 @@ from xai_datasets.padchest import (
     PadChestTextDataset,
     _load_padchest_reports,
     make_padchest_group_key,
+)
+from xai_datasets.rocov2 import (
+    ROCOImageDataset,
+    ROCOCaptionDataset,
+    ROCOV2_JUDGE_PROMPT,
+    _load_rocov2_captions,
 )
 
 # Maps an image-id basename to a group key so the train/test split keeps every
@@ -68,6 +74,12 @@ class DatasetSpec:
     # rewired to read from the spec):
     judge_prompt: str = ""
     build_report_lookup: Callable[[], dict] = field(default=lambda: {})
+
+    # Vocabulary stage (Phase 3): which external lexicon to build the naming
+    # vocabulary from. ``vocab_source="radlex"`` (default, chest) or ``"mesh"``
+    # (ROCOv2 — free MeSH lexicon, independent of the dataset's labels).
+    vocab_source: str = "radlex"
+    mesh_file: Optional[Path] = None  # MeSH XML (desc<year>.gz) for vocab_source="mesh"
 
 
 # ---------------------------------------------------------------------------
@@ -116,10 +128,38 @@ PADCHEST_SPEC = DatasetSpec(
 )
 
 
+# ---------------------------------------------------------------------------
+# ROCOv2 (multimodal radiology, English captions) — Phase 3 generalization.
+# ---------------------------------------------------------------------------
+_ROCOV2_DIR = _REPO_ROOT / "data" / "rocov2"
+_ROCOV2_CAPTIONS = _ROCOV2_DIR / "captions.csv"
+_ROCOV2_IMAGES = _ROCOV2_DIR / "images"
+
+ROCOV2_SPEC = DatasetSpec(
+    name="rocov2",
+    language="en",
+    domain="multimodal_radiology",
+    image_dataset_cls=ROCOImageDataset,
+    text_dataset_cls=ROCOCaptionDataset,
+    image_dir=_ROCOV2_IMAGES,
+    text_source=_ROCOV2_CAPTIONS,
+    # Independent figures (no patient/study) -> no grouping -> random split.
+    make_group_key_fn=lambda: None,
+    # Caption is the judge's textual evidence (figure caption, not a report).
+    build_report_lookup=lambda: _load_rocov2_captions(_ROCOV2_CAPTIONS, _ROCOV2_IMAGES),
+    judge_prompt=ROCOV2_JUDGE_PROMPT,
+    # External MeSH lexicon (free, no UMLS license), independent of ROCOv2 labels.
+    # XML descriptor file (gzipped) downloaded by xai_datasets/download_mesh.py.
+    vocab_source="mesh",
+    mesh_file=_REPO_ROOT / "data" / "mesh" / "desc2026.gz",
+)
+
+
 # Central registry — the single place new datasets are declared.
 DATASETS: dict[str, DatasetSpec] = {
     IU_XRAY_SPEC.name: IU_XRAY_SPEC,
     PADCHEST_SPEC.name: PADCHEST_SPEC,
+    ROCOV2_SPEC.name: ROCOV2_SPEC,
 }
 
 

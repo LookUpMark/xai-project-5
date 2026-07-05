@@ -285,10 +285,14 @@ class TestCheckpointHelpers(unittest.TestCase):
         self.assertEqual(records, [])
 
     def test_save_and_load_roundtrip(self):
-        """Save records, reload, verify contents."""
+        """Save records, reload, verify contents.
+
+        Done-keys use the (image_id, pseudo_report) tuple — matching the schema
+        written by evaluate() and the dedup key built at eval time.
+        """
         records = [
-            {"image_id": "img_001", "concept": "cardiomegaly", "verdict": "Aligned"},
-            {"image_id": "img_002", "concept": "pleural effusion", "verdict": "Unaligned"},
+            {"image_id": "img_001", "pseudo_report": "cardiomegaly present", "verdict": "Aligned"},
+            {"image_id": "img_002", "pseudo_report": "pleural effusion noted", "verdict": "Unaligned"},
         ]
         judge_module.save_checkpoint(records)
 
@@ -297,8 +301,8 @@ class TestCheckpointHelpers(unittest.TestCase):
         self.assertEqual(loaded[0]["verdict"], "Aligned")
 
         keys = judge_module.load_checkpoint()
-        self.assertIn(("img_001", "cardiomegaly"), keys)
-        self.assertIn(("img_002", "pleural effusion"), keys)
+        self.assertIn(("img_001", "cardiomegaly present"), keys)
+        self.assertIn(("img_002", "pleural effusion noted"), keys)
 
     def test_overwrite_checkpoint(self):
         """Saving again overwrites the previous checkpoint."""
@@ -314,13 +318,13 @@ class TestCheckpointHelpers(unittest.TestCase):
         records = [
             {
                 "image_id": "img_001",
-                "concept": "cardiomegaly",
+                "pseudo_report": "cardiomegaly present",
                 "verdict": "Aligned",
                 "raw_response": "Aligned",
             },
             {
                 "image_id": "img_002",
-                "concept": "pleural effusion",
+                "pseudo_report": "pleural effusion noted",
                 "verdict": "Uncertain",
                 "raw_response": "ERROR: CUDA out of memory",
             },
@@ -328,9 +332,24 @@ class TestCheckpointHelpers(unittest.TestCase):
         judge_module.save_checkpoint(records)
         keys = judge_module.load_checkpoint()
         # The successful record should be in done_keys
-        self.assertIn(("img_001", "cardiomegaly"), keys)
+        self.assertIn(("img_001", "cardiomegaly present"), keys)
         # The errored record should NOT be in done_keys
-        self.assertNotIn(("img_002", "pleural effusion"), keys)
+        self.assertNotIn(("img_002", "pleural effusion noted"), keys)
+
+    def test_load_checkpoint_no_keyerror_on_legacy_concept_records(self):
+        """Regression: load_checkpoint previously read r["concept"] (KeyError)
+        and used (image_id, concept) as the dedup key, which never matched the
+        (image_id, pseudo_report) key built at eval time. Saved records have no
+        "concept" field, so a checkpoint must load without KeyError and fall
+        back to "" for the missing field rather than crashing on --resume.
+        """
+        records = [
+            {"image_id": "img_001", "pseudo_report": "cardiomegaly present", "verdict": "Aligned"},
+        ]
+        judge_module.save_checkpoint(records)
+        # Must not raise; legacy record without pseudo_report yields ("img", "").
+        keys = judge_module.load_checkpoint()
+        self.assertIn(("img_001", "cardiomegaly present"), keys)
 
 
 # ============================================================================

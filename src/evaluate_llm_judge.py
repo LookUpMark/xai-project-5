@@ -10,10 +10,14 @@ against radiology reports. For each (concept, report) pair, the judge outputs:
 Uses unsloth/medgemma-4b-it via HuggingFace transformers as the judge LLM.
 
 Usage:
-    python src/evaluate_llm_judge.py
+    # Judge the baseline explanations (default source/model)
+    python src/evaluate_llm_judge.py --dataset iu_xray
 
-    # Resume from checkpoint
-    python src/evaluate_llm_judge.py --resume
+    # Judge the SPLiCE explanations -> aligned_scores_spliec.csv (no cp/mv)
+    python src/evaluate_llm_judge.py --dataset iu_xray --source spliec
+
+    # Resume from checkpoint (retries ERROR: pairs, skips already-done pairs)
+    python src/evaluate_llm_judge.py --dataset iu_xray --source spliec --resume
 """
 
 import argparse
@@ -365,12 +369,18 @@ def _extract_verdict(raw_text: str) -> str | None:
 # ============================================================================
 
 def load_checkpoint() -> set:
-    """Load set of already-evaluated (image_id, concept) pairs."""
+    """Load set of already-evaluated (image_id, pseudo_report) pairs.
+
+    The dedup key is ``(image_id, pseudo_report)`` — matching the schema written
+    by :func:`evaluate` (one record per pseudo-report) and the ``done_keys`` set
+    built at eval time. Records whose ``raw_response`` starts with ``ERROR:``
+    are excluded so transient infra failures are retried on ``--resume``.
+    """
     if CHECKPOINT_PATH.exists():
         with open(CHECKPOINT_PATH, "r") as f:
             data = json.load(f)
         return {
-            (r["image_id"], r["concept"])
+            (r.get("image_id", ""), r.get("pseudo_report", ""))
             for r in data
             if not str(r.get("raw_response", "")).startswith("ERROR:")
         }
@@ -396,9 +406,41 @@ def save_checkpoint(records: list[dict]):
 # Main evaluation loop
 # ============================================================================
 
+def _resolve_source_paths(
+    source: str, results_dir: Path, safe_model: str
+) -> dict[str, Path]:
+    """Resolve per-source judge I/O paths under ``results/<dataset>/``.
+
+    ``source`` names the method dir holding ``sample_explanations.json``
+    (``baseline``, ``sae_hidden``, ``spliece``, ``null``, ``null_k5``, …).
+    ``baseline`` keeps the legacy unsuffixed filenames (``aligned_scores.csv``)
+    for backward compatibility; any other source tags outputs with ``_<source>``
+    (e.g. ``aligned_scores_spliec.csv``) so the five methods don't collide and
+    no cp/mv into the baseline dir is needed.
+
+    Args:
+        source: Method dir name under ``results/<dataset>/``.
+        results_dir: ``config.paths.results_dir`` (already dataset-routed).
+        safe_model: ``MODEL_NAME`` with ``/``/``:`` → ``_`` for filenames.
+
+    Returns:
+        Dict with keys ``explanations``, ``output_csv``, ``checkpoint``,
+        ``scores_json`` (all absolute Paths).
+    """
+    source_dir = results_dir / source
+    suffix = "" if source == "baseline" else f"_{source}"
+    return {
+        "explanations": source_dir / "sample_explanations.json",
+        "output_csv": results_dir / f"aligned_scores{suffix}.csv",
+        "checkpoint": results_dir / f"judge_checkpoint{suffix}_{safe_model}.json",
+        "scores_json": results_dir / f"judge_scores{suffix}_{safe_model}.json",
+    }
+
+
 def evaluate(
     resume: bool = False,
     batch_save_every: int = 25,
+    source: str = "baseline",
 ) -> Path:
     """
     Run the LLM judge on all (concept, report) pairs from sample_explanations.json.
@@ -412,6 +454,13 @@ def evaluate(
     Args:
         resume: if True, skip already-evaluated pairs from checkpoint.
         batch_save_every: save checkpoint every N evaluations.
+        source: name of the method dir under ``results/<dataset>/`` holding the
+            ``sample_explanations.json`` to judge (``baseline``, ``sae_hidden``,
+            ``spliece``, ``null``, ``null_k5``, …). ``"baseline"`` (default)
+            preserves the legacy path/outputs; any other value reads from
+            ``results/<dataset>/<source>/`` and tags the output artifacts with a
+            ``_<source>`` suffix (e.g. ``aligned_scores_spliec.csv``), so the
+            five methods can be judged without cp/mv gymnastics.
 
     Returns:
         Path to the saved output CSV.
@@ -421,14 +470,20 @@ def evaluate(
     set_global_seed(training_cfg.primary_seed)
     logger.info("Global seed set to %d", training_cfg.primary_seed)
 
-    # --- Resolve the active dataset spec + per-dataset paths/prompt ---
+    # --- Resolve the active dataset spec + per-source paths/prompt ---
     spec: DatasetSpec = get_dataset(config.active_dataset.name)
     safe_model = MODEL_NAME.replace("/", "_").replace(":", "_")
     JUDGE_PROMPT = spec.judge_prompt
-    EXPLANATIONS_PATH = config.paths.baseline_results_dir / "sample_explanations.json"
-    OUTPUT_CSV_PATH = config.paths.results_dir / "aligned_scores.csv"
-    CHECKPOINT_PATH = config.paths.results_dir / f"judge_checkpoint_{safe_model}.json"
-    SCORES_JSON_PATH = config.paths.results_dir / f"judge_scores_{safe_model}.json"
+    # Source dir under results/<dataset>/<source>/ (baseline, sae_hidden,
+    # spliece, null, null_k5, ...). Default "baseline" preserves the legacy
+    # baseline_results_dir path + unsuffixed outputs; any other source reads its
+    # own sample_explanations.json and tags outputs with _<source> so the
+    # cp-into-baseline trick is no longer required.
+    src_paths = _resolve_source_paths(source, config.paths.results_dir, safe_model)
+    EXPLANATIONS_PATH = src_paths["explanations"]
+    OUTPUT_CSV_PATH = src_paths["output_csv"]
+    CHECKPOINT_PATH = src_paths["checkpoint"]
+    SCORES_JSON_PATH = src_paths["scores_json"]
     logger.info(
         "Active dataset: %s (%s) | model=%s", spec.name, spec.language, MODEL_NAME
     )
@@ -441,7 +496,10 @@ def evaluate(
     # --- Load explanations + the dataset's report lookup ---
     if not EXPLANATIONS_PATH.exists():
         logger.error("Explanations file not found: %s", EXPLANATIONS_PATH)
-        logger.error("Run generate_explanations for dataset %r first.", spec.name)
+        logger.error(
+            "Run generate_explanations for dataset %r (source %r) first.",
+            spec.name, source,
+        )
         sys.exit(1)
 
     with open(EXPLANATIONS_PATH, "r") as f:
@@ -659,11 +717,14 @@ def parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Run evaluation
-  python src/evaluate_llm_judge.py
+  # Judge the baseline explanations (default source)
+  python src/evaluate_llm_judge.py --dataset iu_xray
 
-  # Resume an interrupted run
-  python src/evaluate_llm_judge.py --resume
+  # Judge the SPLiCE explanations -> aligned_scores_spliec.csv (no cp/mv)
+  python src/evaluate_llm_judge.py --dataset iu_xray --source spliec
+
+  # Resume an interrupted run (retries ERROR: pairs, skips done pairs)
+  python src/evaluate_llm_judge.py --dataset iu_xray --source spliec --resume
         """,
     )
     parser.add_argument(
@@ -685,6 +746,18 @@ Examples:
             f"Active dataset (default: {config.active_dataset.name}); must be a key "
             "in xai_datasets.spec.DATASETS (e.g. iu_xray, padchest). Re-routes "
             "results/checkpoints to results/<dataset>/."
+        ),
+    )
+    parser.add_argument(
+        "--source",
+        type=str,
+        default="baseline",
+        help=(
+            "Method dir under results/<dataset>/ holding sample_explanations.json "
+            "(default: baseline). For the 5-method comparison pass the method name "
+            "(sae_hidden, spliece, null, null_k5): reads "
+            "results/<dataset>/<source>/sample_explanations.json and writes "
+            "aligned_scores_<source>.csv (no cp/mv needed)."
         ),
     )
     parser.add_argument(
@@ -722,13 +795,14 @@ def main():
     config.select_dataset(args.dataset)
 
     logger.info(
-        "LLM Judge — dataset=%s model=%s (LM Studio: %s)",
-        args.dataset, MODEL_NAME, USE_LM_STUDIO,
+        "LLM Judge — dataset=%s source=%s model=%s (LM Studio: %s)",
+        args.dataset, args.source, MODEL_NAME, USE_LM_STUDIO,
     )
 
     output_csv = evaluate(
         resume=args.resume,
         batch_save_every=args.checkpoint_every,
+        source=args.source,
     )
     logger.info("Done. Results at: %s", output_csv)
 

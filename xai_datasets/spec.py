@@ -95,13 +95,14 @@ IU_XRAY_SPEC = DatasetSpec(
     image_dataset_cls=IUXrayImageDataset,
     text_dataset_cls=IUXrayTextDataset,
     image_dir=_IU_XRAY_DIR / "images" / "images_normalized",
-    # text_source is the iu_xray ROOT: indiana_reports.csv + indiana_projections.csv
-    # live here (the reports/ subdir is empty); IUXrayTextDataset reads
-    # <text_source>/indiana_reports.csv and the 2-hop lookup reads both CSVs.
-    text_source=_IU_XRAY_DIR,
+    # text_source is the reports/ subdir: download_iu_xray.py stages both
+    # indiana_reports.csv + indiana_projections.csv here (matches VLMConfig.
+    # reports_dir). IUXrayTextDataset reads <text_source>/indiana_reports.csv
+    # and the 2-hop lookup reads both CSVs.
+    text_source=_IU_XRAY_DIR / "reports",
     make_group_key_fn=lambda: study_key_from_basename,
     judge_prompt=IU_XRAY_JUDGE_PROMPT,
-    build_report_lookup=lambda: build_iu_xray_report_lookup(_IU_XRAY_DIR),
+    build_report_lookup=lambda: build_iu_xray_report_lookup(_IU_XRAY_DIR / "reports"),
 )
 
 

@@ -99,24 +99,26 @@ def study_key_from_basename(name: str) -> str:
     return f"{patient}_IM-{study}"
 
 
-def build_iu_xray_report_lookup(iu_xray_dir) -> dict:
+def build_iu_xray_report_lookup(reports_dir) -> dict:
     """Build ``{image_filename: "Findings ... Impression ..."}`` for IU X-Ray.
 
     IU X-Ray splits the report across two CSVs: ``indiana_projections.csv``
     maps ``filename → uid`` and ``indiana_reports.csv`` maps ``uid → findings``
     + ``impression``. This 2-hop bridge is IU-specific (PadChest joins directly).
-    Both CSVs live at the ``iu_xray_dir`` root (NOT under ``reports/``).
+    Both CSVs live under ``reports_dir`` (= ``data/iu_xray/reports/``, as staged
+    by download_iu_xray.py and matching ``VLMConfig.reports_dir``).
 
     Args:
-        iu_xray_dir: Path to ``data/iu_xray/`` (holding both indiana CSVs).
+        reports_dir: Path to the directory holding both indiana CSVs
+            (``data/iu_xray/reports/``).
 
     Returns:
         ``{filename: combined_report_text}`` keyed by the image-id basename used
         in the explanations sidecar (e.g. ``"3222_IM-1522-2001.dcm.png"``).
     """
-    iu_xray_dir = Path(iu_xray_dir)
-    reports_csv = iu_xray_dir / "indiana_reports.csv"
-    projections_csv = iu_xray_dir / "indiana_projections.csv"
+    reports_dir = Path(reports_dir)
+    reports_csv = reports_dir / "indiana_reports.csv"
+    projections_csv = reports_dir / "indiana_projections.csv"
 
     uid_to_report: dict[str, str] = {}
     with reports_csv.open(newline="", encoding="utf-8") as fh:

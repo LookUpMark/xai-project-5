@@ -37,16 +37,26 @@ def parse_args() -> argparse.Namespace:
         help="fixed concepts/image; if omitted, mirror SPLiCE's per-image count",
     )
     p.add_argument("--seed", type=int, default=42, help="RNG seed for reproducibility")
-    p.add_argument("--output", type=Path, default=None, help="output dir (default: results/null)")
+    p.add_argument("--output", type=Path, default=None, help="output dir (default: results/<dataset>/null)")
+    p.add_argument(
+        "--dataset",
+        type=str,
+        default=config.active_dataset.name,
+        help=(
+            f"Active dataset (default: {config.active_dataset.name}); must be a key "
+            "in xai_datasets.spec.DATASETS (e.g. iu_xray, rocov2). Re-routes "
+            "vocab/image-ids/output paths via config.select_dataset."
+        ),
+    )
     return p.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    config.select_dataset(args.dataset)
     random.seed(args.seed)
 
-    root = config.paths.project_root
-    output_dir = args.output or (root / "results" / "null")
+    output_dir = args.output or (config.paths.results_dir / "null")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Vocabulary terms (canonical ordering == text_vocab_embeddings.pt rows).
@@ -59,7 +69,9 @@ def main() -> None:
         image_ids = json.load(f)
 
     # Match SPLiCE's per-image concept count so the lottery-ticket count is equal.
-    spliece_path = config.spliece.output_dir / "sample_explanations.json"
+    # config.spliece.output_dir is a stale import-time singleton; read from the
+    # (dataset-aware) config.paths.results_dir so rocov2 finds its own SPLiCE run.
+    spliece_path = config.paths.results_dir / "spliece" / "sample_explanations.json"
     counts = None
     if args.k is None:
         if not spliece_path.exists():

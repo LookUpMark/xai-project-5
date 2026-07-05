@@ -46,20 +46,27 @@ def _looks_like_image(cell: str) -> bool:
 def _load_rocov2_captions(captions_csv: Path, image_dir: Path | None = None) -> dict[str, str]:
     """Load ``{image_name: caption}`` from the 2-column captions CSV.
 
+    ROCOv2 ships caption IDs WITHOUT a file extension (``ROCOv2_2023_train_000001``)
+    while the image files on disk carry one (``...jpg``). When ``image_dir`` is
+    given, rows are matched to disk by **stem** and keyed by the on-disk filename;
+    when it is ``None``, the name is kept as-is and non-image cells (headers like
+    ``ID``/``image``) are skipped.
+
     Args:
-        captions_csv: Path to ``captions.csv`` (filename, caption).
-        image_dir: If given, keep only rows whose image exists on disk (a partial
-            download then yields a self-consistent subset). ``None`` => all rows.
+        captions_csv: Path to ``captions.csv`` (filename-or-ID, caption).
+        image_dir: If given, keep only rows whose image exists on disk (matched by
+            stem, so extension-less IDs resolve). ``None`` => all rows.
 
     Returns:
         ``{image_name: caption}`` keyed by the basename (incl. extension) used in
         the embedding sidecar.
     """
-    on_disk: set[str] | None = None
+    on_disk: dict[str, str] | None = None  # stem -> on-disk filename
     if image_dir is not None:
-        on_disk = set()
+        on_disk = {}
         for ext in ("*.jpg", "*.jpeg", "*.png"):
-            on_disk |= {p.name for p in Path(image_dir).rglob(ext)}
+            for p in Path(image_dir).rglob(ext):
+                on_disk.setdefault(p.stem, p.name)
 
     out: dict[str, str] = {}
     with Path(captions_csv).open(newline="", encoding="utf-8") as fh:
@@ -67,11 +74,20 @@ def _load_rocov2_captions(captions_csv: Path, image_dir: Path | None = None) -> 
             if len(row) < 2:
                 continue
             name, caption = row[0].strip(), row[1].strip()
-            if not _looks_like_image(name):
-                continue  # header / spurious row
-            if on_disk is not None and name not in on_disk:
+            if not caption:
                 continue
-            out[name] = caption
+            if on_disk is not None:
+                # Match by stem: ROCOv2 IDs ship without extension, disk files
+                # always have one. A header row ("ID") has no matching stem -> dropped.
+                full = on_disk.get(Path(name).stem)
+                if full is None:
+                    continue
+                out[full] = caption
+            else:
+                # No disk reference: skip non-image cells (headers) + keep as-is.
+                if not _looks_like_image(name):
+                    continue
+                out[name] = caption
     return out
 
 

@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import torch
+from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
@@ -15,6 +16,41 @@ def _unzip_collate(batch: list) -> tuple:
     Defined at module level so it can be pickled by multiprocessing workers.
     """
     return tuple(zip(*batch))
+
+
+class _WorkerResizedDataset(Dataset):
+    """Decode+downscale each image IN THE WORKER before it lands in a prefetch
+    buffer.
+
+    Medical X-rays are multi-megapixel (1024-2500px), but the BiomedCLIP ViT-B/16
+    processor downsamples to 224 anyway, so holding full-res PIL in
+    num_workers * prefetch_factor * batch_size of buffers is pure host-RAM waste
+    and gets the worker SIGKILLed by the OOM killer on RAM-tight boxes (Lightning
+    studios). Resizing shortest-edge to 256 here is quality-neutral (the processor
+    resizes to 224 next) and cuts buffered RAM ~20-50x. Only downscaling — images
+    already ≤ 256 pass through unchanged.
+    """
+
+    def __init__(self, base: Dataset, short_edge: int = 256):
+        self.base = base
+        self.short_edge = short_edge
+
+    def __len__(self):
+        return len(self.base)
+
+    def __getitem__(self, i):
+        img, path = self.base[i]
+        if not isinstance(img, Image.Image):
+            return img, path  # already a tensor/np array (augmented path) — leave as-is
+        img = img.convert("RGB")
+        w, h = img.size
+        scale = self.short_edge / float(min(w, h))
+        if scale < 1.0:  # never upscale
+            img = img.resize(
+                (max(1, round(w * scale)), max(1, round(h * scale))),
+                Image.BILINEAR,
+            )
+        return img, path
 
 
 def _autocast_ctx(vlm_config: VLMConfig):
@@ -84,6 +120,9 @@ def extract_visual_embeddings(
         print(f"\nAugmentation enabled: size expanded to {len(dataset)} samples. Starting extraction...")
     else:
         print(f"\nFound {len(dataset)} images. Starting extraction...")
+
+    # Cap worker-buffered host RAM: downscale in the worker (see _WorkerResizedDataset).
+    dataset = _WorkerResizedDataset(dataset)
 
     dataloader = DataLoader(dataset, **_dataloader_kwargs(vlm_config))
 

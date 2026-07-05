@@ -50,6 +50,27 @@ class TestLoadCaptions:
         caps = _load_rocov2_captions(cap_csv, img_dir)
         assert caps == {"a.jpg": "x"}
 
+    def test_matches_extensionless_ids_by_stem(self, tmp_path):
+        """Real ROCOv2 format: caption IDs ship WITHOUT extension
+        (``ROCOv2_2023_train_000001``), disk images WITH (``.jpg``). The loader
+        must match by stem and key the result by the on-disk filename."""
+        cap_csv = tmp_path / "captions.csv"
+        _write_rows(cap_csv, [
+            ["ID", "Caption"],  # header -> dropped (no matching stem on disk)
+            ["ROCOv2_2023_train_000001", "Head CT of parotiditis."],
+            ["ROCOv2_2023_train_000002", "Chest X-ray, cardiomegaly."],
+            ["ROCOv2_2023_train_999999", "No matching image on disk."],
+        ])
+        img_dir = tmp_path / "images"
+        img_dir.mkdir()
+        _make_jpg(img_dir / "ROCOv2_2023_train_000001.jpg")
+        _make_jpg(img_dir / "ROCOv2_2023_train_000002.jpg")
+        caps = _load_rocov2_captions(cap_csv, img_dir)
+        assert caps == {
+            "ROCOv2_2023_train_000001.jpg": "Head CT of parotiditis.",
+            "ROCOv2_2023_train_000002.jpg": "Chest X-ray, cardiomegaly.",
+        }
+
 
 class TestROCOCaptionDataset:
     def test_yields_caption_then_imagename_sorted(self, tmp_path):

@@ -216,6 +216,7 @@ data/iu_xray/*
 data/iu_xray/*.zip
 !data/iu_xray/images/.gitkeep
 data/mesh/*
+data/rocov2/
 
 # PadChest (BIMCV) — license forbids redistribution: data + URLs never committed.
 data/padchest/*

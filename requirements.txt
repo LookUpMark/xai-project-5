@@ -1,9 +1,10 @@
---extra-index-url https://download.pytorch.org/whl/cu126
+--extra-index-url https://download.pytorch.org/whl/nightly/cu128
+--pre
 
 # Core ML
-torch==2.12.0
-torchvision==0.27.0
-transformers==4.44.2
+torch>=2.12.0
+torchvision>=0.27.0
+transformers>=4.48.0
 dictionary-learning==0.1.0
 
 # LLM Judge (MedGemma 4B via HuggingFace + LangGraph)

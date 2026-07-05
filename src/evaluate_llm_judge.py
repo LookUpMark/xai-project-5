@@ -129,7 +129,7 @@ def get_pipeline():
             model = AutoModelForCausalLM.from_pretrained(
                 MODEL_NAME,
                 quantization_config=bnb_config,
-                torch_dtype=torch.bfloat16,
+                dtype=torch.bfloat16,
                 device_map="auto",
             )
             _pipe = pipeline(
@@ -140,9 +140,9 @@ def get_pipeline():
             )
         else:
             if torch.backends.mps.is_available():
-                kwargs = dict(torch_dtype=torch.float16, device="mps")
+                kwargs = dict(dtype=torch.float16, device="mps")
             else:
-                kwargs = dict(torch_dtype=torch.float32, device="cpu")
+                kwargs = dict(dtype=torch.float32, device="cpu")
             logger.info("Device/dtype (unquantized): %s", kwargs)
             _pipe = pipeline(
                 "text-generation", 

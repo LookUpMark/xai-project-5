@@ -39,11 +39,16 @@ class _nullcontext:
 
 
 def _dataloader_kwargs(vlm_config: VLMConfig) -> dict:
-    """DataLoader kwargs tuned for GPU throughput.
+    """DataLoader kwargs tuned for GPU throughput without blowing host RAM.
 
-    - pin_memory + persistent_workers + prefetch_factor keep the GPU fed when
-      image decode (PNG) is the bottleneck rather than forward compute.
-    - persistent_workers avoids the per-epoch worker respawn cost.
+    - pin_memory + persistent_workers keep the GPU fed when image decode (PNG)
+      is the bottleneck rather than forward compute.
+    - prefetch_factor stays at 2 (torch default): workers buffer PIL images, so
+      in-flight memory ~= num_workers * prefetch_factor * batch_size * (PIL img).
+      prefetch_factor=4 + batch=256 + 4 workers = ~4k buffered images, which the
+      OOM killer will SIGKILL on host-RAM-constrained boxes (e.g. Lightning
+      studios). If you raise batch_size a lot, lower num_workers or use --no-half
+      is NOT the lever — host RAM is.
     """
     is_cuda = vlm_config.device.startswith("cuda")
     kwargs = {
@@ -55,7 +60,7 @@ def _dataloader_kwargs(vlm_config: VLMConfig) -> dict:
     }
     if vlm_config.num_workers > 0:
         kwargs["persistent_workers"] = True
-        kwargs["prefetch_factor"] = 4
+        kwargs["prefetch_factor"] = 2
     return kwargs
 
 

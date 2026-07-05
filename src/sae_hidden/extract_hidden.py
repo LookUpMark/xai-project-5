@@ -15,7 +15,6 @@ Run:
 """
 from __future__ import annotations
 
-import dataclasses
 import json
 import sys
 from pathlib import Path
@@ -30,16 +29,15 @@ sys.path.insert(0, str(_HERE.parent.parent))  # repo root -> xai_datasets
 import config
 import utils
 from augmentation.transforms import get_safe_cxr_transforms
-from config import EmbeddingConfig
+from embedding_extraction.extract_embeddings import (
+    _WorkerResizedDataset,
+    _autocast_ctx,
+    _dataloader_kwargs,
+)
 from sae_hidden.reports import md_table, write_report
-from xai_datasets.iu_xray import IUXrayImageDataset, study_key_from_basename
+from xai_datasets.spec import get_dataset
 
 log = utils.setup_logging(__name__)
-
-
-def _collate(batch):
-    """Unzip (image, path) pairs — picklable for DataLoader workers."""
-    return tuple(zip(*batch))
 
 
 def extract_hidden_embeddings(model, processor, dataset, vlm_config, augmented: bool = False):
@@ -55,13 +53,7 @@ def extract_hidden_embeddings(model, processor, dataset, vlm_config, augmented: 
     Returns:
         (Tensor(N, 768), list[str]) — embeddings and row-aligned PNG basenames.
     """
-    loader = DataLoader(
-        dataset,
-        batch_size=vlm_config.batch_size,
-        shuffle=False,
-        num_workers=vlm_config.num_workers,
-        collate_fn=_collate,
-    )
+    loader = DataLoader(dataset, **_dataloader_kwargs(vlm_config))
 
     # standard: one view (the originals); augmented: n_views random augmentations.
     aug_transform = get_safe_cxr_transforms(config.augmentation) if augmented else None
@@ -80,9 +72,12 @@ def extract_hidden_embeddings(model, processor, dataset, vlm_config, augmented: 
                     images=group, return_tensors="pt"
                 ).to(vlm_config.device)
                 # CLS token of the last hidden state: (B, 197, 768) -> (B, 768), RAW.
-                out = model.vision_model(pixel_values=inputs["pixel_values"])
-                cls = out.last_hidden_state[:, 0, :]
-                all_embeddings.append(cls.cpu())
+                # fp16 autocast on CUDA (no-op on MPS/CPU); cast back to fp32 before
+                # save so downstream SAE training sees no dtype change.
+                with _autocast_ctx(vlm_config):
+                    out = model.vision_model(pixel_values=inputs["pixel_values"])
+                    cls = out.last_hidden_state[:, 0, :]
+                all_embeddings.append(cls.float().cpu())
                 # Original basename -> augmented views share the study key (no leakage).
                 all_ids.extend(Path(p).name for p in batch_paths)
 
@@ -102,6 +97,7 @@ def run(augmented: bool = False) -> Path:
         augmented: extract augmented views (see :func:`extract_hidden_embeddings`).
     """
     utils.set_global_seed(config.training.split_seed)  # F-009: deterministic extraction
+    spec = get_dataset(config.active_dataset.name)  # dataset-aware (image_dir, dataset class, group key)
     out_path = config.paths.hidden_visual_embeddings_path
     ids_path = config.paths.hidden_visual_image_ids_path
     report_path = config.paths.hidden_results_dir / "REPORT_extraction.md"
@@ -113,15 +109,16 @@ def run(augmented: bool = False) -> Path:
         log.info(f"768-d embeddings already present ({embeddings.shape}); skipping extraction")
     else:
         model, processor = utils.load_vlm(config.vlm)
-        image_dir = config.paths.project_root / EmbeddingConfig().image_dir
-        dataset = IUXrayImageDataset(image_dir)
+        image_dir = spec.image_dir
+        dataset = _WorkerResizedDataset(spec.image_dataset_cls(image_dir))
         mode = f"augmented (x{config.augmentation.num_augmentations})" if augmented else "standard"
-        log.info(f"Extracting 768-d CLS hidden state for {len(dataset)} images [{mode}]...")
-        # num_workers=0: forking workers with the loaded VLM in RAM spikes memory
-        # (the prior run was OOM-killed, exit 137). batch_size tuned for MPS headroom.
-        vlm_cfg = dataclasses.replace(config.vlm, num_workers=0, batch_size=32)
+        log.info(f"Extracting 768-d CLS hidden state for {len(dataset)} images "
+                 f"[{mode}, dataset={spec.name}, dir={image_dir}]...")
+        # config.vlm is already device-tuned (batch=64, workers=4, use_half on cuda);
+        # _WorkerResizedDataset downscales in the worker so forking is host-RAM-safe
+        # (medical images are 1024-2500px; the ViT-B/16 processor resizes to 224 next).
         embeddings, all_ids = extract_hidden_embeddings(
-            model, processor, dataset, vlm_cfg, augmented=augmented
+            model, processor, dataset, config.vlm, augmented=augmented
         )
         out_path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(embeddings, out_path)
@@ -132,15 +129,17 @@ def run(augmented: bool = False) -> Path:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-    # Group-aware split (no study leakage) into train/test_768 + sidecars.
-    log.info("Creating group-aware train/test split (study-level)...")
+    # Group-aware split into train/test_768 + sidecars. group_key_fn is dataset-aware
+    # (IU/PadChest: study key; ROCOv2: None => random split, figures are independent).
+    group_key_fn = spec.make_group_key_fn()
+    log.info(f"Creating train/test split ({'study-level' if group_key_fn else 'random'})...")
     train_emb, test_emb = utils.split_embeddings(
         source_path=out_path,
         train_path=config.paths.hidden_train_embeddings_path,
         test_path=config.paths.hidden_test_embeddings_path,
         train_ratio=config.training.train_split_ratio,
         seed=config.training.split_seed,
-        group_key_fn=study_key_from_basename,
+        group_key_fn=group_key_fn,
         source_ids_path=ids_path,
         train_ids_path=config.paths.hidden_train_image_ids_path,
         test_ids_path=config.paths.hidden_test_image_ids_path,

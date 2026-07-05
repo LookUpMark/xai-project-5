@@ -107,6 +107,7 @@ def main() -> None:
                 for s in config.training.seeds:
                     train_sae.train_single(s)
             step("train", _train_all_seeds)
+        step("modality_gap", train_sae.compute_and_save_modality_gap)  # naming reads models/<ds>/modality_gap.pt
         step("naming", concept_naming.run)
         step("stability", stability_analysis.run)
         step("explain", generate_explanations.run)

@@ -27,7 +27,6 @@ from autoencoder.sae_module import SAEManager
 logger = utils.setup_logging(__name__)
 
 SEED = config.training.primary_seed
-TEST_IMAGE_IDS_PATH = config.paths.test_image_ids_path
 
 
 def generate_explanation(
@@ -112,15 +111,18 @@ def run() -> Path:
     # Load the per-row image ids (basename) for the test split so each
     # explanation carries the image_id the LLM judge joins reports.csv on.
     # Falls back to a positional placeholder when the sidecar is absent.
-    if TEST_IMAGE_IDS_PATH.exists():
-        with open(TEST_IMAGE_IDS_PATH) as f:
+    # Resolve at run() time (after select_dataset) — the import-time value is
+    # frozen to the default dataset and would misroute under --dataset.
+    test_image_ids_path = config.paths.test_image_ids_path
+    if test_image_ids_path.exists():
+        with open(test_image_ids_path) as f:
             test_image_ids = json.load(f)
     else:
         test_image_ids = None
         logger.warning(
             "Test image-id sidecar not found (%s); falling back to "
             "positional sample ids. Re-run extraction + split to populate it.",
-            TEST_IMAGE_IDS_PATH,
+            test_image_ids_path,
         )
 
     if config.explanation.explanation_max_samples:

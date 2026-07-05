@@ -145,6 +145,11 @@ class VLMConfig:
         else "cuda" if torch.cuda.is_available()
         else "cpu"
     )
+    # AMP fp16 autocast on CUDA (~5-8x forward speedup on T4; fp32 weights are
+    # kept, autocast casts compute on the fly). Outputs are cast back to fp32
+    # before L2-norm + save, so downstream stages (SAE/SPLiCE) see no dtype
+    # change. Ignored on MPS/CPU (autocast enabled on cuda only).
+    use_half: bool = True
 
 
 @dataclass

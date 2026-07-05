@@ -42,6 +42,17 @@ from sae_hidden.variant import hidden_variant
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Run the Path A (768-d SAE) pipeline end-to-end.")
     p.add_argument("--variant", choices=["standard", "augmented"], default="standard")
+    p.add_argument(
+        "--dataset",
+        type=str,
+        default=config.active_dataset.name,
+        help=(
+            f"Active dataset (default: {config.active_dataset.name}); must be a key "
+            "in xai_datasets.spec.DATASETS (e.g. iu_xray, rocov2). Re-routes "
+            "embeddings/models/results paths via config.select_dataset (standard "
+            "variant only; augmented/tag are iu_xray-anchored legacy layouts)."
+        ),
+    )
     p.add_argument("--skip-extract", action="store_true", help="reuse cached embeddings")
     p.add_argument("--skip-train", action="store_true", help="reuse cached trained models")
     p.add_argument("--dict-size", type=int, default=None, help="override SAEHiddenConfig.dict_size")
@@ -52,16 +63,35 @@ def parse_args() -> argparse.Namespace:
 
 
 def variant_dirs(augmented: bool, tag: str | None) -> tuple[Path, Path, Path]:
+    """Resolve embeddings/models/results dirs for the active dataset.
+
+    Standard (non-augmented, no tag) reads the dataset-aware config.paths.hidden_*
+    (so rocov2 lands under embeddings/<dataset>/standard_hidden/). The augmented
+    and tag variants keep the legacy root-anchored layout (iu_xray-specific).
+    """
     root = config.paths.project_root
-    embeddings_dir = root / "embeddings" / ("augmented_hidden" if augmented else "standard_hidden")
-    base = "sae_hidden_augmented" if augmented else "sae_hidden"
+    if augmented:
+        embeddings_dir = root / "embeddings" / "augmented_hidden"
+        base = "sae_hidden_augmented"
+        return embeddings_dir, root / "models" / base, root / "results" / base
     if tag:
         base = f"sae_hidden_{tag}"
-    return embeddings_dir, root / "models" / base, root / "results" / base
+        return (
+            config.paths.hidden_embeddings_dir,
+            root / "models" / base,
+            root / "results" / base,
+        )
+    # standard, dataset-aware
+    return (
+        config.paths.hidden_embeddings_dir,
+        config.paths.hidden_models_dir,
+        config.paths.hidden_results_dir,
+    )
 
 
 def main() -> None:
     args = parse_args()
+    config.select_dataset(args.dataset)
     augmented = args.variant == "augmented"
     embeddings_dir, models_dir, results_dir = variant_dirs(augmented, args.tag)
 

@@ -33,6 +33,16 @@ def parse_args() -> argparse.Namespace:
         description="Run SPLiCE (Path B) sparse decomposition pipeline end-to-end."
     )
     p.add_argument(
+        "--dataset",
+        type=str,
+        default=config.active_dataset.name,
+        help=(
+            f"Active dataset (default: {config.active_dataset.name}); must be a key "
+            "in xai_datasets.spec.DATASETS (e.g. iu_xray, rocov2). Re-routes "
+            "vocab/embeddings/output paths via config.select_dataset."
+        ),
+    )
+    p.add_argument(
         "--k",
         type=int,
         default=None,
@@ -154,8 +164,13 @@ def _analyze_coverage(
 
 def main() -> None:
     args = parse_args()
+    config.select_dataset(args.dataset)
     root = config.paths.project_root
-    output_dir = config.paths.results_dir / f"spliece_{args.tag}" if args.tag else config.paths.results_dir / "spliece"
+    output_dir = (
+        config.paths.results_dir / f"spliece_{args.tag}"
+        if args.tag
+        else config.paths.results_dir / "spliece"
+    )
 
     overrides = {}
     if args.k is not None:
@@ -163,10 +178,16 @@ def main() -> None:
     if args.no_gap_correction:
         overrides["use_gap_correction"] = False
 
-    spliece_cfg = (
-        replace(config.spliece, **overrides, output_dir=output_dir)
-        if overrides
-        else replace(config.spliece, output_dir=output_dir)
+    # config.spliece is a frozen singleton built at import time, so its paths
+    # are stale after select_dataset; rebind vocab/gap/output to the (now
+    # dataset-aware) config.paths so e.g. rocov2 reads the MeSH vocab embeddings.
+    spliece_cfg = replace(
+        config.spliece,
+        vocab_path=config.paths.vocab_labels_path,
+        vocab_emb_path=config.paths.vocab_embeddings_path,
+        gap_path=config.paths.models_dir / "modality_gap.pt",
+        output_dir=output_dir,
+        **overrides,
     )
 
     print("=" * 64)
@@ -211,12 +232,14 @@ def main() -> None:
     print(f"\nDone in {total:.1f}s. Report: {output_dir / 'REPORT_run.md'}")
 
 
-def _repro_info() -> list[str]:
+def _repro_info(cfg) -> list[str]:
     """Collect git SHA, package versions, and input-file hashes (F-014/F-015).
 
     The decomposition is deterministic, so reproducibility hinges on identical
     inputs — which are gitignored and notebook-regenerated. Recording their
     sha256 alongside the output lets a future run verify the inputs match.
+    Uses *cfg* (the dataset-aware SpliCEConfig rebuilt in main) rather than the
+    stale ``config.spliece`` singleton so e.g. rocov2 hashes its own MeSH files.
     """
     import hashlib
     import subprocess
@@ -241,8 +264,8 @@ def _repro_info() -> list[str]:
 
     for label, path in [
         ("test_embeddings", config.paths.test_embeddings_path),
-        ("text_vocab_embeddings", config.spliece.vocab_emb_path),
-        ("modality_gap", config.spliece.gap_path),
+        ("text_vocab_embeddings", cfg.vocab_emb_path),
+        ("modality_gap", cfg.gap_path),
         ("test_image_ids", config.paths.test_image_ids_path),
     ]:
         if Path(path).exists():
@@ -290,7 +313,7 @@ def _write_run_report(args, cfg, output_dir, stages, total, num_images):
         ),
         (
             "Reproducibility",
-            "\n".join(_repro_info()),
+            "\n".join(_repro_info(cfg)),
         ),
         (
             "Verification",

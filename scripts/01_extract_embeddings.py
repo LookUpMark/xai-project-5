@@ -122,6 +122,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Skip report/caption text-embedding extraction (visual only).",
     )
+    p.add_argument(
+        "--no-half",
+        action="store_true",
+        help="Disable fp16 autocast (force fp32 forward pass). Default: fp16 on CUDA.",
+    )
     return p.parse_args()
 
 
@@ -144,6 +149,7 @@ def main() -> None:
         device=args.device,
         batch_size=args.batch_size,
         num_workers=args.num_workers,
+        use_half=not args.no_half,
     )
     emb_cfg = config.EmbeddingConfig(
         image_dir=str(spec.image_dir),
@@ -157,7 +163,7 @@ def main() -> None:
     print("=" * 64)
     print(f"  dataset     : {spec.name} ({spec.language}, {spec.domain})")
     print(f"  model       : {vlm_cfg.model_name}")
-    print(f"  device      : {vlm_cfg.device}  (batch={vlm_cfg.batch_size}, workers={vlm_cfg.num_workers})")
+    print(f"  device      : {vlm_cfg.device}  (batch={vlm_cfg.batch_size}, workers={vlm_cfg.num_workers}, half={vlm_cfg.use_half})")
     print(f"  mode        : {aug_lbl}")
     print(f"  image_dir   : {emb_cfg.image_dir}")
     print(f"  text_source : {emb_cfg.reports_dir}")

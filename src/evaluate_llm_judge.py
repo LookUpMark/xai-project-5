@@ -365,12 +365,18 @@ def _extract_verdict(raw_text: str) -> str | None:
 # ============================================================================
 
 def load_checkpoint() -> set:
-    """Load set of already-evaluated (image_id, concept) pairs."""
+    """Load set of already-evaluated (image_id, pseudo_report) pairs.
+
+    The dedup key is ``(image_id, pseudo_report)`` — matching the schema written
+    by :func:`evaluate` (one record per pseudo-report) and the ``done_keys`` set
+    built at eval time. Records whose ``raw_response`` starts with ``ERROR:``
+    are excluded so transient infra failures are retried on ``--resume``.
+    """
     if CHECKPOINT_PATH.exists():
         with open(CHECKPOINT_PATH, "r") as f:
             data = json.load(f)
         return {
-            (r["image_id"], r["concept"])
+            (r.get("image_id", ""), r.get("pseudo_report", ""))
             for r in data
             if not str(r.get("raw_response", "")).startswith("ERROR:")
         }

@@ -1,108 +1,126 @@
 {
+  "metric_reform_note": "Slot-wise cross-seed Jaccard ('stability' block) is floor-by-construction for SAEs with no canonical feature ordering (a single SAE relabeled by a random bijection scores ~floor). It is kept ONLY for backward compat. The headline cross-seed signal is the permutation-invariant matched metric in 'matched' below, compared against its subspace-conditioned (erank) null. See ML-AUDIT-2026-06-25 H1 addendum + ML-AUDIT-2026-06-26 F-001.",
+  "matched": {
+    "mean_best_match_cosine": 0.29923697710037234,
+    "mean_erank": 363.4,
+    "mean_frac_matched_0.9": 0.0,
+    "mean_frac_mutual_1to1": 0.21875,
+    "null_isotropic_mean": 0.15142176896333695,
+    "ratio_isotropic": 1.9761820189329924,
+    "null_subspace_mean": 0.17941727340221406,
+    "ratio_subspace": 1.6678445277430491,
+    "p_value_subspace": 0.0,
+    "n_pairs": 10,
+    "thresholds": [
+      0.7,
+      0.9
+    ]
+  },
   "stability": {
-    "mean_jaccard": 0.008401652798056602,
-    "std_jaccard": 0.0028819593135267496,
+    "mean_jaccard": 0.007666620425879955,
+    "std_jaccard": 0.0014451764291152358,
     "jaccard_matrix": [
       [
         1.0,
-        0.006279073655605316,
-        0.008837461471557617,
-        0.009380383417010307,
-        0.006285225041210651
+        0.00624066311866045,
+        0.007389407139271498,
+        0.010187334381043911,
+        0.0076440200209617615
       ],
       [
-        0.006279073655605316,
+        0.00624066311866045,
         1.0,
-        0.006502898875623941,
-        0.015774058178067207,
-        0.005087035242468119
+        0.006821946240961552,
+        0.010154802352190018,
+        0.005594606976956129
       ],
       [
-        0.008837461471557617,
-        0.006502898875623941,
+        0.007389407139271498,
+        0.006821946240961552,
         1.0,
-        0.010197541676461697,
-        0.008077221922576427
+        0.008430521935224533,
+        0.0071172695606946945
       ],
       [
-        0.009380383417010307,
-        0.015774058178067207,
-        0.010197541676461697,
+        0.010187334381043911,
+        0.010154802352190018,
+        0.008430521935224533,
         1.0,
-        0.007595638744533062
+        0.007085635792464018
       ],
       [
-        0.006285225041210651,
-        0.005087035242468119,
-        0.008077221922576427,
-        0.007595638744533062,
+        0.0076440200209617615,
+        0.005594606976956129,
+        0.0071172695606946945,
+        0.007085635792464018,
         1.0
       ]
-    ]
+    ],
+    "deprecated": true
   },
   "per_seed_metrics": {
     "0": {
-      "mse": 3.6133114917902276e-05,
-      "cosine": 0.9907495975494385,
+      "mse": 3.5662291338667274e-05,
+      "cosine": 0.9908702969551086,
       "l0_mean": 32.0,
       "l0_std": 0.0,
       "dead_features_pct": 17.7734375,
-      "activation_entropy": 6.2404327392578125,
+      "activation_entropy": 6.260293006896973,
       "dict_utilization_pct": 82.2265625,
       "feature_frequency_mean": 0.015625,
-      "feature_frequency_std": 0.04493965953588486
+      "feature_frequency_std": 0.04398120194673538
     },
     "42": {
-      "mse": 3.625935278250836e-05,
-      "cosine": 0.9907192587852478,
+      "mse": 3.563449718058109e-05,
+      "cosine": 0.9908830523490906,
       "l0_mean": 32.0,
       "l0_std": 0.0,
-      "dead_features_pct": 17.96875,
-      "activation_entropy": 6.210013389587402,
-      "dict_utilization_pct": 82.03125,
+      "dead_features_pct": 15.771484375,
+      "activation_entropy": 6.2595977783203125,
+      "dict_utilization_pct": 84.228515625,
       "feature_frequency_mean": 0.015625,
-      "feature_frequency_std": 0.046264708042144775
+      "feature_frequency_std": 0.04432195425033569
     },
     "123": {
-      "mse": 3.6003646528115496e-05,
-      "cosine": 0.9907847046852112,
+      "mse": 3.6089397326577455e-05,
+      "cosine": 0.9907582998275757,
       "l0_mean": 32.0,
       "l0_std": 0.0,
-      "dead_features_pct": 17.236328125,
-      "activation_entropy": 6.23048210144043,
-      "dict_utilization_pct": 82.763671875,
+      "dead_features_pct": 15.576171875,
+      "activation_entropy": 6.231686592102051,
+      "dict_utilization_pct": 84.423828125,
       "feature_frequency_mean": 0.015625,
-      "feature_frequency_std": 0.045114945620298386
+      "feature_frequency_std": 0.04491410031914711
     },
     "456": {
-      "mse": 3.6629109672503546e-05,
-      "cosine": 0.9906127452850342,
+      "mse": 3.661439404822886e-05,
+      "cosine": 0.9906387329101562,
       "l0_mean": 32.0,
       "l0_std": 0.0,
-      "dead_features_pct": 16.50390625,
-      "activation_entropy": 6.232574462890625,
-      "dict_utilization_pct": 83.49609375,
+      "dead_features_pct": 15.0390625,
+      "activation_entropy": 6.236116886138916,
+      "dict_utilization_pct": 84.9609375,
       "feature_frequency_mean": 0.015625,
-      "feature_frequency_std": 0.0461592935025692
+      "feature_frequency_std": 0.04602289944887161
     },
     "789": {
-      "mse": 3.521234248182736e-05,
-      "cosine": 0.990983784198761,
+      "mse": 3.519405436236411e-05,
+      "cosine": 0.990996778011322,
       "l0_mean": 32.0,
       "l0_std": 0.0,
-      "dead_features_pct": 17.87109375,
-      "activation_entropy": 6.2551703453063965,
-      "dict_utilization_pct": 82.12890625,
+      "dead_features_pct": 16.796875,
+      "activation_entropy": 6.284919738769531,
+      "dict_utilization_pct": 83.203125,
       "feature_frequency_mean": 0.015625,
-      "feature_frequency_std": 0.04492926597595215
+      "feature_frequency_std": 0.043333977460861206
     }
   },
   "clustering": {
     "n_active_features": 1684,
     "n_dead_features": 364,
-    "high_correlation_pairs": 164,
+    "high_correlation_pairs": 146,
     "correlation_threshold": 0.7,
-    "mean_co_occurrence": 0.011063290759921074
+    "mean_co_occurrence": 0.01116026658564806
   },
   "config": {
     "seeds": [

@@ -1,15 +1,15 @@
 # SPLiCE — Pipeline Run
 
 **Status**: Complete ✅
-**Total time**: 2.7s
-**Date**: 2026-06-27 17:19:24
+**Total time**: 9.5s
+**Date**: 2026-07-06 20:01:10
 
 ## Run config
 
 | param | value |
 |-------|-------|
 | tag | — |
-| output dir | /Users/marcantoniolopez/Documents/github/xai-project-5/results/spliece |
+| output dir | /home/marcantoniolopez/Documenti/github/xai-project-5/results/iu_xray/spliece |
 | k | 32 |
 | gap correction | True |
 | images decomposed | 1515 |
@@ -27,22 +27,20 @@
 
 | stage | status | seconds |
 |-------|--------|--------|
-| decompose | ok | 2.7 |
-| coverage | ok | 0.0 |
+| decompose | ok | 9.5 |
 
 ## Output files
 
 - `sample_explanations.json` — Per-image concept lists (SAE-compatible schema)
-- `REPORT_coverage.md` — Vocabulary coverage analysis
 
 
 ## Reproducibility
 
-- git commit: `772d55b20bd5fb9cd2a406f0e1b479f2e8a4a998`
-- versions: scikit-learn 1.8.0 | torch 2.12.0 | numpy 2.4.6
-- sha256(test_embeddings) [test_embeddings.pt]: `f266e54366f3fb5e`
-- sha256(text_vocab_embeddings) [text_vocab_embeddings.pt]: `922ee9509eb06e70`
-- sha256(modality_gap) [modality_gap.pt]: `36264e287fc1f1f5`
+- git commit: `5b80bf250e0df95e6056843d0410d44db419b94e`
+- versions: scikit-learn 1.8.0 | torch 2.12.0+cu130 | numpy 2.4.6
+- sha256(test_embeddings) [test_embeddings.pt]: `d1b9081dbb5f0fe1`
+- sha256(text_vocab_embeddings) [text_vocab_embeddings.pt]: `98c9cf7462d6181f`
+- sha256(modality_gap) [modality_gap.pt]: `e6dda3a0a8ed454a`
 - sha256(test_image_ids) [test_image_ids.json]: `3816a84e18deefc7`
 
 ## Verification

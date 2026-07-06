@@ -1,46 +1,47 @@
 # Baseline (512-d) — Pipeline Run
 
-_Generated: 2026-06-27_
+_Generated: 2026-07-06_
 
 ## Summary
 
-Baseline (512-d) run complete in 982s. dict_size=2048 k=32 steps=8000, seeds=[0, 42, 123, 456, 789]. Stages wrote JSON to /Users/marcantoniolopez/Documents/github/xai-project-5/results/baseline.
+Baseline (512-d) run complete in 159s. dict_size=2048 k=32 steps=8000, seeds=[0, 42, 123, 456, 789]. Stages wrote JSON to /home/marcantoniolopez/Documenti/github/xai-project-5/results/iu_xray/baseline.
 
 ## Run config
 
 | param | value |
 | --- | --- |
 | tag | — |
-| models dir | /Users/marcantoniolopez/Documents/github/xai-project-5/models |
+| models dir | /home/marcantoniolopez/Documenti/github/xai-project-5/models/iu_xray |
 | dict_size / k / steps | 2048 / 32 / 8000 |
 | seeds | 0, 42, 123, 456, 789 |
-| device | mps |
+| device | cuda |
 
 ## Stages
 
 | stage | status | seconds |
 | --- | --- | --- |
-| train | ok | 944.6 |
-| naming | ok | 3.4 |
-| stability | ok | 29.9 |
-| explain | ok | 3.8 |
+| train | ok | 110.5 |
+| modality_gap | ok | 0.0 |
+| naming | ok | 0.8 |
+| stability | ok | 47.4 |
+| explain | ok | 0.3 |
 
 ## Outputs
 
 | artifact | path |
 | --- | --- |
-| concept names | /Users/marcantoniolopez/Documents/github/xai-project-5/results/baseline/concept_names.json |
-| stability (jaccard) | /Users/marcantoniolopez/Documents/github/xai-project-5/results/baseline/stability_analysis.json |
-| stability (matched) | /Users/marcantoniolopez/Documents/github/xai-project-5/results/baseline/stability_matched.json |
-| explanations | /Users/marcantoniolopez/Documents/github/xai-project-5/results/baseline/sample_explanations.json |
+| concept names | /home/marcantoniolopez/Documenti/github/xai-project-5/results/iu_xray/baseline/concept_names.json |
+| stability (jaccard) | /home/marcantoniolopez/Documenti/github/xai-project-5/results/iu_xray/baseline/stability_analysis.json |
+| stability (matched) | /home/marcantoniolopez/Documenti/github/xai-project-5/results/iu_xray/baseline/stability_matched.json |
+| explanations | /home/marcantoniolopez/Documenti/github/xai-project-5/results/iu_xray/baseline/sample_explanations.json |
 
 ## Reproducibility
 
-- git commit: `4ba4451b91c6ba2788ef5cf14ebbe425d21a6bb7`
-- versions: scikit-learn 1.8.0 | torch 2.12.0 | numpy 2.4.6
-- sha256(train_embeddings) [train_embeddings.pt]: `46252db1b0ea2e5e`
-- sha256(test_embeddings) [test_embeddings.pt]: `f266e54366f3fb5e`
-- sha256(text_vocab_embeddings) [text_vocab_embeddings.pt]: `922ee9509eb06e70`
-- sha256(modality_gap) [modality_gap.pt]: `36264e287fc1f1f5`
-- sha256(primary_model) [ae.pt]: `05534a5b6a271e7d`
+- git commit: `5b80bf250e0df95e6056843d0410d44db419b94e`
+- versions: scikit-learn 1.8.0 | torch 2.12.0+cu130 | numpy 2.4.6
+- sha256(train_embeddings) [train_embeddings.pt]: `bf2207fa822c83ab`
+- sha256(test_embeddings) [test_embeddings.pt]: `d1b9081dbb5f0fe1`
+- sha256(text_vocab_embeddings) [text_vocab_embeddings.pt]: `98c9cf7462d6181f`
+- sha256(modality_gap) [modality_gap.pt]: `e6dda3a0a8ed454a`
+- sha256(primary_model) [ae.pt]: `c8bc3a0fc754e232`
 

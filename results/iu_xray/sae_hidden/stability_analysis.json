@@ -11,7 +11,7 @@
   "mean_jaccard": 0.008310125209391117,
   "std_jaccard": 0.0005755622987635434,
   "analytical_chance_floor": 0.007874015748031496,
-  "baseline_512d_jaccard": 0.0038,
+  "baseline_512d_jaccard": 0.0084,
   "jaccard_matrix": [
     [
       1.0,
@@ -48,5 +48,6 @@
       0.008849726989865303,
       1.0
     ]
-  ]
+  ],
+  "frozen_note": "Results frozen from a prior session (IU SAE models were deleted, see handoff/H1 addendum). Pre-metric-reform format: slot-wise Jaccard is floor-by-construction (a relabeled single SAE scores ~floor). baseline_512d_jaccard corrected to 0.0084 (dict=2048 measured; the prior 0.0038 was the dict=4096 floor). ROCOv2 baseline is the live reformed demo."
 }

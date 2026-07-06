@@ -55,6 +55,10 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument("--source", required=True, choices=list(_SOURCE_DEFAULTS),
                    help="which method's explanations to organize")
+    p.add_argument("--dataset", default=config.active_dataset.name,
+                   help="active dataset (default: %(default)s); re-routes result/vocab "
+                        "paths to embeddings|results/<dataset>/. F-ORG: previously "
+                        "froze on the import-time default dataset.")
     p.add_argument("--tag", default=None, help="suffix: results/concept_organization_{tag}/")
     p.add_argument("--n-clusters", type=int, default=None, help="override OrganizeConfig.n_clusters")
     p.add_argument("--distance", type=float, default=None, help="linkage distance threshold (mutually exclusive with --n-clusters)")
@@ -134,15 +138,26 @@ def _write_report(output_dir: Path, args, cfg, metrics, inputs, total) -> None:
 
 def main() -> None:
     args = parse_args()
+    # F-ORG: re-route paths to the selected dataset BEFORE any path is read. The
+    # _SOURCE_DEFAULTS lambdas evaluate config.paths at call time, but the frozen
+    # config.organize singletons (vocab_path/vocab_emb_path) are bound at import —
+    # resolve those from the live config.paths instead so ROCOv2 doesn't silently
+    # load IU RadLex.
+    config.select_dataset(args.dataset)
     root = config.paths.project_root
-    output_dir = root / "results" / f"concept_organization_{args.tag}" if args.tag \
-        else root / "results" / "concept_organization"
+    output_dir = root / "results" / config.active_dataset.name / (
+        f"concept_organization_{args.tag}" if args.tag else "concept_organization"
+    )
 
     defaults = _SOURCE_DEFAULTS[args.source]
     explanations_path = args.explanations or defaults["explanations"]()
     concept_names_path = args.concept_names or (defaults["concept_names"]() if defaults["concept_names"] else None)
-    vocab_path = args.vocab or config.organize.vocab_path
-    vocab_emb_path = args.vocab_emb or config.organize.vocab_emb_path
+    # Live, dataset-aware vocab paths (standard/ — vocab is a text artifact).
+    std_vocab_emb = (
+        root / "embeddings" / config.active_dataset.name / "standard" / "text_vocab_embeddings.pt"
+    )
+    vocab_path = args.vocab or config.paths.vocab_labels_path
+    vocab_emb_path = args.vocab_emb or std_vocab_emb
     radlex_path = None if args.no_radlex else (args.radlex or config.organize.radlex_csv_path)
 
     overrides = {"output_dir": output_dir}

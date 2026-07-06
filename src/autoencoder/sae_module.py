@@ -96,18 +96,30 @@ def matched_pair_stats(
     on evidence; the high-threshold fractions (``frac_matched_0.9``) are the
     concentration-robust signal (random directions cannot reach 0.9).
 
+    **Subspace-conditioned null (erank).** Real decoder directions concentrate in a
+    lower-dimensional subspace — the *effective rank* ``erank = (Σσ)²/Σσ²`` of the
+    row-direction cloud is well below ``d`` (measured 205–257 here vs ``d=512``).
+    The isotropic null draws random vectors in the full ``R^d`` sphere, so it is too
+    low and inflates the observed/null ratio. The subspace null instead draws random
+    unit vectors in ``W_j``'s top-``erank`` right-singular subspace, matching the
+    concentration geometry. ``ratio_subspace`` is the honest headline; the isotropic
+    ``null_mean``/``p_value`` are kept as a (loose) lower bound.
+
     Args:
         W_i, W_j: decoder rows (D_i, d) and (D_j, d).
-        n_perm: isotropic null samples (random unit-vector draws).
+        n_perm: null samples (drawn for both isotropic and subspace nulls).
         thresholds: cosine cutoffs for "fraction matched".
         generator: optional torch RNG for a deterministic null.
 
     Returns:
         Dict with ``mean_best_match_cosine``, ``frac_matched_{t}``,
-        ``frac_mutual_1to1``, ``null_mean``, ``null_std``, ``p_value``, ``n_perm``.
+        ``frac_mutual_1to1``, ``erank``, ``null_mean``/``null_std``/``p_value``
+        (isotropic), ``null_subspace_mean``/``null_subspace_std``/
+        ``p_value_subspace``/``ratio_subspace``, ``n_perm``.
     """
     W_i = F.normalize(W_i.to(torch.float32), dim=1)
     W_j = F.normalize(W_j.to(torch.float32), dim=1)
+    d = W_j.shape[1]
     sims = W_i @ W_j.T                              # (D_i, D_j) cosine
     best = sims.max(dim=1).values                   # best match per i-feature
     b_for_a = sims.argmax(dim=1)                    # (D_i,) j matched to each i
@@ -115,20 +127,48 @@ def matched_pair_stats(
     mutual = a_for_b[b_for_a] == torch.arange(W_i.shape[0])
     obs = best.mean().item()
 
-    # Isotropic null: best-match to n_perm independent random unit-vector sets.
+    # Effective rank of W_j's row-direction cloud (concentration of the decoder).
+    # (Σσ)²/Σσ²; clamp to [1, d]. SVD on normalized rows → direction geometry.
+    _, S_j, Vt_j = torch.linalg.svd(W_j, full_matrices=False)
+    erank = int(round(((S_j.sum()) ** 2 / (S_j ** 2).sum()).item()))
+    erank = max(1, min(erank, d))
+
+    # Isotropic null: best-match to n_perm independent random unit-vector sets in R^d.
     nulls = torch.empty(n_perm)
     for k in range(n_perm):
         w_null = F.normalize(torch.randn(W_j.shape, generator=generator), dim=1)
         nulls[k] = (W_i @ w_null.T).max(dim=1).values.mean()
     p = (nulls >= obs).float().mean().item()
 
+    # Subspace-conditioned null: random unit vectors in W_j's top-erank subspace,
+    # compared against W_i projected into that same subspace. Real SAE decoders
+    # share the data manifold, so most of W_i's energy lives in W_j's subspace;
+    # the projection makes the null well-defined (it isolates the alignment the
+    # subspace geometry alone forces, controlling for the concentration the
+    # isotropic null misses). The observed statistic keeps the raw (unprojected)
+    # W_i — it measures total agreement, of which the subspace is the lower bound.
+    Vt_top = Vt_j[:erank]                           # (erank, d)
+    Wi_proj = F.normalize(W_i @ Vt_top.T @ Vt_top, dim=1)  # W_i in top-erank span
+    nulls_sub = torch.empty(n_perm)
+    for k in range(n_perm):
+        coeffs = torch.randn(W_j.shape[0], erank, generator=generator)
+        w_null = F.normalize(coeffs @ Vt_top, dim=1)  # (D_j, d) in top-erank span
+        nulls_sub[k] = (Wi_proj @ w_null.T).max(dim=1).values.mean()
+    p_sub = (nulls_sub >= obs).float().mean().item()
+    null_sub_mean = nulls_sub.mean().item()
+
     return {
         "mean_best_match_cosine": obs,
         **{f"frac_matched_{t}": (best >= t).float().mean().item() for t in thresholds},
         "frac_mutual_1to1": mutual.float().mean().item(),
+        "erank": erank,
         "null_mean": nulls.mean().item(),
         "null_std": nulls.std(correction=0).item() if n_perm > 1 else 0.0,
         "p_value": p,
+        "null_subspace_mean": null_sub_mean,
+        "null_subspace_std": nulls_sub.std(correction=0).item() if n_perm > 1 else 0.0,
+        "p_value_subspace": p_sub,
+        "ratio_subspace": obs / null_sub_mean if null_sub_mean > 0 else float("inf"),
         "n_perm": n_perm,
     }
 
@@ -793,9 +833,18 @@ class SAEManager:
             "mean_best_match_cosine": _agg("mean_best_match_cosine"),
             **{f"mean_frac_matched_{t}": _agg(f"frac_matched_{t}") for t in thresholds},
             "mean_frac_mutual_1to1": _agg("frac_mutual_1to1"),
+            # Isotropic null — loose lower bound (ignores data-manifold concentration).
             "null_mean": _agg("null_mean"),
             "p_value": _agg("p_value"),
+            # Subspace-conditioned null (erank) — the honest headline comparison.
+            "mean_erank": _agg("erank"),
+            "null_subspace_mean": _agg("null_subspace_mean"),
+            "ratio_subspace": _agg("ratio_subspace"),
+            "p_value_subspace": _agg("p_value_subspace"),
             "min_p_value": min((p["p_value"] for p in pairs), default=1.0),
+            "min_p_value_subspace": min(
+                (p["p_value_subspace"] for p in pairs), default=1.0
+            ),
             "pairs": pairs,
         }
 

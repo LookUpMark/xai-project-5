@@ -2,8 +2,14 @@
 
 The headline diagnostic: do Path A SAEs discover the *same* features across seeds?
 Reports mean pairwise cross-seed Jaccard (computed per-sample on the held-out test
-set, one model loaded at a time) against the baseline's analytical-null result
-(0.0038) and the closed-form chance floor k/(2D-k).
+set, one model loaded at a time) against the closed-form chance floor k/(2D-k).
+
+NB (H1 / ML-AUDIT-2026-06-25 addendum): slot-wise index Jaccard is floor-by-
+construction for SAEs with no canonical feature ordering — a single SAE whose
+features are relabeled by a random bijection scores ≈ floor on it (see
+``scripts/relabeling_control.py``). So slot-wise is reported only as a
+identical-permutation check; the permutation-invariant matched metric
+(``run_matched``) with its subspace-conditioned null is the sound cross-seed signal.
 
 Run:
     python src/sae_hidden/stability_hidden.py
@@ -25,7 +31,12 @@ from sae_hidden.train_hidden import hidden_sae_config
 
 log = utils.setup_logging(__name__)
 
-BASELINE_JACCARD = 0.0038  # ML-AUDIT-2026-06-25: 512-d projected SAE at chance floor
+# Measured mean cross-seed slot-wise Jaccard of the 512-d baseline at dict=2048
+# (ML-AUDIT-2026-06-25). Both the 512-d baseline and Path A (768-d) sit at the same
+# dict=2048 chance floor — slot-wise is floor-by-construction, so this is NOT a lift
+# signal (the previous 0.0038 was the dict=4096 chance floor from an earlier config
+# and produced a spurious "2.2x lift").
+BASELINE_512D_JACCARD = 0.0084
 
 
 def run() -> Path:
@@ -68,8 +79,13 @@ def run() -> Path:
                 "mean_jaccard": mean_j,
                 "std_jaccard": std_j,
                 "analytical_chance_floor": chance_floor,
-                "baseline_512d_jaccard": BASELINE_JACCARD,
+                "baseline_512d_jaccard": BASELINE_512D_JACCARD,
                 "jaccard_matrix": jmat.tolist(),
+                "slot_wise_deprecated": (
+                    "Floor-by-construction (H1): a single SAE relabeled by a random "
+                    "bijection scores ≈ chance floor on slot-wise Jaccard. Use the "
+                    "matched metric (stability_matched.json) for any cross-seed signal."
+                ),
             },
             f,
             indent=2,
@@ -85,18 +101,25 @@ def run() -> Path:
                  f"{jmat[i, j]:.4f}"]
             )
 
-    lift_vs_baseline = mean_j / BASELINE_JACCARD if BASELINE_JACCARD else float("inf")
+    # NB: NOT a "lift". Both Path A (768-d) and the 512-d baseline sit at the same
+    # dict=2048 chance floor on slot-wise Jaccard, which is floor-by-construction
+    # (H1 / relabeling_control). A ratio ≈1.0 means "no slot-wise signal", not "no
+    # improvement" — slot-wise cannot show identifiability either way.
+    ratio_vs_baseline = (
+        mean_j / BASELINE_512D_JACCARD if BASELINE_512D_JACCARD else float("inf")
+    )
     verdict = (
         "ABOVE chance floor — features are reproducible across seeds."
         if mean_j > 2 * chance_floor
-        else "near/at chance floor — features still seed-dependent. "
-        "NOTE: this slot-wise index Jaccard is NOT permutation-invariant and "
-        "cannot by itself establish non-identifiability (see REPORT_stability_matched.md)."
+        else "near/at chance floor. NOTE: slot-wise index Jaccard is "
+        "floor-by-construction (H1) — a relabeled copy of ONE SAE scores ≈ floor on "
+        "it — so this number is NOT a stability/identifiability signal. See "
+        "REPORT_stability_matched.md for the permutation-invariant metric."
     )
     summary = (
-        f"Mean cross-seed Jaccard = {mean_j:.4f} (chance floor {chance_floor:.4f}, "
-        f"baseline 512-d {BASELINE_JACCARD:.4f}). {verdict} "
-        f"Lift over baseline: {lift_vs_baseline:.1f}x."
+        f"Mean cross-seed slot-wise Jaccard = {mean_j:.4f} (chance floor "
+        f"{chance_floor:.4f}, 512-d baseline {BASELINE_512D_JACCARD:.4f}). {verdict} "
+        f"Ratio vs 512-d baseline: {ratio_vs_baseline:.2f}x (≈1.0 ⇒ both at floor)."
     )
     sections = [
         (
@@ -104,11 +127,11 @@ def run() -> Path:
             md_table(
                 ["metric", "value"],
                 [
-                    ["mean Jaccard", f"{mean_j:.4f}"],
+                    ["mean slot-wise Jaccard", f"{mean_j:.4f}"],
                     ["std Jaccard", f"{std_j:.4f}"],
                     ["analytical chance floor (k/(2D-k))", f"{chance_floor:.4f}"],
-                    ["baseline 512-d Jaccard", f"{BASELINE_JACCARD:.4f}"],
-                    ["lift over baseline", f"{lift_vs_baseline:.1f}x"],
+                    ["512-d baseline Jaccard", f"{BASELINE_512D_JACCARD:.4f}"],
+                    ["ratio vs 512-d baseline (≈1 ⇒ floor)", f"{ratio_vs_baseline:.2f}x"],
                     ["k / dict_size", f"{k} / {D}"],
                 ],
             ),
@@ -167,9 +190,14 @@ def run_matched() -> Path:
         json.dump(result, f, indent=2)
 
     obs = result["mean_best_match_cosine"]
-    null = result["null_mean"]
+    null = result["null_mean"]  # isotropic (loose lower-bound null)
     p = result["p_value"]
     ratio = obs / null if null > 0 else float("inf")
+    # Subspace-conditioned null (erank) — the honest headline comparison; controls
+    # for data-manifold concentration the isotropic null misses.
+    null_sub = result.get("null_subspace_mean", null)
+    erank = result.get("mean_erank", float("nan"))
+    ratio_sub = result.get("ratio_subspace", ratio)
     frac09 = result["mean_frac_matched_0.9"]
     frac07 = result["mean_frac_matched_0.7"]
     # Analytical sanity anchor: E[max cosine] of D random unit vectors in d dims.
@@ -194,8 +222,10 @@ def run_matched() -> Path:
 
     summary = (
         f"Mean best-match cosine = {obs:.4f} (isotropic null {null:.4f}, "
-        f"p={p:.3f}). {verdict} Analytical random-anchor ≈ {anchor:.3f}. "
-        f" Cf. slot-wise Jaccard ({BASELINE_JACCARD}-class) which cannot show this."
+        f"p={p:.3f}; subspace null {null_sub:.4f} at erank≈{erank:.0f}, "
+        f"obs/subspace-null={ratio_sub:.2f}x — the honest comparison). {verdict} "
+        f"Analytical random-anchor ≈ {anchor:.3f}. "
+        f" Cf. slot-wise Jaccard ({BASELINE_512D_JACCARD}-class) which cannot show this."
     )
     pair_rows = [
         [pr["pair"], f"{pr['mean_best_match_cosine']:.4f}", f"{pr['null_mean']:.4f}",
@@ -215,9 +245,11 @@ def run_matched() -> Path:
                 ["metric", "value"],
                 [
                     ["mean best-match cosine", f"{obs:.4f}"],
-                    ["permutation null mean", f"{null:.4f}"],
-                    ["observed / null", f"{ratio:.2f}x"],
-                    ["p-value (P(null≥obs))", f"{p:.4f}"],
+                    ["isotropic null mean", f"{null:.4f}"],
+                    ["observed / isotropic null", f"{ratio:.2f}x"],
+                    ["subspace null mean (erank)", f"{null_sub:.4f} (erank≈{erank:.0f})"],
+                    ["observed / subspace null", f"{ratio_sub:.2f}x"],
+                    ["p-value isotropic (P(null≥obs))", f"{p:.4f}"],
                     ["min p-value across pairs", f"{result['min_p_value']:.4f}"],
                     ["mean frac mutual 1-to-1", f"{result['mean_frac_mutual_1to1']:.4f}"],
                     ["analytical random anchor", f"{anchor:.4f}"],

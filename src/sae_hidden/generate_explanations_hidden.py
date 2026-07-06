@@ -24,8 +24,9 @@ from sae_hidden.train_hidden import hidden_sae_config
 log = utils.setup_logging(__name__)
 
 SEED = config.training.primary_seed
-CONCEPT_NAMES_PATH = config.paths.hidden_results_dir / "concept_names.json"
-OUTPUT_PATH = config.paths.hidden_results_dir / "sample_explanations.json"
+# F-C1: paths resolved inside run() (after select_dataset) — module-level binding
+# froze them to the default dataset, so on ROCOv2 the explain stage read IU concept
+# names and overwrote the IU output. Mirrors the baseline generate_explanations fix.
 
 
 def build_explanation(top_concepts, concept_names):
@@ -48,17 +49,20 @@ def build_explanation(top_concepts, concept_names):
 
 def run() -> Path:
     utils.set_global_seed(SEED)  # F-009: deterministic generation
+    # F-C1: resolve per-dataset paths here, not at import.
+    concept_names_path = config.paths.hidden_results_dir / "concept_names.json"
+    output_path = config.paths.hidden_results_dir / "sample_explanations.json"
     model_dir = config.paths.hidden_models_dir / f"sae_seed{SEED}"
     for path, desc in [
         (model_dir, "Primary-seed SAE"),
         (config.paths.hidden_test_embeddings_path, "768-d test embeddings"),
-        (CONCEPT_NAMES_PATH, "Concept names"),
+        (concept_names_path, "Concept names"),
     ]:
         if not path.exists():
             raise FileNotFoundError(f"{desc} not found: {path}")
 
     embeddings = utils.load_tensor(config.paths.hidden_test_embeddings_path)
-    with open(CONCEPT_NAMES_PATH) as f:
+    with open(concept_names_path) as f:
         concept_names = json.load(f)
 
     ids_path = config.paths.hidden_test_image_ids_path
@@ -80,8 +84,8 @@ def run() -> Path:
         ex["image_id"] = test_image_ids[idx] if test_image_ids else f"sample_{idx}"
         explanations.append(ex)
 
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(OUTPUT_PATH, "w") as f:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w") as f:
         json.dump(explanations, f, indent=2, ensure_ascii=False)
 
     # Report
@@ -112,9 +116,9 @@ def run() -> Path:
     ]
     report_path = config.paths.hidden_results_dir / "REPORT_explanations.md"
     write_report(report_path, "Path A — Per-sample Explanations (768-d)", sections, summary)
-    log.info(f"Explanations: {OUTPUT_PATH}")
+    log.info(f"Explanations: {output_path}")
     log.info(f"Report: {report_path}")
-    return OUTPUT_PATH
+    return output_path
 
 
 def main() -> None:

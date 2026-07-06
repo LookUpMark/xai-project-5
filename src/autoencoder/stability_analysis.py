@@ -130,30 +130,38 @@ def run() -> Path:
         embeddings = embeddings[: config.training.stability_max_samples]
     logger.info(f"Test embeddings: {embeddings.shape}")
 
-    # 1. Cross-seed Jaccard stability
-    logger.info("Computing Jaccard stability across seeds...")
-    stability = SAEManager.compute_stability(
-        model_dirs, embeddings, config={"device": config.hardware.device}
-    )
-    logger.info(f"  Mean Jaccard: {stability['mean_jaccard']:.4f}")
-    logger.info(f"  Std Jaccard:  {stability['std_jaccard']:.4f}")
-
-    # 1b. Permutation-invariant matched stability (decoder best-match cosine).
-    # The slot-wise Jaccard above is ~0 by construction for SAEs with no canonical
+    # 1. HEADLINE — permutation-invariant matched stability (decoder best-match).
+    # The slot-wise index Jaccard is ~0 by construction for SAEs with no canonical
     # feature ordering and cannot establish non-identifiability (ML-AUDIT-2026-06-26
-    # F-001). This matched metric is the sound cross-seed signal.
-    logger.info("Computing permutation-invariant matched stability...")
+    # F-001). The matched metric is the sound cross-seed signal; its subspace-
+    # conditioned null (erank) is the honest comparison.
+    logger.info("Computing permutation-invariant matched stability (headline)...")
     matched = SAEManager.compute_stability_matched(
         model_dirs, config={"device": config.hardware.device}
     )
     matched_path = config.paths.results_dir / "stability_matched.json"
     with open(matched_path, "w") as f:
         json.dump(matched, f, indent=2)
-    _mc, _nc = matched["mean_best_match_cosine"], matched["null_mean"]
+    _mc = matched["mean_best_match_cosine"]
+    _ns, _nsub = matched["null_mean"], matched["null_subspace_mean"]
+    _erank = matched["mean_erank"]
     logger.info(
-        f"  Best-match cosine: {_mc:.4f} vs null {_nc:.4f} "
-        f"({_mc / _nc:.2f}x), frac>=0.9: {matched['mean_frac_matched_0.9']:.4f}"
+        f"  Best-match cosine: {_mc:.4f} | erank: {_erank:.0f} "
+        f"| isotropic null {_ns:.4f} ({_mc / _ns:.2f}x) "
+        f"vs subspace null {_nsub:.4f} ({matched['ratio_subspace']:.2f}x) "
+        f"| frac>=0.9: {matched['mean_frac_matched_0.9']:.4f} "
+        f"| mutual-1:1: {matched['mean_frac_mutual_1to1']:.4f}"
     )
+
+    # 1b. DEPRECATED — slot-wise cross-seed Jaccard. Kept for backward compat with
+    # downstream notebooks, but it is floor-by-construction (a single SAE whose
+    # features are relabeled by a random bijection scores ~floor on it). Do NOT use
+    # as a stability/identifiability signal — see H1 in ML-AUDIT-2026-06-25 addendum.
+    logger.info("Computing slot-wise Jaccard (DEPRECATED — floor by construction)...")
+    stability = SAEManager.compute_stability(
+        model_dirs, embeddings, config={"device": config.hardware.device}
+    )
+    logger.info(f"  Mean Jaccard: {stability['mean_jaccard']:.4f} (chance floor)")
 
     # 2. Per-seed metrics
     logger.info("\nPer-seed metrics:")
@@ -204,10 +212,37 @@ def run() -> Path:
 
     # 5. Save results
     results = {
+        "metric_reform_note": (
+            "Slot-wise cross-seed Jaccard ('stability' block) is floor-by-construction "
+            "for SAEs with no canonical feature ordering (a single SAE relabeled by a "
+            "random bijection scores ~floor). It is kept ONLY for backward compat. "
+            "The headline cross-seed signal is the permutation-invariant matched metric "
+            "in 'matched' below, compared against its subspace-conditioned (erank) null. "
+            "See ML-AUDIT-2026-06-25 H1 addendum + ML-AUDIT-2026-06-26 F-001."
+        ),
+        "matched": {
+            "mean_best_match_cosine": matched["mean_best_match_cosine"],
+            "mean_erank": matched["mean_erank"],
+            "mean_frac_matched_0.9": matched["mean_frac_matched_0.9"],
+            "mean_frac_mutual_1to1": matched["mean_frac_mutual_1to1"],
+            "null_isotropic_mean": matched["null_mean"],
+            "ratio_isotropic": (
+                matched["mean_best_match_cosine"] / matched["null_mean"]
+                if matched["null_mean"] > 0
+                else None
+            ),
+            "null_subspace_mean": matched["null_subspace_mean"],
+            "ratio_subspace": matched["ratio_subspace"],
+            "p_value_subspace": matched["p_value_subspace"],
+            "n_pairs": matched["n_pairs"],
+            "thresholds": matched["thresholds"],
+        },
+        # DEPRECATED — floor-by-construction; see metric_reform_note.
         "stability": {
             "mean_jaccard": stability["mean_jaccard"],
             "std_jaccard": stability["std_jaccard"],
             "jaccard_matrix": stability["jaccard_matrix"].tolist(),
+            "deprecated": True,
         },
         "per_seed_metrics": per_seed_metrics,
         "clustering": clustering,

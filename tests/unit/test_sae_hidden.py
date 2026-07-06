@@ -213,3 +213,70 @@ def test_matched_dead_row_scores_zero():
     # 19 live rows match at cosine 1.0; the dead row matches at 0.
     assert s["mean_best_match_cosine"] == pytest.approx((D - 1) / D, abs=1e-4)
     assert s["frac_matched_0.9"] == pytest.approx((D - 1) / D, abs=1e-4)
+
+
+# ── Subspace-conditioned null (erank reform) ─────────────────────────────────
+# The isotropic null draws random vectors in the full R^d sphere; real decoder
+# directions concentrate in a lower-dim subspace (effective rank erank < d), so
+# the isotropic null is too low and inflates the observed/null ratio. The
+# subspace null draws random vectors in W_j's top-erank subspace, controlling
+# for that concentration — the honest comparison.
+
+
+def test_matched_erank_tracks_subspace_rank():
+    """erank ≈ k when W_j's directions live in a k-dim subspace."""
+    torch.manual_seed(4)
+    d, k, D = 64, 8, 200
+    Q, _ = torch.linalg.qr(torch.randn(d, k))  # orthonormal basis, k-dim
+    W = torch.randn(D, k) @ Q.T  # (D, d), all rows in span(Q) → rank k
+    s = matched_pair_stats(W, W, n_perm=10, generator=_null_gen())
+    assert s["erank"] <= k          # cannot exceed the linear rank
+    assert s["erank"] >= 4          # but tracks it (not 1)
+
+
+def test_matched_subspace_null_above_isotropic_when_concentrated():
+    """Both decoders in a shared low-dim manifold → subspace null > isotropic null.
+
+    This mirrors real SAEs: both W_i and W_j concentrate in the same data
+    manifold (here a k-dim subspace). The subspace null (in-manifold random) is
+    then higher than the isotropic null (full-R^d random, nearly orthogonal to
+    the manifold), so ratio_subspace < the isotropic ratio.
+    """
+    torch.manual_seed(5)
+    d, k, D = 128, 8, 200
+    Q, _ = torch.linalg.qr(torch.randn(d, k))  # shared k-dim manifold
+    W_i = torch.randn(D, k) @ Q.T
+    W_j = torch.randn(D, k) @ Q.T  # independent draw, same manifold
+    s = matched_pair_stats(W_i, W_j, n_perm=50, generator=_null_gen())
+    assert s["erank"] <= k + 1
+    assert s["null_subspace_mean"] > s["null_mean"]          # in-manifold less orthogonal
+    assert s["ratio_subspace"] < s["mean_best_match_cosine"] / s["null_mean"]
+
+
+def test_matched_subspace_null_matches_isotropic_full_rank():
+    """Isotropic W_j (erank≈d) → subspace null ≈ isotropic null."""
+    torch.manual_seed(6)
+    d, D = 64, 200
+    W = torch.randn(D, d)  # full-rank, near-isotropic
+    s = matched_pair_stats(W, W, n_perm=50, generator=_null_gen())
+    assert s["erank"] > d * 0.8                                    # near full
+    assert abs(s["null_subspace_mean"] - s["null_mean"]) < 0.05    # nulls agree
+
+
+def test_matched_returns_subspace_ratio_fields():
+    """Subspace-null fields are present and internally consistent."""
+    torch.manual_seed(7)
+    W = torch.randn(40, 64)
+    s = matched_pair_stats(W, W, n_perm=20, generator=_null_gen())
+    for key in (
+        "erank",
+        "null_subspace_mean",
+        "null_subspace_std",
+        "ratio_subspace",
+        "p_value_subspace",
+    ):
+        assert key in s
+    assert s["ratio_subspace"] == pytest.approx(
+        s["mean_best_match_cosine"] / s["null_subspace_mean"], abs=1e-6
+    )
+    assert s["erank"] >= 1

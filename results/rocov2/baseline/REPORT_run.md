@@ -1,10 +1,10 @@
 # Baseline (512-d) — Pipeline Run
 
-_Generated: 2026-07-05_
+_Generated: 2026-07-06_
 
 ## Summary
 
-Baseline (512-d) run complete in 26s. dict_size=2048 k=32 steps=8000, seeds=[0, 42, 123, 456, 789]. Stages wrote JSON to /home/marcantoniolopez/Documenti/github/xai-project-5/results/rocov2/baseline.
+Baseline (512-d) run complete in 48s. dict_size=2048 k=32 steps=8000, seeds=[0, 42, 123, 456, 789]. Stages wrote JSON to /home/marcantoniolopez/Documenti/github/xai-project-5/results/rocov2/baseline.
 
 ## Run config
 
@@ -20,10 +20,10 @@ Baseline (512-d) run complete in 26s. dict_size=2048 k=32 steps=8000, seeds=[0, 
 
 | stage | status | seconds |
 | --- | --- | --- |
-| modality_gap | ok | 0.0 |
+| modality_gap | ok | 0.3 |
 | naming | ok | 2.0 |
-| stability | ok | 22.1 |
-| explain | ok | 2.3 |
+| stability | ok | 43.1 |
+| explain | ok | 2.4 |
 
 ## Outputs
 
@@ -36,7 +36,7 @@ Baseline (512-d) run complete in 26s. dict_size=2048 k=32 steps=8000, seeds=[0, 
 
 ## Reproducibility
 
-- git commit: `f2b44f422a3e68a945f857800309dff7a299f87c`
+- git commit: `bc3c76d8f8833388d650f752681106683c529fd5`
 - versions: scikit-learn 1.8.0 | torch 2.12.0+cu130 | numpy 2.4.6
 - sha256(train_embeddings) [train_embeddings.pt]: `9e47099c7a248f35`
 - sha256(test_embeddings) [test_embeddings.pt]: `909730509dc3cde2`

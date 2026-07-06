@@ -1,4 +1,21 @@
 {
+  "metric_reform_note": "Slot-wise cross-seed Jaccard ('stability' block) is floor-by-construction for SAEs with no canonical feature ordering (a single SAE relabeled by a random bijection scores ~floor). It is kept ONLY for backward compat. The headline cross-seed signal is the permutation-invariant matched metric in 'matched' below, compared against its subspace-conditioned (erank) null. See ML-AUDIT-2026-06-25 H1 addendum + ML-AUDIT-2026-06-26 F-001.",
+  "matched": {
+    "mean_best_match_cosine": 0.32680962681770326,
+    "mean_erank": 357.1,
+    "mean_frac_matched_0.9": 0.00341796875,
+    "mean_frac_mutual_1to1": 0.17607421875,
+    "null_isotropic_mean": 0.15142484307289122,
+    "ratio_isotropic": 2.1582299191182734,
+    "null_subspace_mean": 0.18096558898687362,
+    "ratio_subspace": 1.8059304768219788,
+    "p_value_subspace": 0.0,
+    "n_pairs": 10,
+    "thresholds": [
+      0.7,
+      0.9
+    ]
+  },
   "stability": {
     "mean_jaccard": 0.007678627967834473,
     "std_jaccard": 0.0008972043870016932,
@@ -38,7 +55,8 @@
         0.009296994656324387,
         1.0
       ]
-    ]
+    ],
+    "deprecated": true
   },
   "per_seed_metrics": {
     "0": {

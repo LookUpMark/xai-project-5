@@ -42,9 +42,11 @@ class TestIntegrationAugmentationPipeline:
         project_root = Path(__file__).parent.parent.parent
         image_dir = project_root / "data" / "iu_xray" / "images" / "images_normalized"
         real_images = sorted(image_dir.glob("*.png"))
-        assert len(real_images) > 0, (
-            f"No PNG images found in {image_dir}. Cannot run integration test."
-        )
+        if not real_images:
+            pytest.skip(
+                f"No PNG images in {image_dir} — IU X-Ray not downloaded locally "
+                "(data/iu_xray/* is gitignored). Run python xai_datasets/download_iu_xray.py."
+            )
 
         real_image_path = real_images[0]
         real_image_name = real_image_path.name

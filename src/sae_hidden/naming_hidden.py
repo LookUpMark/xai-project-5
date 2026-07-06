@@ -122,11 +122,19 @@ def run() -> Path:
     # ── Frozen-projection bridge: 768-d decoder -> 512-d shared space ──
     W_proj = _load_visual_projection()  # (512, 768)
 
-    # Load RadLex text embeddings + labels. The vocab is a text-space artifact
-    # independent of image augmentation, so read the canonical standard/ copy
-    # (config.paths.vocab_embeddings_path tracks the augmentation flag and may
-    # point at a nonexistent embeddings/augmented/).
-    vocab_path = config.paths.project_root / "embeddings" / "standard" / "text_vocab_embeddings.pt"
+    # Load vocabulary text embeddings + labels. F-C2: dataset-aware + always
+    # standard/ (vocab is a text-space artifact — RadLex for IU, MeSH for ROCOv2 —
+    # independent of image augmentation). The previous hardcoded embeddings/standard/
+    # was the legacy IU layout: on ROCOv2 it silently loaded IU RadLex embeddings
+    # while reading ROCOv2 MeSH labels, and the dim check passed because both vocabs
+    # are ~1024 terms → every concept mis-named with no visible error.
+    vocab_path = (
+        config.paths.project_root
+        / "embeddings"
+        / config.active_dataset.name
+        / "standard"
+        / "text_vocab_embeddings.pt"
+    )
     vocab_emb = utils.load_tensor(vocab_path)  # (V, 512)
     with open(config.paths.vocab_labels_path) as f:
         vocab_raw = json.load(f)

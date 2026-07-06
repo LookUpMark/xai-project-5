@@ -1,0 +1,181 @@
+[
+  {
+    "cluster_id": 0,
+    "label": "granulation tissue",
+    "radlex_label": null,
+    "radlex_rid": null,
+    "medoid": "granulation tissue",
+    "members": [
+      "Arthritis durch H\u00e4mochromatose",
+      "Fokale Proliferation",
+      "Hyperkeratose",
+      "Neurofibromatose",
+      "Plasmazellgranulom",
+      "Plexiformes Neurofibrom",
+      "Silikose",
+      "acinar cell adenoma",
+      "blood products in mass",
+      "colloid cyst",
+      "cortical basal ganglionic degeneration",
+      "endometritis",
+      "epidermoid",
+      "glucagonoma",
+      "granulation tissue",
+      "granulomatous disease",
+      "hyperplastic polyp",
+      "islet cell tumor",
+      "lymphocele",
+      "mesenteric ischemia",
+      "microlith",
+      "microscopic colitis",
+      "papilloma",
+      "perineural cyst",
+      "psoriatic arthritis",
+      "rheumatoid nodule",
+      "salivary calculus",
+      "salivary gland cyst",
+      "squamous papilloma"
+    ],
+    "size": 29,
+    "n_resolved": 29
+  },
+  {
+    "cluster_id": 1,
+    "label": "injury",
+    "radlex_label": "injury",
+    "radlex_rid": "RID4628",
+    "medoid": "cartilage disorder",
+    "members": [
+      "Bankart deformity",
+      "Bennett fracture",
+      "Jefferson fracture",
+      "Jones fracture",
+      "cartilage disorder",
+      "disc height loss",
+      "disc herniation",
+      "mucoid degeneration of ACL",
+      "transverse annular tear of intervertebral disc"
+    ],
+    "size": 9,
+    "n_resolved": 9
+  },
+  {
+    "cluster_id": 2,
+    "label": "Oraler Luftweg",
+    "radlex_label": null,
+    "radlex_rid": null,
+    "medoid": "Oraler Luftweg",
+    "members": [
+      "Buruli-Ulkus",
+      "Dobbhoff Sonde",
+      "Lipoh\u00e4marthros",
+      "Oraler Luftweg",
+      "Radi\u00e4re Narbe",
+      "Vakuum Ph\u00e4nomen",
+      "blind pouch syndrome",
+      "brachytherapy catheter",
+      "crazy-paving Muster",
+      "fixator break",
+      "non-tunneled central venous catheter without port"
+    ],
+    "size": 11,
+    "n_resolved": 11
+  },
+  {
+    "cluster_id": 3,
+    "label": "urethral stenosis",
+    "radlex_label": null,
+    "radlex_rid": null,
+    "medoid": "urethral stenosis",
+    "members": [
+      "Detrusorareflexie",
+      "Ductus thyroglossus Zyste",
+      "Endomyokardfibrose",
+      "Linker unterer paratrachealer Lymphknoten",
+      "posterior urethral valve",
+      "urethral stenosis"
+    ],
+    "size": 6,
+    "n_resolved": 6
+  },
+  {
+    "cluster_id": 4,
+    "label": "vascular disorder of spinal cord",
+    "radlex_label": null,
+    "radlex_rid": null,
+    "medoid": "vascular disorder of spinal cord",
+    "members": [
+      "Type II vascular malformation of spinal cord",
+      "berry aneurysm",
+      "carotid cavernous fistula",
+      "head and neck cancer",
+      "penetrating injury",
+      "pituitary adenoma",
+      "pseudotumor cerebri",
+      "spinal dural arteriovenous fistula",
+      "vascular disorder of spinal cord"
+    ],
+    "size": 9,
+    "n_resolved": 9
+  },
+  {
+    "cluster_id": 5,
+    "label": "aspiration of water",
+    "radlex_label": null,
+    "radlex_rid": null,
+    "medoid": "aspiration of water",
+    "members": [
+      "aspiration of water",
+      "closed-loop obstruction"
+    ],
+    "size": 2,
+    "n_resolved": 2
+  },
+  {
+    "cluster_id": 6,
+    "label": "Systemspezifische Erkrankung des K\u00f6rpers",
+    "radlex_label": "Systemspezifische Erkrankung des K\u00f6rpers",
+    "radlex_rid": "RID7473",
+    "medoid": "disorder of pregnancy",
+    "members": [
+      "cardiac tamponade",
+      "caustic-induced disorder",
+      "disorder of peritoneum",
+      "disorder of pregnancy",
+      "drug-induced disorder",
+      "hypoglycemia",
+      "ischemic heart disease",
+      "neurogenic pulmonary edema",
+      "nose disorder",
+      "portale Hypertension",
+      "post-myocardial infarction septal defect"
+    ],
+    "size": 11,
+    "n_resolved": 11
+  },
+  {
+    "cluster_id": 7,
+    "label": "eosinophilic cholangitis",
+    "radlex_label": "eosinophilic cholangitis",
+    "radlex_rid": "RID3393",
+    "medoid": "eosinophilic cholangitis",
+    "members": [
+      "eosinophilic cholangitis"
+    ],
+    "size": 1,
+    "n_resolved": 1
+  },
+  {
+    "cluster_id": 8,
+    "label": "retrolental fibroplasia",
+    "radlex_label": null,
+    "radlex_rid": null,
+    "medoid": "retrolental fibroplasia",
+    "members": [
+      "pachymeningitis",
+      "retrolental fibroplasia"
+    ],
+    "size": 2,
+    "n_resolved": 2
+  }
+]

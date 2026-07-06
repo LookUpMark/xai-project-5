@@ -280,3 +280,6 @@ wandb/
 # Project-specific: mock/training outputs (large binary files)
 models/mock/
 results/mock/
+
+# Concept-organization: large regenerable per-image dumps (keep metrics/clusters/report)
+structured_explanations.json

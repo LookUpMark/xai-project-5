@@ -13,11 +13,13 @@ Usage:
     # Judge the baseline explanations (default source/model)
     python src/evaluate_llm_judge.py --dataset iu_xray
 
-    # Judge the SPLiCE explanations -> aligned_scores_spliec.csv (no cp/mv)
-    python src/evaluate_llm_judge.py --dataset iu_xray --source spliec
+    # Judge the SPLiCE explanations -> aligned_scores_spliece.csv (no cp/mv).
+    # NB: --source must match the method dir name under results/<dataset>/
+    # (baseline, spliece, null, null_k5, sae_hidden).
+    python src/evaluate_llm_judge.py --dataset iu_xray --source spliece
 
     # Resume from checkpoint (retries ERROR: pairs, skips already-done pairs)
-    python src/evaluate_llm_judge.py --dataset iu_xray --source spliec --resume
+    python src/evaluate_llm_judge.py --dataset iu_xray --source spliece --resume
 """
 
 import argparse
@@ -720,11 +722,11 @@ Examples:
   # Judge the baseline explanations (default source)
   python src/evaluate_llm_judge.py --dataset iu_xray
 
-  # Judge the SPLiCE explanations -> aligned_scores_spliec.csv (no cp/mv)
-  python src/evaluate_llm_judge.py --dataset iu_xray --source spliec
+  # Judge the SPLiCE explanations -> aligned_scores_spliece.csv (no cp/mv)
+  python src/evaluate_llm_judge.py --dataset iu_xray --source spliece
 
   # Resume an interrupted run (retries ERROR: pairs, skips done pairs)
-  python src/evaluate_llm_judge.py --dataset iu_xray --source spliec --resume
+  python src/evaluate_llm_judge.py --dataset iu_xray --source spliece --resume
         """,
     )
     parser.add_argument(

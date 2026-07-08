@@ -22,7 +22,7 @@
   \country{Italy}
 }
 
-\author{Name Surname}
+\author{Nicolò Colle}
 \affiliation{%
   \institution{Politecnico di Torino}
   \city{Turin}
@@ -89,7 +89,7 @@ We use BiomedCLIP (ViT-B/16 image encoder with a 768-d hidden state, projected b
 
 The shared 512-d space exhibits a \emph{modality gap}~\cite{liang2022mindthegap}: a systematic offset between the image and text cones (cross-modal image--text cosine ${\approx}0.27$, centroid L2 distance ${\approx}0.95$). Following prior work we estimate it as the difference of the mean image and vocabulary embeddings and subtract it before cosine naming/decomposition.
 
-All experiments use \emph{two} chest-radiography corpora. IU X-Ray~\cite{demner2016iuxray} (7,470 frontal/lateral images, 3,955 reports) is the primary, small-scale setting; ROCOv2 (${\sim}80$k images) is a $10{\times}$-scale replication that lets us test the data-volume hypothesis directly. For Gap~6 we split \emph{by radiographic study} (IU key $=\texttt{patient\_IM-study}$; ROCOv2 by image, no shared patient structure to leak), so no IU study appears in both partitions. The IU split yields 5,955 train / 1,515 test images (3,081 / 771 studies) with verified group overlap $=0$, recomputed deterministically on every run (sorted study set, fixed seed)---eliminating a previous leakage bug that had placed ${\sim}75\%$ of test images in a study shared with train.
+All experiments use \emph{two} chest-radiography corpora. IU X-Ray~\cite{demner2016iuxray} (7,470 frontal/lateral images, 3,955 reports) is the primary, small-scale setting; ROCOv2 (${\sim}80$k images) is a $10{\times}$-scale replication that lets us test the data-volume hypothesis directly. For Gap~6 we split \emph{by radiographic study} (IU key $=\texttt{patient\_IM-study}$; ROCOv2 by image, no shared patient structure to leak), so no IU study appears in both partitions. The IU split yields 5,955 train / 1,515 test images (3,081 / 771 studies) with verified group overlap $=0$, recomputed deterministically on every run (sorted study set, fixed seed).
 
 \subsection{Baseline: Top-K SAE on the 512-d projected space}
 We train a Top-K SAE~\cite{gao2024scaling} ($\mathrm{ReLU}(W_{\mathrm{enc}}(x-b_{\mathrm{dec}})+b_{\mathrm{enc}})$, hard top-$k$ sparsification, $b_{\mathrm{dec}}$ initialised to the geometric median of training data) on the 512-d image embeddings. Configuration: dictionary size $D{=}2048$, $k{=}32$, 8,000 steps, $\mathrm{lr}{=}5{\times}10^{-5}$, batch size 256, five seeds $(0,42,123,456,789)$. Concept naming assigns each \emph{live} (non-dead) decoder row to its closest RadLex term by cosine similarity, after gap correction ($W_{\mathrm{dec}}\!\leftarrow\!W_{\mathrm{dec}}-\mathrm{gap}$). Per-image pseudo-reports list the top-5 active concepts with a stated dominant concept.

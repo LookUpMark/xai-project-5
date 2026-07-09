@@ -1,0 +1,199 @@
+{
+  "dataset": "iu_xray",
+  "metric": "cross-seed consensus clustering shuffle-null (Gap 1 stability)",
+  "config": {
+    "dict_size": 2048,
+    "k": 32,
+    "activation_dim": 512,
+    "seeds": [
+      0,
+      42,
+      123,
+      456,
+      789
+    ],
+    "tau": 0.7,
+    "m": 4,
+    "n_perm": 200,
+    "null_seed": 2026,
+    "dead_threshold": 1e-08
+  },
+  "pooling": {
+    "n_live_total": 10240,
+    "per_seed_nlive": {
+      "0": 2048,
+      "42": 2048,
+      "123": 2048,
+      "456": 2048,
+      "789": 2048
+    }
+  },
+  "tau_sweep": {
+    "0.40": {
+      "n_components": 7628,
+      "n_multi": 177,
+      "max_size": 2363,
+      "mean_intra_cohesion": 0.403746646319607
+    },
+    "0.50": {
+      "n_components": 9638,
+      "n_multi": 125,
+      "max_size": 365,
+      "mean_intra_cohesion": 0.49383974514400353
+    },
+    "0.60": {
+      "n_components": 10121,
+      "n_multi": 53,
+      "max_size": 10,
+      "mean_intra_cohesion": 0.6036393764430884
+    },
+    "0.70": {
+      "n_components": 10213,
+      "n_multi": 17,
+      "max_size": 5,
+      "mean_intra_cohesion": 0.7375227190749324
+    },
+    "0.80": {
+      "n_components": 10234,
+      "n_multi": 5,
+      "max_size": 3,
+      "mean_intra_cohesion": 0.8164812868325774
+    },
+    "0.85": {
+      "n_components": 10239,
+      "n_multi": 1,
+      "max_size": 2,
+      "mean_intra_cohesion": 0.8719655510749758
+    },
+    "0.90": {
+      "n_components": 10240,
+      "n_multi": 0,
+      "max_size": 1,
+      "mean_intra_cohesion": NaN
+    },
+    "0.95": {
+      "n_components": 10240,
+      "n_multi": 0,
+      "max_size": 1,
+      "mean_intra_cohesion": NaN
+    }
+  },
+  "consensus": {
+    "tau": 0.7,
+    "observed_at_3": 0.0021484375,
+    "observed_at_4": 0.0009765625,
+    "clusters_by_seed_count": {
+      "1": 10196,
+      "2": 11,
+      "3": 4,
+      "4": 1,
+      "5": 1
+    }
+  },
+  "shuffle_null": {
+    "null_mean": 0.000419921875,
+    "p_value": 0.17,
+    "gap": 0.0005566406250000001,
+    "verdict": "no signal above chance (observed ~= null)",
+    "n_perm": 200,
+    "null_seed": 2026
+  },
+  "hungarian": {
+    "tau": 0.7,
+    "mean_rate": 0.001513671875,
+    "n_pairs": 10,
+    "per_pair": [
+      {
+        "pair": [
+          0,
+          42
+        ],
+        "matched": 2,
+        "denom": 2048,
+        "rate": 0.0009765625
+      },
+      {
+        "pair": [
+          0,
+          123
+        ],
+        "matched": 5,
+        "denom": 2048,
+        "rate": 0.00244140625
+      },
+      {
+        "pair": [
+          0,
+          456
+        ],
+        "matched": 4,
+        "denom": 2048,
+        "rate": 0.001953125
+      },
+      {
+        "pair": [
+          0,
+          789
+        ],
+        "matched": 2,
+        "denom": 2048,
+        "rate": 0.0009765625
+      },
+      {
+        "pair": [
+          42,
+          123
+        ],
+        "matched": 3,
+        "denom": 2048,
+        "rate": 0.00146484375
+      },
+      {
+        "pair": [
+          42,
+          456
+        ],
+        "matched": 3,
+        "denom": 2048,
+        "rate": 0.00146484375
+      },
+      {
+        "pair": [
+          42,
+          789
+        ],
+        "matched": 3,
+        "denom": 2048,
+        "rate": 0.00146484375
+      },
+      {
+        "pair": [
+          123,
+          456
+        ],
+        "matched": 4,
+        "denom": 2048,
+        "rate": 0.001953125
+      },
+      {
+        "pair": [
+          123,
+          789
+        ],
+        "matched": 3,
+        "denom": 2048,
+        "rate": 0.00146484375
+      },
+      {
+        "pair": [
+          456,
+          789
+        ],
+        "matched": 2,
+        "denom": 2048,
+        "rate": 0.0009765625
+      }
+    ]
+  },
+  "note": "Replaces the historical D=4096 00_consensus notebook; run on the current parity baseline (D=2048, k=32). Consensus@>=m is the fraction of pooled live decoder rows in a connected-component cluster (cosine >= 0.7) spanning >= m of the 5 seeds; the null permutes the seed tags across the fixed clustering. The Hungarian rate is a direction-space match (different from the slot-wise index Jaccard) and is reported as context, not a correction."
+}

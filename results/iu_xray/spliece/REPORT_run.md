@@ -1,8 +1,8 @@
 # SPLiCE — Pipeline Run
 
 **Status**: Complete ✅
-**Total time**: 9.5s
-**Date**: 2026-07-06 20:01:10
+**Total time**: 8.8s
+**Date**: 2026-07-09 22:09:27
 
 ## Run config
 
@@ -27,7 +27,7 @@
 
 | stage | status | seconds |
 |-------|--------|--------|
-| decompose | ok | 9.5 |
+| decompose | ok | 8.8 |
 
 ## Output files
 
@@ -36,7 +36,7 @@
 
 ## Reproducibility
 
-- git commit: `5b80bf250e0df95e6056843d0410d44db419b94e`
+- git commit: `eb3d10f951cabf4fe9f8132efebe267935ee5142`
 - versions: scikit-learn 1.8.0 | torch 2.12.0+cu130 | numpy 2.4.6
 - sha256(test_embeddings) [test_embeddings.pt]: `d1b9081dbb5f0fe1`
 - sha256(text_vocab_embeddings) [text_vocab_embeddings.pt]: `98c9cf7462d6181f`

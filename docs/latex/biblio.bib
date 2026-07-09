@@ -1,5 +1,7 @@
 % Bibliography — Unsupervised Concept Discovery and Evaluation
 % for Medical Vision-Language Models (xai-project-5).
+% Verified 2026-07-09 against authoritative sources (arXiv bibtex export,
+% CrossRef) and local PDFs in docs/literature/.
 
 @inproceedings{koh2020concept,
   title     = {Concept Bottleneck Models},
@@ -34,13 +36,13 @@
   title         = {Towards Monosemanticity: Decomposing Language Models with Dictionary Learning},
   author        = {Bricken, Trent and Templeton, Adam and Batson, Joshua and
                    Chen, Brian and Jermyn, Adam and Conder, Nick and
-                   Sellsam, Sushant and Olah, Christopher and others},
+                   Sellam, Sushant and Olah, Christopher and others},
   year          = {2023},
   howpublished  = {Transformer Circuits Thread (Anthropic)},
   url           = {https://transformer-circuits.pub/2023/monosemantic-features/}
 }
 
-@article{gao2024scaling,
+@misc{gao2024scaling,
   title   = {Scaling and Evaluating Sparse Autoencoders},
   author  = {Gao, Leo and Dupr{\'e} la Tour, Tom and Tillman, Henk and
              Goh, Gabriel and Troll, Rajan and Radford, Alec and
@@ -75,9 +77,8 @@
 
 @inproceedings{bhalla2024spliece,
   title     = {Interpreting {CLIP} with Sparse Linear Concept Embeddings ({SpLiCE})},
-  author    = {Bhalla, Suraj and Oesterling, Alexander and Srinivas, Shrivu and
-               Patil, Krish and Monroy, Giovanni and Bălă, Marc and
-               Lakkaraju, Himabindu and Calmon, Flavio},
+  author    = {Bhalla, Usha and Oesterling, Alex and Srinivas, Suraj and
+               Calmon, Flavio P. and Lakkaraju, Himabindu},
   booktitle = {Advances in Neural Information Processing Systems ({NeurIPS})},
   volume    = {37},
   year      = {2024},
@@ -85,13 +86,17 @@
   archiveprefix = {arXiv}
 }
 
-@article{zhang2023biomedclip,
-  title   = {Large-Scale Domain-Specific Pretraining for Biomedical Vision-Language Processing},
-  author  = {Zhang, Sheng and Xu, Yanbo and Usuyama, Naoto and Bagga, Jaspreet and
-             Tinn, Robert and Preston, Sam and Rao, Rajesh and Wei, Mu and
-             Valluri, Naveen and Wong, Cliff and Lungren, Matthew P. and
-             Naumann, Tristan and Poon, Hoifung},
-  year    = {2023},
+@misc{zhang2023biomedclip,
+  title   = {{BiomedCLIP}: A Multimodal Biomedical Foundation Model Pretrained from
+             Fifteen Million Scientific Image-Text Pairs},
+  author  = {Zhang, Sheng and Xu, Yanbo and Usuyama, Naoto and Xu, Hanwen and
+             Bagga, Jaspreet and Tinn, Robert and Preston, Sam and Rao, Rajesh and
+             Wei, Mu and Valluri, Naveen and Wong, Cliff and Tupini, Andrea and
+             Wang, Yu and Mazzola, Matt and Shukla, Swadheen and Liden, Lars and
+             Gao, Jianfeng and Crabtree, Angela and Piening, Brian and
+             Bifulco, Carlo and Lungren, Matthew P. and Naumann, Tristan and
+             Wang, Sheng and Poon, Hoifung},
+  year    = {2025},
   eprint  = {2303.00915},
   archiveprefix = {arXiv},
   primaryclass  = {cs.CV}
@@ -99,8 +104,9 @@
 
 @article{demner2016iuxray,
   title   = {Preparing a Collection of Radiology Examinations for Distribution and Retrieval},
-  author  = {Demner-Fushman, Dina and Kohli, Marc B. and Rosen, Marc B.
-             and Antani, Sameer and Thoma, George R.},
+  author  = {Demner-Fushman, Dina and Kohli, Marc D. and Rosenman, Marc B. and
+             Shooshan, Sonya E. and Rodriguez, Laritza and Antani, Sameer and
+             Thoma, George R. and McDonald, Clement J.},
   journal = {Journal of the American Medical Informatics Association ({JAMIA})},
   volume  = {23},
   number  = {2},
@@ -128,7 +134,7 @@
   journal = {RadioGraphics},
   volume  = {26},
   number  = {6},
-  pages   = {1715--1719},
+  pages   = {1595--1597},
   year    = {2006},
   publisher = {Radiological Society of North America},
   doi     = {10.1148/rg.266065168}
@@ -136,8 +142,9 @@
 
 @misc{haque2026medconcept,
   title         = {{MedConcept}: Unsupervised Concept Discovery for Interpretability
-                   in Medical Vision-Language Models},
-  author        = {Haque, A. and Sultan, A.},
+                   in Medical VLMs},
+  author        = {Haque, Md Rakibul and Sultan, KM Arefeen and Kataria, Tushar and
+                   Elhabian, Shireen},
   year          = {2026},
   eprint        = {2604.11868},
   archiveprefix = {arXiv},
@@ -146,7 +153,7 @@
 
 @misc{sellergren2025medgemma,
   title         = {MedGemma Technical Report},
-  author        = {Sellergren, Andrew and Chen, Can and Majmudar, Kalpesh and
+  author        = {Sellergren, Andrew and Kazemzadeh, Sahar and Jaroensri, Tiam and
                    others},
   year          = {2025},
   eprint        = {2507.05201},
@@ -171,11 +178,29 @@
 }
 
 @inproceedings{liang2022mindthegap,
-  title     = {Mind the Gap: Understanding the Modality Gap in Multi-Modal Learning},
-  author    = {Liang, Weixin and Zou, James and others},
+  title     = {Mind the Gap: Understanding the Modality Gap in Multi-modal Contrastive
+               Representation Learning},
+  author    = {Liang, Weixin and Zhang, Yuhui and Kwon, Yongchan and Yeung, Serena and
+               Zou, James},
   booktitle = {Advances in Neural Information Processing Systems ({NeurIPS})},
   volume    = {35},
   year      = {2022},
   eprint    = {2203.02053},
+  archiveprefix = {arXiv}
+}
+
+@article{rueckert2024rocov2,
+  title   = {{ROCOv2}: Radiology Objects in COntext Version 2, an Updated Multimodal
+             Image Dataset},
+  author  = {R{\"u}ckert, Johannes and Bloch, Louise and Br{\"u}ngel, Raphael and
+             Idrissi-Yaghir, Ahmad and Sch{\"a}fer, Henning and Schmidt, Cynthia S. and
+             Koitka, Sven and Pelka, Obioma and Ben Abacha, Asma and
+             Seco de Herrera, Alba G. and M{\"u}ller, Henning and Horn, Peter A. and
+             Nensa, Felix and Friedrich, Christoph M.},
+  journal = {Scientific Data},
+  year    = {2024},
+  volume  = {11},
+  doi     = {10.1038/s41597-024-03496-6},
+  eprint  = {2405.10004},
   archiveprefix = {arXiv}
 }

@@ -1,10 +1,10 @@
 # Baseline (512-d) — Pipeline Run
 
-_Generated: 2026-07-06_
+_Generated: 2026-07-09_
 
 ## Summary
 
-Baseline (512-d) run complete in 159s. dict_size=2048 k=32 steps=8000, seeds=[0, 42, 123, 456, 789]. Stages wrote JSON to /home/marcantoniolopez/Documenti/github/xai-project-5/results/iu_xray/baseline.
+Baseline (512-d) run complete in 44s. dict_size=2048 k=32 steps=8000, seeds=[0, 42, 123, 456, 789]. Stages wrote JSON to /home/marcantoniolopez/Documenti/github/xai-project-5/results/iu_xray/baseline.
 
 ## Run config
 
@@ -20,11 +20,10 @@ Baseline (512-d) run complete in 159s. dict_size=2048 k=32 steps=8000, seeds=[0,
 
 | stage | status | seconds |
 | --- | --- | --- |
-| train | ok | 110.5 |
 | modality_gap | ok | 0.0 |
-| naming | ok | 0.8 |
-| stability | ok | 47.4 |
-| explain | ok | 0.3 |
+| naming | ok | 2.5 |
+| stability | ok | 41.2 |
+| explain | ok | 0.2 |
 
 ## Outputs
 
@@ -37,7 +36,7 @@ Baseline (512-d) run complete in 159s. dict_size=2048 k=32 steps=8000, seeds=[0,
 
 ## Reproducibility
 
-- git commit: `5b80bf250e0df95e6056843d0410d44db419b94e`
+- git commit: `eb3d10f951cabf4fe9f8132efebe267935ee5142`
 - versions: scikit-learn 1.8.0 | torch 2.12.0+cu130 | numpy 2.4.6
 - sha256(train_embeddings) [train_embeddings.pt]: `bf2207fa822c83ab`
 - sha256(test_embeddings) [test_embeddings.pt]: `d1b9081dbb5f0fe1`

@@ -61,7 +61,7 @@ class DatasetSpec:
     language: str
     domain: str
 
-    # Extraction stage (notebooks/vlm/extract_embeddings.ipynb).
+    # Extraction stage (scripts/run_extraction.py).
     image_dataset_cls: type
     text_dataset_cls: type
     image_dir: Path

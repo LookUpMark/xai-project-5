@@ -1,0 +1,385 @@
+{
+  "dataset": "iu_xray",
+  "metric": "point-biserial faithfulness (Gap 2)",
+  "config": {
+    "dict_size": 2048,
+    "k": 32,
+    "seeds": [
+      0,
+      42,
+      123,
+      456,
+      789
+    ],
+    "n_test": 1515,
+    "n_labels_total": 118,
+    "n_labels_prevalence_filtered": 51,
+    "min_prev": 10,
+    "n_perm": 200,
+    "analytic_null_se": 0.025691749776935398
+  },
+  "aggregate": {
+    "frac_faithful_shuffle_p95": {
+      "mean": 0.1775505181322549,
+      "std": 0.009431082974112194,
+      "values": [
+        0.1823040380047506,
+        0.1820289855072464,
+        0.17061885482938113,
+        0.1896551724137931,
+        0.16314553990610328
+      ]
+    },
+    "frac_faithful_fdr05": {
+      "mean": 0.9075918685153923,
+      "std": 0.00861495319375495,
+      "values": [
+        0.9079572446555819,
+        0.8968115942028986,
+        0.8999421631000578,
+        0.9206896551724137,
+        0.9125586854460094
+      ]
+    },
+    "frac_strong_abs_r_gt_030": {
+      "mean": 0.011183582696035185,
+      "std": 0.002654553102477311,
+      "values": [
+        0.013657957244655582,
+        0.008695652173913044,
+        0.01156737998843262,
+        0.014367816091954023,
+        0.007629107981220657
+      ]
+    },
+    "max_abs_r": {
+      "mean": 0.4591955304145813,
+      "std": 0.056544926890990714,
+      "values": [
+        0.421474426984787,
+        0.5257619619369507,
+        0.4194726347923279,
+        0.5298094749450684,
+        0.3994591534137726
+      ]
+    }
+  },
+  "per_seed": [
+    {
+      "seed": 0,
+      "n_live": 1684,
+      "n_dead": 364,
+      "frac_live": 0.822265625,
+      "frac_faithful_shuffle_p95": 0.1823040380047506,
+      "frac_faithful_fdr05": 0.9079572446555819,
+      "frac_strong_abs_r_gt_030": 0.013657957244655582,
+      "max_abs_r": 0.421474426984787,
+      "median_null_p95": 0.1521669179201126,
+      "top_features": [
+        {
+          "feat": 361,
+          "abs_r": 0.421474426984787,
+          "label": "mass"
+        },
+        {
+          "feat": 392,
+          "abs_r": 0.3982848823070526,
+          "label": "mass"
+        },
+        {
+          "feat": 476,
+          "abs_r": 0.3671281933784485,
+          "label": "mass"
+        },
+        {
+          "feat": 1163,
+          "abs_r": 0.3635779619216919,
+          "label": "pneumonia"
+        },
+        {
+          "feat": 1203,
+          "abs_r": 0.36277616024017334,
+          "label": "spinal fusion"
+        },
+        {
+          "feat": 739,
+          "abs_r": 0.35509002208709717,
+          "label": "foreign bodies"
+        },
+        {
+          "feat": 1033,
+          "abs_r": 0.35416918992996216,
+          "label": "mass"
+        },
+        {
+          "feat": 1090,
+          "abs_r": 0.35001054406166077,
+          "label": "bone diseases, metabolic"
+        },
+        {
+          "feat": 1384,
+          "abs_r": 0.3448033928871155,
+          "label": "pulmonary edema"
+        },
+        {
+          "feat": 886,
+          "abs_r": 0.3215721845626831,
+          "label": "foreign bodies"
+        }
+      ]
+    },
+    {
+      "seed": 42,
+      "n_live": 1725,
+      "n_dead": 323,
+      "frac_live": 0.84228515625,
+      "frac_faithful_shuffle_p95": 0.1820289855072464,
+      "frac_faithful_fdr05": 0.8968115942028986,
+      "frac_strong_abs_r_gt_030": 0.008695652173913044,
+      "max_abs_r": 0.5257619619369507,
+      "median_null_p95": 0.15219810605049133,
+      "top_features": [
+        {
+          "feat": 1507,
+          "abs_r": 0.5257619619369507,
+          "label": "mass"
+        },
+        {
+          "feat": 1574,
+          "abs_r": 0.40621641278266907,
+          "label": "lung, hyperlucent"
+        },
+        {
+          "feat": 1690,
+          "abs_r": 0.3768988847732544,
+          "label": "mass"
+        },
+        {
+          "feat": 1376,
+          "abs_r": 0.3654162287712097,
+          "label": "mass"
+        },
+        {
+          "feat": 676,
+          "abs_r": 0.3152863681316376,
+          "label": "mediastinum"
+        },
+        {
+          "feat": 1045,
+          "abs_r": 0.3152863383293152,
+          "label": "arthritis"
+        },
+        {
+          "feat": 1770,
+          "abs_r": 0.315285861492157,
+          "label": "mediastinum"
+        },
+        {
+          "feat": 1802,
+          "abs_r": 0.30357468128204346,
+          "label": "implanted medical device"
+        },
+        {
+          "feat": 1742,
+          "abs_r": 0.302450567483902,
+          "label": "pleural effusion"
+        },
+        {
+          "feat": 1677,
+          "abs_r": 0.3008181154727936,
+          "label": "mass"
+        }
+      ]
+    },
+    {
+      "seed": 123,
+      "n_live": 1729,
+      "n_dead": 319,
+      "frac_live": 0.84423828125,
+      "frac_faithful_shuffle_p95": 0.17061885482938113,
+      "frac_faithful_fdr05": 0.8999421631000578,
+      "frac_strong_abs_r_gt_030": 0.01156737998843262,
+      "max_abs_r": 0.4194726347923279,
+      "median_null_p95": 0.15507714450359344,
+      "top_features": [
+        {
+          "feat": 1035,
+          "abs_r": 0.4194726347923279,
+          "label": "mass"
+        },
+        {
+          "feat": 1180,
+          "abs_r": 0.38287144899368286,
+          "label": "emphysema"
+        },
+        {
+          "feat": 1594,
+          "abs_r": 0.3621978759765625,
+          "label": "mass"
+        },
+        {
+          "feat": 1389,
+          "abs_r": 0.3534058928489685,
+          "label": "mass"
+        },
+        {
+          "feat": 1802,
+          "abs_r": 0.3324262797832489,
+          "label": "tube, inserted"
+        },
+        {
+          "feat": 1754,
+          "abs_r": 0.331814169883728,
+          "label": "foreign bodies"
+        },
+        {
+          "feat": 769,
+          "abs_r": 0.3290485739707947,
+          "label": "implanted medical device"
+        },
+        {
+          "feat": 546,
+          "abs_r": 0.31691470742225647,
+          "label": "pneumonia"
+        },
+        {
+          "feat": 559,
+          "abs_r": 0.31529197096824646,
+          "label": "arthritis"
+        },
+        {
+          "feat": 833,
+          "abs_r": 0.3152883052825928,
+          "label": "mediastinum"
+        }
+      ]
+    },
+    {
+      "seed": 456,
+      "n_live": 1740,
+      "n_dead": 308,
+      "frac_live": 0.849609375,
+      "frac_faithful_shuffle_p95": 0.1896551724137931,
+      "frac_faithful_fdr05": 0.9206896551724137,
+      "frac_strong_abs_r_gt_030": 0.014367816091954023,
+      "max_abs_r": 0.5298094749450684,
+      "median_null_p95": 0.15538284182548523,
+      "top_features": [
+        {
+          "feat": 1934,
+          "abs_r": 0.5298094749450684,
+          "label": "mass"
+        },
+        {
+          "feat": 1660,
+          "abs_r": 0.4598093032836914,
+          "label": "mass"
+        },
+        {
+          "feat": 410,
+          "abs_r": 0.44410333037376404,
+          "label": "mass"
+        },
+        {
+          "feat": 1765,
+          "abs_r": 0.3867679834365845,
+          "label": "lung, hyperlucent"
+        },
+        {
+          "feat": 208,
+          "abs_r": 0.3622421324253082,
+          "label": "pneumonia"
+        },
+        {
+          "feat": 277,
+          "abs_r": 0.34948423504829407,
+          "label": "mass"
+        },
+        {
+          "feat": 245,
+          "abs_r": 0.3435347080230713,
+          "label": "foreign bodies"
+        },
+        {
+          "feat": 731,
+          "abs_r": 0.3269016444683075,
+          "label": "pulmonary emphysema"
+        },
+        {
+          "feat": 1832,
+          "abs_r": 0.32378652691841125,
+          "label": "mediastinum"
+        },
+        {
+          "feat": 1065,
+          "abs_r": 0.3207544684410095,
+          "label": "mass"
+        }
+      ]
+    },
+    {
+      "seed": 789,
+      "n_live": 1704,
+      "n_dead": 344,
+      "frac_live": 0.83203125,
+      "frac_faithful_shuffle_p95": 0.16314553990610328,
+      "frac_faithful_fdr05": 0.9125586854460094,
+      "frac_strong_abs_r_gt_030": 0.007629107981220657,
+      "max_abs_r": 0.3994591534137726,
+      "median_null_p95": 0.1528812199831009,
+      "top_features": [
+        {
+          "feat": 564,
+          "abs_r": 0.3994591534137726,
+          "label": "mass"
+        },
+        {
+          "feat": 1832,
+          "abs_r": 0.3751024901866913,
+          "label": "mass"
+        },
+        {
+          "feat": 1551,
+          "abs_r": 0.37359926104545593,
+          "label": "mass"
+        },
+        {
+          "feat": 391,
+          "abs_r": 0.35383811593055725,
+          "label": "emphysema"
+        },
+        {
+          "feat": 1108,
+          "abs_r": 0.35121631622314453,
+          "label": "lung, hyperlucent"
+        },
+        {
+          "feat": 1424,
+          "abs_r": 0.32880011200904846,
+          "label": "cardiomegaly"
+        },
+        {
+          "feat": 1485,
+          "abs_r": 0.3282458186149597,
+          "label": "lung, hyperlucent"
+        },
+        {
+          "feat": 1363,
+          "abs_r": 0.3210901916027069,
+          "label": "pleural effusion"
+        },
+        {
+          "feat": 726,
+          "abs_r": 0.3009139895439148,
+          "label": "implanted medical device"
+        },
+        {
+          "feat": 31,
+          "abs_r": 0.3005162477493286,
+          "label": "pneumothorax"
+        }
+      ]
+    }
+  ],
+  "note": "Replaces the historical D=4096 ablation-05 notebook; run on the current parity baseline (D=2048, k=32). Faithful = live feature whose max point-biserial |r| exceeds the per-feature shuffle-null p95 (200 perms)."
+}

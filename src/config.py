@@ -474,7 +474,7 @@ class JudgeConfig:
     parameters, retry budget, checkpoint frequency, and reproducibility seed.
     """
 
-    model_name: str = "unsloth/medgemma-4b-it"  #"meta-llama/Llama-3.1-8B-Instruct"
+    model_name: str = "meta-llama/Llama-3.1-8B-Instruct" #"unsloth/medgemma-4b-it" 
     max_new_tokens: int = 64
     max_retries: int = 2
     batch_save_every: int = 25

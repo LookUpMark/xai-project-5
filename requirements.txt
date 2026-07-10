@@ -2,12 +2,14 @@
 --pre
 
 # Core ML
-torch>=2.12.0
-torchvision>=0.27.0
-transformers>=4.48.0
+torch==2.12.0
+torchvision==0.27.0
+transformers==4.44.2
 dictionary-learning==0.1.0
 
 # LLM Judge (MedGemma 4B via HuggingFace + LangGraph)
+# langgraph is consumed by src/evaluate_llm_judge.py; it is not installed in
+# the local CPU .venv (the judge runs on a separate GPU host). Left unpinned.
 langgraph>=0.2
 
 # Data processing
@@ -27,6 +29,8 @@ kagglehub==0.3.13
 
 # Utilities
 tqdm==4.67.3
-nbformat
-pytest
-dotenv
+nbformat==5.10.4
+pytest==9.0.3
+# python-dotenv provides `from dotenv import load_dotenv` (used by evaluate_llm_judge.py).
+# Left unpinned: not installed in the local CPU .venv (judge runs elsewhere).
+python-dotenv

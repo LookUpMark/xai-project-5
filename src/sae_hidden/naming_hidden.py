@@ -34,8 +34,10 @@ from sae_hidden.train_hidden import hidden_sae_config
 log = utils.setup_logging(__name__)
 
 SEED = config.training.primary_seed
-# Baseline reference numbers (ML-AUDIT-2026-06-25, M-005) for the comparison table.
-RANDOM_BASELINE = 0.372
+# Reference: 512-d baseline SAE naming cosine (from its own concept_names.json),
+# shown alongside Path A for comparison. The random baseline is computed at
+# runtime by ``compute_random_baseline`` (replaces the non-reproducible magic
+# constant 0.372, ML-AUDIT-2026-06-25 M-005).
 BASELINE_SAE_NAMING = 0.395
 
 
@@ -100,6 +102,33 @@ def _load_visual_projection() -> torch.Tensor:
     return w_proj
 
 
+def compute_random_baseline(
+    W_dec: torch.Tensor,
+    W_proj: torch.Tensor,
+    vocab_emb: torch.Tensor,
+    gap: torch.Tensor | None,
+    n_samples: int = 1000,
+    generator_seed: int = config.training.primary_seed,
+) -> float:
+    """Empirical random-baseline naming cosine.
+
+    Isotropic random decoder rows, bridged (768->512) and gap-corrected
+    identically to real rows, then mean best-match cosine to the vocabulary.
+    Replaces the non-reproducible magic constant 0.372 (ML-AUDIT-2026-06-25,
+    M-005): that number had no formula in the codebase and no interpretation
+    matched it. Computing it at runtime against the active vocabulary makes the
+    reference self-documenting and dataset-correct.
+    """
+    g = torch.Generator().manual_seed(generator_seed)
+    rand = torch.randn(n_samples, W_dec.shape[1], generator=g)
+    rand = F.normalize(rand, dim=1)
+    dec_512 = project_decoder_to_text(rand, W_proj, gap)
+    rand_norm = F.normalize(dec_512, dim=1)
+    vocab_norm = F.normalize(vocab_emb, dim=1)
+    sims = rand_norm @ vocab_norm.T  # (n_samples, V)
+    return float(sims.max(dim=1).values.mean().item())
+
+
 def run() -> Path:
     model_dir = config.paths.hidden_models_dir / f"sae_seed{SEED}"
     if not model_dir.exists():
@@ -150,6 +179,7 @@ def run() -> Path:
 
     dec_512 = project_decoder_to_text(W_dec, W_proj, gap)
     sims = bridge_cosine_sims(dec_512, vocab_emb, dead_mask)  # (dict, V)
+    random_baseline = compute_random_baseline(W_dec, W_proj, vocab_emb, gap)
 
     top_n = config.explanation.concept_top_n
     concept_names = {}
@@ -192,7 +222,7 @@ def run() -> Path:
     summary = (
         f"Named {total - n_dead}/{total} live 768-d features via the frozen projection "
         f"bridge. Mean naming cosine = {naming_mean:.4f} "
-        f"(random {RANDOM_BASELINE}, baseline 512-d SAE {BASELINE_SAE_NAMING}). "
+        f"(random {random_baseline:.4f}, baseline 512-d SAE {BASELINE_SAE_NAMING}). "
         f"Dead features: {n_dead} ({dead_pct:.1f}%)."
     )
     sections = [
@@ -201,10 +231,10 @@ def run() -> Path:
             md_table(
                 ["metric", "value", "reference"],
                 [
-                    ["mean (live)", f"{naming_mean:.4f}", f"> random {RANDOM_BASELINE}"],
+                    ["mean (live)", f"{naming_mean:.4f}", f"> random {random_baseline:.4f}"],
                     ["median (live)", f"{naming_med:.4f}", ""],
                     ["baseline 512-d SAE", f"{BASELINE_SAE_NAMING:.4f}", "ML-AUDIT M-005"],
-                    ["random baseline", f"{RANDOM_BASELINE:.4f}", "ML-AUDIT M-005"],
+                    ["random baseline", f"{random_baseline:.4f}", "isotropic, runtime (re M-005)"],
                     ["dead features", f"{dead_pct:.1f}%", "baseline 40-60%"],
                 ],
             ),

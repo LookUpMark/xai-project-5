@@ -167,7 +167,7 @@ def _fig_naming(naming: dict, fig_dir: Path) -> Path | None:
     ax.axvline(0.5, color="#C62828", ls="--", lw=1, label="0.5 (strong-match cutoff)")
     ax.set_xlabel("top-1 cosine (feature ↔ vocab)")
     ax.set_ylabel("# features")
-    ax.set_title(f"Naming scores — {naming['pct_lt_0_5']:.0%} below 0.5")
+    ax.set_title(f"Naming scores — {naming['pct_lt_0_5']:.1%} below 0.5")
     ax.legend(fontsize=8)
     fig.tight_layout()
     p = fig_dir / "failure_naming_scores.png"

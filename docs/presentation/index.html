@@ -48,7 +48,7 @@
       flex: 0 0 100vw; width: 100vw; height: 100vh;
       scroll-snap-align: start;
       padding: clamp(48px, 7vw, 96px) clamp(48px, 8vw, 112px);
-      display: flex; flex-direction: column; justify-content: center;
+      display: flex; flex-direction: column; justify-content: safe center;
       position: relative; overflow: hidden;
     }
     .slide.light { background: var(--bg); color: var(--fg); }
@@ -125,7 +125,7 @@
     /* ─── figure split ─────────────────────────────────────────── */
     .fig-grid { display: grid; grid-template-columns: 1.02fr 0.98fr; gap: 48px; align-items: center; margin-top: 28px; }
     .fig { border: 1px solid var(--border-2); border-radius: var(--radius); background: var(--surface); padding: 14px; }
-    .fig img { width: 100%; height: auto; display: block; border-radius: 12px; }
+    .fig img { display: block; max-width: 100%; max-height: 40vh; width: auto; height: auto; margin: 0 auto; border-radius: 12px; }
     .fig .fcap { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin: 10px 2px 2px; line-height: 1.45; }
     .slide.dark .fig { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.16); }
     .slide.dark .fig .fcap { color: rgba(250,250,247,0.6); }
@@ -175,11 +175,11 @@
 <body>
 
   <!--═══════════════════════════════════════════════════════════════
-    PART 1 — Member 1 · Problem, background, setup  (slides 1–5)
+    PART 1 — Nicolò Colle · Problem, background, setup  (slides 1–5)
   ════════════════════════════════════════════════════════════════-->
 
   <section class="slide hero light center" data-screen-label="01 Cover">
-    <div class="part-tag"><b>Part 1 of 3</b> · Member 1</div>
+    <div class="part-tag"><b>Part 1 of 3</b> · Nicolò Colle</div>
     <div class="eyebrow">Explainable &amp; Trustworthy AI · Project · Politecnico di Torino</div>
     <h1 class="h-hero">Concept discovery in medical VLMs: a rigorous failure.</h1>
     <p class="lead">A faithful re-implementation of the MedConcept pipeline on BiomedCLIP — IU X-Ray (~7k) and ROCOv2 (~80k, 10×). We characterise why SAE concept discovery is non-identifiable, and what a deterministic alternative can do.</p>
@@ -192,7 +192,7 @@
   </section>
 
   <section class="slide light" data-screen-label="02 Problem">
-    <div class="part-tag"><b>Part 1 of 3</b> · Member 1</div>
+    <div class="part-tag"><b>Part 1 of 3</b> · Nicolò Colle</div>
     <p class="eyebrow">The problem</p>
     <h2 class="h-xl">Medical VLMs are accurate but opaque.</h2>
     <p class="lead">Strong performance on pathology classification, segmentation and report generation — but the internal representations are high-dimensional, polysemic and unreadable. A serious concern in safety-critical clinical use, where classic post-hoc tools (saliency, attention) rarely resolve into semantic structure.</p>
@@ -204,7 +204,7 @@
   </section>
 
   <section class="slide dark" data-screen-label="03 Approach">
-    <div class="part-tag"><b>Part 1 of 3</b> · Member 1</div>
+    <div class="part-tag"><b>Part 1 of 3</b> · Nicolò Colle</div>
     <p class="eyebrow">Approach</p>
     <h2 class="h-md">Concept-based XAI: from supervised to unsupervised discovery.</h2>
     <div class="pt-grid">
@@ -230,14 +230,10 @@
   </section>
 
   <section class="slide light" data-screen-label="04 Setup">
-    <div class="part-tag"><b>Part 1 of 3</b> · Member 1</div>
+    <div class="part-tag"><b>Part 1 of 3</b> · Nicolò Colle</div>
     <p class="eyebrow">Backbone &amp; vocabulary</p>
-    <h2 class="h-xl">BiomedCLIP (ViT-B/16) + RadLex.</h2>
-    <ul class="bl">
-      <li><b>BiomedCLIP</b> — ViT-B/16 image encoder + PubMedBERT, pretrained on PMC-15M. Exposes a <b>768-d</b> hidden state projected by a frozen <code>visual_projection</code> ℝ⁷⁶⁸→ℝ⁵¹² into the shared contrastive space (224×224, L2-normalised).</li>
-      <li><b>RadLex vocabulary</b> — ~1,030 terms (512-d): 39 anchor queries over 13 sub-domains + 14 NIH ChestX-ray14 seeds, ranked by cosine to a multi-centroid relevance score.</li>
-      <li><b>Modality gap</b> (Liang 2022) — systematic offset between image and text cones (cross-modal cosine ≈0.27, centroid L2 ≈0.94). Estimated and <b>subtracted</b> before naming/decomposition.</li>
-    </ul>
+    <h2 class="h-xl">BiomedCLIP + RadLex.</h2>
+    <p class="lead">Our backbone is BiomedCLIP. Its image encoder exposes a <b>768-d hidden state</b> that a frozen projection compresses into the <b>512-d</b> contrastive space we actually decompose. We name features against a curated <b>RadLex</b> radiology vocabulary. And we correct the <b>modality gap</b> — the systematic offset between the image and text cones — before any naming or decomposition.</p>
     <p class="impl">Impl: <code>src/embedding_extraction/extract_embeddings.py</code>, <code>src/vocabulary_building/build_vocabulary.py</code></p>
     <aside class="aside" data-notes="04">
       <p>Key technical point: 768-d (hidden) → 512-d (contrastive). The baseline operates on the 512-d projected space; Path A goes back to the 768-d pre-projection state.</p>
@@ -246,42 +242,42 @@
   </section>
 
   <section class="slide dark" data-screen-label="05 Data">
-    <div class="part-tag"><b>Part 1 of 3</b> · Member 1</div>
+    <div class="part-tag"><b>Part 1 of 3</b> · Nicolò Colle</div>
     <p class="eyebrow">Data</p>
-    <h2 class="h-md">Two scales: IU X-Ray (1×) and ROCOv2 (10×).</h2>
+    <h2 class="h-md">Two scales: IU X-Ray and ROCOv2 (10×).</h2>
     <div class="ba-grid">
       <div class="ba-col">
         <p class="ba-label">IU X-Ray · 1× · primary</p>
-        <h3>7,470 images · 3,852 studies.</h3>
-        <p>Split <b>by radiographic study</b> (key = <code>patient_IM-study</code>): no study in both train and test. → 5,955 train / 1,515 test (3,081 / 771 studies), verified group overlap = 0, recomputed deterministically.</p>
+        <h3>The small-scale setting.</h3>
+        <p>Split <b>by radiographic study</b>, so no study appears in both train and test — verified <b>zero</b> overlap, recomputed deterministically every run.</p>
       </div>
       <div class="ba-col">
         <p class="ba-label" style="color: var(--accent);">ROCOv2 · 10× · replication</p>
-        <h3>~80,000 images.</h3>
-        <p>Split <b>by image</b> (no shared patient structure). A 10× replication that lets us test the data-scale hypothesis directly: does more data cure non-identifiability?</p>
+        <h3>A ten-times larger corpus.</h3>
+        <p>Split by image. It exists to test one hypothesis head-on: <b>does more data cure non-identifiability?</b></p>
       </div>
     </div>
     <p class="impl">Impl: <code>src/utils.py</code> (<code>split_embeddings</code>) · anti-leakage test: <code>tests/unit/test_split.py</code></p>
     <aside class="aside" data-notes="05">
       <p>Honest methodological choice: IU split by study (no patient leakage), ROCOv2 by image (no shared structure). Deterministic, recomputed each run.</p>
       <p>The 10× of ROCOv2 is not “more data = better”: it is the test bed for the scale hypothesis. Spoiler for Part 2: it does not help.</p>
-      <p>End of Part 1. Hand off to Member 2: method + the core result.</p>
+      <p>End of Part 1. Hand off to Marc'Antonio Lopez: method + the core result.</p>
     </aside>
   </section>
 
   <!--═══════════════════════════════════════════════════════════════
-    PART 2 — Member 2 · Method + non-identifiability  (slides 6–10)
+    PART 2 — Marc'Antonio Lopez · Method + non-identifiability  (slides 6–10)
   ════════════════════════════════════════════════════════════════-->
 
   <section class="slide light" data-screen-label="06 Method">
-    <div class="part-tag"><b>Part 2 of 3</b> · Member 2</div>
+    <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
     <p class="eyebrow">Method</p>
     <h2 class="h-md">Three paths + an organisation extension.</h2>
     <div class="pipeline">
       <div class="step">
         <span class="nb">01 · BASELINE</span>
         <h3>Top-K SAE 512-d</h3>
-        <p>Faithful MedConcept re-impl. D=2048, k=32, 8k steps, 5 seeds (0, 42, 123, 456, 789). The failure case.</p>
+        <p>Faithful MedConcept re-implementation. One config, trained across <b>multiple seeds</b> — that is what makes a stability metric possible.</p>
       </div>
       <div class="step">
         <span class="nb">02 · PATH A</span>
@@ -291,7 +287,7 @@
       <div class="step">
         <span class="nb">03 · PATH B</span>
         <h3>SPLiCE</h3>
-        <p>Decomposition over a fixed RadLex dictionary: OMP (k=32) + NNLS. Deterministic. Targets Gap 1+4.</p>
+        <p>Decomposition over a fixed RadLex dictionary — no learning, so deterministic. Targets Gap 1+4.</p>
       </div>
       <div class="step">
         <span class="nb">04 · ORG</span>
@@ -308,10 +304,10 @@
   </section>
 
   <section class="slide hero dark center" data-screen-label="07 Headline result">
-    <div class="part-tag"><b>Part 2 of 3</b> · Member 2</div>
+    <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
     <div class="eyebrow">The headline result · Gap 1</div>
     <div class="stat-num">1.81<span class="unit">×</span><span class="sub">1.67× on IU X-Ray · 1.81× on ROCOv2</span></div>
-    <p class="stat-caption">The baseline SAE reconstructs faithfully (cosine 0.97–0.99) but its cross-seed best-match is only <b>1.67×–1.81× the conditioned null</b>. ~0% of features match at ≥0.9; naming capped at 0.40–0.48 (0% above 0.7). Identity is absent — genuine non-identifiability, not a training bug.</p>
+    <p class="stat-caption">The baseline SAE reconstructs its inputs well — but cross-seed <b>feature identity is absent</b>: best-match barely above the conditioned null, almost nothing matches strongly, naming stays low. Genuine non-identifiability, not a training bug.</p>
     <aside class="aside" data-notes="07">
       <p>Pivot slide. Good reconstruction ≠ canonical features — this is the point to hammer home.</p>
       <p>Decoders are full-rank, inits distinct, no collapse → not a bug. It is intrinsic to the representation site (pooled CLS, compressed, contrastive-shaped).</p>
@@ -320,12 +316,12 @@
   </section>
 
   <section class="slide light" data-screen-label="08 Relabeling control">
-    <div class="part-tag"><b>Part 2 of 3</b> · Member 2</div>
+    <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
     <p class="eyebrow">Relabeling control · Gap 6</p>
     <h2 class="h-xl">The slot-wise metric is floor-by-construction.</h2>
     <div class="fig-grid">
       <div>
-        <p class="lead" style="margin-bottom:16px;">Permute one SAE's encoder/decoder rows by a random bijection π — function-preserving, reconstruction unchanged to 10⁻⁴. The slot-wise Jaccard collapses to <b>0.0077</b>, indistinguishable from real cross-seed. The matched metric correctly reports identity (1.0).</p>
+        <p class="lead" style="margin-bottom:16px;">Rename one SAE's features with a random permutation — same network, same reconstruction — and the slot-wise Jaccard collapses to the <b>0.0077</b> floor, indistinguishable from two genuinely different SAEs. The matched metric correctly sees identity. Slot-wise is permutation noise, not a stability measure.</p>
         <p class="impl">Impl: <code>scripts/relabeling_control.py</code> — <code>relabel_state_dict(sd, perm)</code></p>
       </div>
       <div class="fig">
@@ -341,58 +337,53 @@
   </section>
 
   <section class="slide light" data-screen-label="09 Path A vs baseline">
-    <div class="part-tag"><b>Part 2 of 3</b> · Member 2</div>
+    <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
     <p class="eyebrow">Path A (768-d) vs baseline (512-d)</p>
     <h2 class="h-md">Moving the representation site is not enough.</h2>
     <div class="fig-grid">
       <div>
-        <ul class="bl" style="margin-top:0;">
-          <li><b>Dead features</b> — 16.0% → <b>1.7%</b> (Path A is healthier)</li>
-          <li><b>Naming cosine</b> — 0.42 → 0.47</li>
-          <li><b>Matched obs / null</b> — 1.97× → 2.63× (still weak universality)</li>
-          <li><b>Frac. matched ≥0.9</b> — ≈0% → ≈0% (no canonical features)</li>
-        </ul>
-        <p class="impl" style="margin-top:16px;">Impl: <code>src/sae_hidden/</code> (<code>naming_hidden.py</code>), <code>scripts/run_path_a.py</code></p>
+        <p class="lead">Path A trains the SAE on the hidden state <b>before</b> the projection. It is genuinely healthier — far fewer dead features, better naming — but the permutation-invariant verdict does <b>not</b> change: still almost no features match strongly. This is <b>weak universality</b>: a shared subspace, not identical features. And it still operates on the pooled CLS token, not patch tokens.</p>
+        <p class="impl" style="margin-top:16px;">Impl: <code>src/sae_hidden/</code>, <code>scripts/run_path_a.py</code></p>
       </div>
       <div class="fig">
         <img src="assets/naming-scores.png" alt="Naming score distribution — most features' top-1 cosine below 0.5" />
-        <p class="fcap">Naming scores — top-1 feature↔vocab cosine. Most features sit well below 0.5: a name assigned by cosine is cosmetic, not a real semantic match.</p>
+        <p class="fcap">Naming scores — top-1 feature↔vocab cosine. Most features sit well below 0.5: a cosine-assigned name is cosmetic, not a real match.</p>
       </div>
     </div>
     <aside class="aside" data-notes="09">
       <p>Path A is a local improvement (fewer dead features, better naming) but it does not change the global verdict — “weak universality” (Lan 2024, Leask 2025): a shared subspace, not identical features.</p>
       <p>Why still not enough: we still operate on the pooled CLS token (the contrastive global summary), not on patch tokens. The paper says this explicitly.</p>
-      <p>Naming figure (failure_naming_scores.png) titled “Naming scores — X% below 0.5”; matches the naming row 0.42 / 0.47 and the capped 0.40–0.48 claim.</p>
+      <p>Naming figure (failure_naming_scores.png) titled “Naming scores — 99.7% below 0.5” (max 0.513); matches the naming row 0.42 / 0.47 and the capped 0.40–0.48 claim.</p>
     </aside>
   </section>
 
   <section class="slide hero dark center" data-screen-label="10 Scale refuted">
-    <div class="part-tag"><b>Part 2 of 3</b> · Member 2</div>
+    <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
     <div class="eyebrow">The scale hypothesis · Gap 4</div>
     <div class="stat-num">10<span class="unit">×</span><span class="sub">ROCOv2 ~80k vs IU X-Ray ~7k</span></div>
-    <p class="stat-caption">10× more data improves <b>training health</b> (dead features 16%→0.6%) but <b>not identifiability</b>: matched 0.299→0.327, subspace ratio 1.67×→1.81×, frac≥0.9 0%→0.3%, naming 0.40–0.48. The binding constraint is the representation site, not data volume.</p>
+    <p class="stat-caption">Ten times more data improves <b>training health</b> but <b>not identifiability</b> — every stability indicator stays flat. The binding constraint is the <b>representation site</b>, not data volume.</p>
     <aside class="aside" data-notes="10">
       <p>Contribution (3): a direct refutation of the “more data = identifiable features” hypothesis.</p>
       <p>The 10× moves training-health indicators, not identity ones. End of Part 2: erank ≈357–363 is far below the 2048-way dictionary, so no feature is canonical on such a compressed global vector.</p>
-      <p>Hand off to Member 3: deterministic alternatives + evaluation.</p>
+      <p>Hand off to Carmine Francesco Benvenuto: deterministic alternatives + evaluation.</p>
     </aside>
   </section>
 
   <!--═══════════════════════════════════════════════════════════════
-    PART 3 — Member 3 · Deterministic alternatives, evaluation, conclusions (11–15)
+    PART 3 — Carmine Francesco Benvenuto · Deterministic alternatives, evaluation, conclusions (11–15)
   ════════════════════════════════════════════════════════════════-->
 
   <section class="slide light" data-screen-label="11 SPLiCE">
-    <div class="part-tag"><b>Part 3 of 3</b> · Member 3</div>
+    <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <p class="eyebrow">Path B · SPLiCE</p>
     <h2 class="h-xl">Deterministic. Judge-ready.</h2>
-    <p class="lead">SPLiCE decomposes each gap-corrected 512-d embedding into a sparse, non-negative combination over the fixed RadLex dictionary: <b>OMP</b> selects k=32 atoms, then <b>NNLS</b> re-solves the coefficients. The dictionary is never estimated → deterministic by construction, zero cross-seed instability.</p>
+    <p class="lead">SPLiCE decomposes each embedding into a sparse, non-negative combination over the <b>fixed RadLex</b> dictionary. The dictionary is never estimated, so the result is <b>deterministic by construction</b> — zero cross-seed instability. It scales easily to both corpora, and correcting the modality gap turns out to be the decisive fix, not the solver.</p>
     <ul class="bl">
-      <li><b>IU X-Ray</b> — 1,515 test in 9.5s · 997/1,031 terms (96.7%) · 14.18 concepts/img.</li>
-      <li><b>ROCOv2</b> — 15,958 img in 101s · 1,024/1,024 terms (100%) · 8.56 concepts/img.</li>
-      <li><b>Gap correction is decisive</b> — max atom–image cosine IU 0.49→0.85, ROCOv2 0.54→0.86.</li>
+      <li><b>Fixed dictionary</b> — no estimation, no seeds, no instability.</li>
+      <li><b>Same output schema as the SAE</b> — the same judge can score it.</li>
+      <li><b>Honest caveat</b> — frequent terms are "mixed", a property of the supplied dictionary.</li>
     </ul>
-    <p class="impl">Impl: <code>src/concept_discovery/spliece.py</code> — <code>decompose_image()</code> · <code>scripts/run_spliece.py</code></p>
+    <p class="impl">Impl: <code>src/concept_discovery/spliece.py</code> — <code>decompose_image()</code></p>
     <aside class="aside" data-notes="11">
       <p>SPLiCE trades an estimation problem (learning the dictionary) for a given one (RadLex fixed). No seed, no non-identifiability.</p>
       <p>The output schema is SAE-compatible → the same LLM-judge can score it (matters on slide 13).</p>
@@ -401,11 +392,11 @@
   </section>
 
   <section class="slide light" data-screen-label="12 Faithfulness">
-    <div class="part-tag"><b>Part 3 of 3</b> · Member 3</div>
+    <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <p class="eyebrow">Faithfulness · Gap 2</p>
     <h2 class="h-xl">A small upper tail is genuinely faithful.</h2>
-    <p class="lead">Faithfulness ablation (baseline D=2048, 5 seeds): <b>17.8%±0.9</b> of live features exceed the shuffle-null 95th percentile in point-biserial correlation with IU X-Ray MeSH/Problems labels; <b>1.1%</b> reach |r|&gt;0.30 (strongest |r|=0.459±0.057, on a <i>mass</i> feature).</p>
-    <p class="lead" style="margin-top:16px;">Yet they stay <b>unstable cross-seed</b>: zero features cluster across the 5 seeds at cosine ≥0.90; only 0.1% in a ≥4-seed cluster at ≥0.70 (not above the shuffle null, p=0.17). Partially faithful, entirely non-reproducible.</p>
+    <p class="lead">We asked a simpler question: do <b>any</b> features track real pathology? We correlated activations against the ground-truth labels, with a shuffle null. The honest answer: a <b>small upper tail</b> is genuinely faithful — and the strongest feature looks like a <i>mass</i>, which is clinically plausible.</p>
+    <p class="lead" style="margin-top:16px;">But those same features stay <b>unstable across seeds</b>. The concepts are <b>partially faithful, entirely non-reproducible</b> — exactly the kind of result worth reporting honestly.</p>
     <p class="impl">Impl: <code>scripts/run_faithfulness.py</code> · <code>main.tex</code> §5.6</p>
     <aside class="aside" data-notes="12">
       <p>Honest, faceted result: a real signal exists (~18% upper tail, and the “mass” feature at |r|=0.459 is clinically plausible), but it is small and unstable.</p>
@@ -414,10 +405,10 @@
   </section>
 
   <section class="slide hero dark center" data-screen-label="13 LLM judge">
-    <div class="part-tag"><b>Part 3 of 3</b> · Member 3</div>
+    <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <div class="eyebrow">LLM-as-judge · local plausibility</div>
     <div class="stat-num">81.6<span class="unit">%</span><span class="sub">vs 3.3% with Llama-3.1-8B</span></div>
-    <p class="stat-caption">SPLiCE on IU X-Ray: <b>81.6% Aligned</b> under MedGemma-4B (1,230/1,508) but only <b>3.3%</b> under Llama-3.1-8B (Uncertain 73.9%). ROCOv2 baseline: 88.3% vs 23.1%. Judge run to convergence (T=0, zero parse errors). Local plausibility <b>orthogonal</b> to global identifiability.</p>
+    <p class="stat-caption">SPLiCE scores <b>high local plausibility</b> under a medical-tuned judge — but <b>almost nothing</b> under a general one. The Aligned rate is a property of the <b>judging model</b> as much as of the explanation. And this local plausibility is <b>orthogonal</b> to global identifiability.</p>
     <aside class="aside" data-notes="13">
       <p>The %Aligned is a property of the judging model as much as of the explanation: the cross-LLM spread (81.6% vs 3.3%) proves it. MedGemma is medical-tuned, Llama is general.</p>
       <p>Numbers verified on JSON: results/iu_xray/spliece/judge_scores_*.json (aligned_rate 0.8156 / 0.0325, n=1508) and results/rocov2/baseline/judge_scores_*.json (0.8833 / 0.2314, n=15957).</p>
@@ -426,7 +417,7 @@
   </section>
 
   <section class="slide light" data-screen-label="14 Conclusions">
-    <div class="part-tag"><b>Part 3 of 3</b> · Member 3</div>
+    <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <p class="eyebrow">Conclusions</p>
     <h2 class="h-md">Three lessons that generalise.</h2>
     <div class="pt-grid">
@@ -451,7 +442,7 @@
   </section>
 
   <section class="slide hero dark center" data-screen-label="15 Future work">
-    <div class="part-tag"><b>Part 3 of 3</b> · Member 3</div>
+    <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <div class="eyebrow">Limitations &amp; future work</div>
     <h2 class="h-hero">SAE on the patch-token residual stream.</h2>
     <p class="lead">The diagnosis is predictive: decomposing BiomedCLIP <b>patch-token</b> residual stream (a mid layer, not the pooled CLS) should restore identifiability — the experiment our characterisation points to as the next step.</p>

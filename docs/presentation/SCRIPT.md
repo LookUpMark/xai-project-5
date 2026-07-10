@@ -14,11 +14,11 @@ A Rigorous Characterization of Sparse-Autoencoder Failure and Deterministic Alte
 - Numbers are real — from `docs/latex/main.tex`, cross-checked on `results/*.json`. Don't paraphrase them loosely; if you round, say "about".
 - Each block: **slide label**, the spoken text, and the key numbers to land. Press **`N`** during the deck to see on-slide notes too.
 
-Member → part mapping is a suggestion; names can be swapped without touching content.
+Member → part assignment: **Part 1 — Nicolò Colle**, **Part 2 — Marc'Antonio Lopez**, **Part 3 — Carmine Francesco Benvenuto**. Swap if you prefer; content stays the same.
 
 ---
 
-# PART 1 — Member 1 · Problem, background, setup  (slides 1–5, ~4.5 min)
+# PART 1 — Nicolò Colle · Problem, background, setup  (slides 1–5, ~4.5 min)
 
 ## 01 · Cover
 > Good morning. Our project re-implements the **MedConcept** pipeline for discovering interpretable
@@ -72,13 +72,13 @@ Member → part mapping is a suggestion; names can be swapped without touching c
 > images, with verified **zero** group overlap, recomputed deterministically every run. **ROCOv2** is
 > roughly 80,000 images — a **ten-times** replication — and we split it by image, since it has no shared
 > patient structure. The point of ROCOv2 is not "more data is better"; it is a direct test of the
-> **scale hypothesis**. That's the end of Part 1 — over to [Member 2] for the method and the core result.
+> **scale hypothesis**. That's the end of Part 1 — over to Marc'Antonio Lopez for the method and the core result.
 
-*(~70 s. Hand off to Member 2.)*
+*(~70 s. Hand off to Marc'Antonio Lopez.)*
 
 ---
 
-# PART 2 — Member 2 · Method + non-identifiability  (slides 6–10, ~4.5 min)
+# PART 2 — Marc'Antonio Lopez · Method + non-identifiability  (slides 6–10, ~4.5 min)
 
 ## 06 · Method — three paths + an organisation extension
 > Thanks. We attack the problem with **three paths plus one extension**. The **baseline** is a faithful
@@ -137,13 +137,13 @@ Member → part mapping is a suggestion; names can be swapped without touching c
 > these out of the non-identifiability regime. So the binding constraint is the **representation site**:
 > a sparse autoencoder on the CLS vector is factoring a single, already-compressed global vector whose
 > effective rank — about 357 — is far below the 2048-way dictionary. That closes Part 2 — over to
-> [Member 3] for what still works.
+> Carmine Francesco Benvenuto for what still works.
 
-*(~75 s. Contribution (3). Hand off to Member 3.)*
+*(~75 s. Contribution (3). Hand off to Carmine Francesco Benvenuto.)*
 
 ---
 
-# PART 3 — Member 3 · Deterministic alternatives, evaluation, conclusions  (slides 11–15, ~4.5 min)
+# PART 3 — Carmine Francesco Benvenuto · Deterministic alternatives, evaluation, conclusions  (slides 11–15, ~4.5 min)
 
 ## 11 · SPLiCE — deterministic, judge-ready
 > Thanks. If learned factorisation is non-identifiable, the clean fix is to **not learn the dictionary**.
@@ -206,11 +206,11 @@ Member → part mapping is a suggestion; names can be swapped without touching c
 
 ## Timing summary
 
-| Part | Member | Slides | Target |
+| Part | Presenter | Slides | Target |
 |---|---|---|---|
-| 1 | Member 1 | 01–05 | ~4.5 min |
-| 2 | Member 2 | 06–10 | ~4.5 min |
-| 3 | Member 3 | 11–15 | ~4.5 min |
+| 1 | Nicolò Colle | 01–05 | ~4.5 min |
+| 2 | Marc'Antonio Lopez | 06–10 | ~4.5 min |
+| 3 | Carmine Francesco Benvenuto | 11–15 | ~4.5 min |
 | **Total** | | **15** | **~13.5–14 min** (+ Q&A) |
 
 If you run long: trim the caveats on slides 11 and 12 first — they're the easiest to shorten without losing the argument.

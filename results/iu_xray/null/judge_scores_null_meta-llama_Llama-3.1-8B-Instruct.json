@@ -1,0 +1,9 @@
+{
+  "aligned": 40,
+  "unaligned": 384,
+  "uncertain": 1084,
+  "aligned_rate": 0.0265,
+  "n_total": 1508,
+  "n_errors": 0,
+  "n_valid": 1508
+}

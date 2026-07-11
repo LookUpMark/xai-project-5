@@ -58,19 +58,20 @@ We probe three mitigations (a 512-d \textbf{baseline} SAE; \textbf{Path~A}, a 76
 
 \textbf{Sparse autoencoders for monosemantic decomposition.} Bricken et al.~\cite{bricken2023monosemanticity} showed that overcomplete dictionary-learning autoencoders trained on transformer activations yield individual latents that activate on coherent, human-nameable features. Gao et al.~\cite{gao2024scaling} scaled the Top-K (k-sparse) autoencoder, which sets the $L_0$ sparsity exactly via top-$k$ gating and removes the L1 sparsity penalty, improving the reconstruction--sparsity frontier; we adopt this architecture.
 
-\textbf{SAE stability and universality.} Lan et al.~\cite{lan2024universality} showed SAE feature spaces across models are similar only up to rotation (a shared subspace, not identical features), and Leask et al.~\cite{leask2025canonical} argued SAEs ``do not find canonical units of analysis.'' This weak-vs-strong universality motivates our matched-stability metric: we expect only a shared subspace, not identical features.
+\textbf{SAE stability and universality.} Lan et al.~\cite{lan2024universality} showed SAE spaces are rotation-invariant (shared subspace, not identical features); Leask et al.~\cite{leask2025canonical} argued SAEs ``do not find canonical units of analysis.'' This motivates our matched-stability metric: we expect only a shared subspace.
 
 \textbf{Sparse concept decomposition.} SPLiCE~\cite{bhalla2024spliece} bypasses a learned dictionary and decomposes a frozen CLIP embedding directly into a sparse, non-negative combination over a fixed, interpretable concept dictionary. Because the dictionary is fixed and the method deterministic, it sidesteps the non-identifiability of learned factorisation---a property we exploit as a data-frugal baseline.
 
 \textbf{Medical VLMs and the reference framework.} BiomedCLIP~\cite{zhang2023biomedclip} is a domain-specific contrastive VLM (ViT-B/16 + PubMedBERT, PMC-15M) whose image encoder exposes a 768-d pre-projection hidden state; its checkpoint projects this to the 512-d shared space we decompose. MedConcept~\cite{haque2026medconcept} provides the template (sparse extraction, vocabulary alignment, LLM-judge) we adapt; it operates on \emph{3D volumetric} abdominal CT with the Merlin~\cite{blankemeier2024merlin} foundation model (far more compute- and data-demanding than our 2D setting). RadLex~\cite{langlotz2006radlex} and MeSH~\cite{nlm2026mesh} the external radiology lexicons for naming.
 
 \section{Research gaps}
-From the literature and the project brief we identify five gaps that this work addresses:
+From the literature and the project brief we identify six gaps that this work addresses:
 \begin{enumerate}
   \item \textbf{Instability / non-identifiability:} sparse factorisations are not reproducible across seeds; no prior medical-VLM work reports seed-stability against a null.
   \item \textbf{Clinical validity:} a cosine-assigned name is cosmetic unless it tracks real pathology, yet concepts are rarely validated against ground truth.
   \item \textbf{Representation-location mismatch:} the SAE literature operates on raw hidden states, but reference pipelines fit the SAE on the already-projected CLIP space.
   \item \textbf{Small-data robustness:} learned SAEs need $10^5$--$10^6$ activations; medical corpora are 2--3 orders smaller, yielding dead features.
+  \item \textbf{Flat concepts:} explanations are top-$k$ lists ignoring anatomical/hierarchical structure.
   \item \textbf{Non-reproducible evaluation:} single-metric claims never report a chance floor (slot-wise overlap is degenerate under per-seed permutation); metrics must be null-calibrated and permutation-invariant.
 \end{enumerate}
 

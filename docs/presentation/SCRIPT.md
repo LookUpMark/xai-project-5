@@ -336,3 +336,51 @@ Member → part: **Part 1 — Nicolò Colle**, **Part 2 — Marc'Antonio Lopez**
 ---
 
 **Total timing:** ~13.5–14 minutes (under 15).
+
+---
+
+## References cited in the deck
+
+Each slide that refers to the literature shows a **footer citation** in the deck
+(`.citations` block, author + year + short title). When you reach that slide,
+name the paper aloud. The list below is grounded verbatim in `index.html`.
+
+| Slide | Footer citation |
+|---|---|
+| 03 · Approach | Koh et al. 2020 — Concept Bottleneck Models |
+| 05 · Setup | Zhang et al. 2025 — BiomedCLIP |
+| 06 · Data | Demner-Fushman et al. 2016 — IU X-Ray Dataset |
+| 10 · Relabeling control | Contribution (1) — Relabeling Control (This Work) |
+| 11 · Path A vs baseline | Lan et al. 2024 — Quantifying Feature Space Universality via SAEs |
+| 13 · SPLiCE | Bhalla et al. 2024 — Interpreting CLIP with Sparse Linear Concept Embeddings (SpLiCE) |
+| 16 · LLM judge | Sellergren et al. 2025 — MedGemma-4B |
+| 18 · Future work | Bricken et al. 2023 — SAEs on Residual Streams |
+
+Additional authors **named in the slide body** (no separate footer, but say them
+if asked for the source):
+
+- **03** — Kim 2018 (TCAV); Bricken 2023 (dictionary learning → monosemantic
+  latents); Gao 2024 (Top-K SAE); Haque 2026 (Merlin / MedConcept paradigm on
+  3D CT); Blankemeier 2024 (Merlin 3D CT foundation model).
+- **05** — Langlotz 2006 (RadLex radiology lexicon); NLM 2026 (MeSH); Liang 2022
+  (modality gap, "Mind the Gap").
+- **06** — Rückert 2024 (ROCOv2 dataset).
+- **11** — Leask 2025 (co-cited with Lan 2024 on SAE universality).
+
+All entries cross-check against `docs/latex/biblio.bib` (author, year, title).
+
+---
+
+## Regenerating `deck.pdf`
+
+`deck.pdf` is an 18-page 16:9 render of `index.html`, one slide per page, driven
+by the `@media print` block (1920×1080 `@page`, enlarged body text). Regenerate
+headless with the bundled Chromium:
+
+```bash
+chrome --headless=new --disable-gpu --no-sandbox --no-pdf-header-footer \
+  --print-to-pdf=deck.pdf "file://$PWD/index.html"
+```
+
+(or open `index.html` in a browser → Ctrl+P → Save as PDF). Last render: 18 pages,
+1440×810 pt (16:9).

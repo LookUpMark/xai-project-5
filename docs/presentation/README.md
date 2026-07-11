@@ -13,28 +13,29 @@ Based on the paper `docs/latex/main_extended.tex` (extended version) and the imp
 
 | File | What |
 |---|---|
-| `index.html` | Single-file deck, **18 slides**, horizontal swipe. Open in a browser. |
+| `index.html` | Single-file deck, **22 slides**, horizontal swipe. Open in a browser. |
 | `SCRIPT.md` | **Spoken script** — what each member says per slide (~14 min total) + paper-coverage map. |
-| `deck.pdf` | 18-page 16:9 PDF render of the deck (print-optimized with enlarged body text). |
+| `deck.pdf` | 22-page 16:9 PDF render of the deck (print-optimized with enlarged body text). |
 | `logo-poli-blu.png` | Politecnico di Torino logo (top-right; white on dark slides). |
-| `assets/cross-seed-jaccard.png` | Cross-seed Jaccard matrix (IU X-Ray) — slide 10. |
-| `assets/naming-scores.png` | Naming-score distribution (IU X-Ray) — slide 11. |
+| `assets/cross-seed-jaccard.png` | Cross-seed Jaccard matrix (IU X-Ray) — slide 12. |
+| `assets/naming-scores.png` | Naming-score distribution (IU X-Ray) — slide 13. |
 | `README.md` | This file. |
 
 Open: `docs/presentation/index.html` (double-click, or `python3 -m http.server` in the folder).
 
 ---
 
-## Structure — 3 equal parts (6 slides each), < 15 min
+## Structure — 3 parts (6 / 12 / 4 slides), < 15 min
 
-~45–50 s per slide → ~13.5–14 min total. One presenter per part: **Part 1 — Nicolò Colle**,
-**Part 2 — Marc'Antonio Lopez**, **Part 3 — Carmine Francesco Benvenuto** (swappable).
+~35–40 s per slide (Part 2 trimmed to ~25 s) → ~11 min total. One presenter per part: **Part 1 — Nicolò Colle**,
+**Part 2 — Marc'Antonio Lopez**, **Part 3 — Carmine Francesco Benvenuto** (swappable). Member 2
+(methodology core) carries more slides at lighter density.
 
 | Part | Slides | Presenter | Topic |
 |---|---|---|---|
-| **1** | 01–06 | Nicolò Colle | Problem, concept-based XAI, **6 research gaps (paper order)**, BiomedCLIP + RadLex, data IU X-Ray vs ROCOv2 |
-| **2** | 07–12 | Marc'Antonio Lopez | Method (3 paths), evaluation metric, headline non-identifiability, relabeling control, Path A, scale refuted |
-| **3** | 13–18 | Carmine Francesco Benvenuto | SPLiCE, organisation, faithfulness, LLM-judge, conclusions, future work |
+| **1** | 01–06 | Nicolò Colle | Problem, concept-based XAI, **6 research gaps (paper order)**, BiomedCLIP + RadLex/MeSH, data IU X-Ray vs ROCOv2 |
+| **2** | 07–18 | Marc'Antonio Lopez | Method (3 paths) + config, matched metric + subspace null, headline non-identifiability (Tab.1), relabeling control, Path A + ablation (Tab.3), scale refuted, SPLiCE (concept + coverage), organisation (Tab.4) |
+| **3** | 19–22 | Carmine Francesco Benvenuto | Faithfulness, LLM-judge, conclusions, future work |
 
 ### Slide → paper → implementation
 
@@ -47,19 +48,23 @@ Open: `docs/presentation/index.html` (double-click, or `python3 -m http.server` 
 | 05 | Setup | §4.1 | `embedding_extraction/`, `vocabulary_building/build_vocabulary.py` | — |
 | 06 | Data | §4.1 (split) | `utils.py` (`split_embeddings`), `tests/unit/test_split.py` | — |
 | 07 | Method | §4.2–4.4 | `autoencoder/sae_module.py` (`SAEManager`), `sae_hidden/`, `concept_discovery/spliece.py` | — |
-| 08 | Evaluation metric | §4.6 | `autoencoder/stability_analysis.py`, `sae_hidden/naming_hidden.py` | — |
-| 09 | Headline result | §5.1 + Tab.1 | `autoencoder/stability_analysis.py` | — |
-| 10 | Relabeling control | §5.2 | `scripts/relabeling_control.py` | `cross-seed-jaccard.png` |
-| 11 | Path A vs baseline | §5.3 + Tab.2/3 | `sae_hidden/`, `scripts/run_path_a.py` | `naming-scores.png` |
-| 12 | Scale refuted | §5.3 + Tab.1 | `scripts/run_baseline.py` | — |
-| 13 | SPLiCE | §4.4 + §5.4 | `concept_discovery/spliece.py` (`decompose_image`) | — |
-| 14 | Organisation | §4.5 + §5.5 + Tab.4 | `concept_discovery/organize.py` | — |
-| 15 | Faithfulness | §5.6 | `scripts/run_faithfulness.py` | — |
-| 16 | LLM judge | §5.7 | `evaluate_llm_judge.py` (`build_judge_graph`) | — |
-| 17 | Conclusions | §6 | — | — |
-| 18 | Future work | §6 (limitations) | — | — |
+| 08 | Evaluation · matched metric | §4.6 | `autoencoder/stability_analysis.py` | — |
+| 09 | Evaluation · subspace null | §4.6 | `sae_hidden/naming_hidden.py` (`compute_random_baseline`) | — |
+| 10 | Headline result | §5.1 | `autoencoder/stability_analysis.py` | — |
+| 11 | Baseline results (Tab.1) | §5.1 + Tab.1 | `autoencoder/stability_analysis.py` | — |
+| 12 | Relabeling control | §5.2 | `scripts/relabeling_control.py` | `cross-seed-jaccard.png` |
+| 13 | Path A · concept | §4.3 + §5.3 | `sae_hidden/`, `scripts/run_path_a.py` | `naming-scores.png` |
+| 14 | Path A · ablation (Tab.3) | §5.3 + Tab.3 | `sae_hidden/` | — |
+| 15 | Scale refuted | §5.3 + Tab.1 | `scripts/run_baseline.py` | — |
+| 16 | SPLiCE · concept | §4.4 + §5.4 | `concept_discovery/spliece.py` (`decompose_image`) | — |
+| 17 | SPLiCE · coverage | §5.4 | `concept_discovery/spliece.py` | — |
+| 18 | Organisation | §4.5 + §5.5 + Tab.4 | `concept_discovery/organize.py` | — |
+| 19 | Faithfulness | §5.6 | `scripts/run_faithfulness.py` | — |
+| 20 | LLM judge | §5.7 | `evaluate_llm_judge.py` (`build_judge_graph`) | — |
+| 21 | Conclusions | §6 | — | — |
+| 22 | Future work | §6 (limitations) | — | — |
 
-Every section of the extended paper is covered (full map in `SCRIPT.md`). The Path-A dictionary/k ablation sweep (Tab.3) is in the spoken script for slide 11.
+Every section of the extended paper is covered (full map in `SCRIPT.md`). The Path-A dictionary/k ablation sweep (Tab.3) is the spoken script for slide 14.
 
 ---
 
@@ -96,7 +101,7 @@ Position is persisted in `localStorage` — a refresh keeps your place.
 
 All numbers come from `docs/latex/main_extended.tex` and were cross-checked against `results/*.json`:
 
-### LLM-judge (slide 16)
+### LLM-judge (slide 20)
 - SPLiCE IU X-Ray: `results/iu_xray/spliece/judge_scores_*.json` → MedGemma-4B `0.8156` (81.6%, 1230/1508), Llama-3.1-8B `0.0325` (3.3%)
 - SAE baseline ROCOv2: `results/rocov2/baseline/judge_scores_*.json` → MedGemma `0.8833` (88.3%, 14095/15957), Llama `0.2314` (23.1%)
 - Path A hidden (IU): MedGemma `76.3%`, Llama `0.5%`
@@ -135,7 +140,7 @@ Seed: `simple-deck` skill (5-rule iframe nav script intact).
 
 ## PDF
 
-`deck.pdf` is an 18-page 16:9 render (one slide per page, styles + white-on-dark logo preserved),
+`deck.pdf` is a 22-page 16:9 render (one slide per page, styles + white-on-dark logo preserved),
 generated headless from `index.html` (the `@media print` block in the CSS drives pagination with enlarged body text).
 To regenerate: open `index.html` in a browser → Ctrl+P → Save as PDF (the print CSS handles it).
 

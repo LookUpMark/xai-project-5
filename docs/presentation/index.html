@@ -952,7 +952,8 @@
       </div>
     </div>
     <p class="impl">Impl: <code>src/autoencoder/</code>, <code>src/vocabulary_building/</code>,
-      <code>src/evaluate_llm_judge.py</code></p>
+      <code>src/evaluate_llm_judge.py</code>
+    </p>
 
     <div class="citations">
       <div class="citation"><span class="author">Koh et al.</span> <span class="year">2020</span> — Concept Bottleneck
@@ -1027,7 +1028,8 @@
       against <b>domain-matched</b> vocabularies: <b>RadLex</b> for IU X-Ray (chest-specific), <b>MeSH</b> for ROCOv2
       (multimodal). Before of this, we correct the <b>modality gap</b>.</p>
     <p class="impl">Impl: <code>src/embedding_extraction/extract_embeddings.py</code>,
-      <code>src/vocabulary_building/build_vocabulary.py</code></p>
+      <code>src/vocabulary_building/build_vocabulary.py</code>
+    </p>
 
     <div class="citations">
       <div class="citation"><span class="author">Zhang et al.</span> <span class="year">2025</span> — BiomedCLIP</div>
@@ -1064,7 +1066,8 @@
       </div>
     </div>
     <p class="impl">Impl: <code>src/utils.py</code> (<code>split_embeddings</code>) · anti-leakage test:
-      <code>tests/unit/test_split.py</code></p>
+      <code>tests/unit/test_split.py</code>
+    </p>
 
     <div class="citations">
       <div class="citation"><span class="author">Demner-Fushman et al.</span> <span class="year">2016</span> — IU X-Ray
@@ -1081,9 +1084,9 @@
     </aside>
   </section>
 
-  <!--═══════════════════════════════════════════════════════════════
-    PART 2 — Marc'Antonio Lopez · Method + non-identifiability  (slides 7–12)
-  ════════════════════════════════════════════════════════════════-->
+  <!--══════════════════════════════════════════════════════════════════
+    PART 2 — Marc'Antonio Lopez · Method + non-identifiability + deterministic alternatives  (slides 7–18)
+  ══════════════════════════════════════════════════════════════════-->
 
   <section class="slide light" data-screen-label="07 Method">
     <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
@@ -1111,7 +1114,8 @@
       </div>
     </div>
     <p class="impl">Impl: <code>src/autoencoder/sae_module.py</code> (<code>SAEManager</code>),
-      <code>src/sae_hidden/</code>, <code>src/concept_discovery/spliece.py</code></p>
+      <code>src/sae_hidden/</code>, <code>src/concept_discovery/spliece.py</code>
+    </p>
     <aside class="aside" data-notes="07">
       <p>One SAE config for clean comparisons: D=2048, k=32, 8k steps, 5 seeds (0,42,123,456,789). Multi-seed enables
         stability.</p>
@@ -1119,7 +1123,7 @@
     </aside>
   </section>
 
-  <section class="slide dark" data-screen-label="08 Evaluation metric">
+  <section class="slide hero dark center" data-screen-label="10 Headline result">
     <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <p class="eyebrow">Evaluation · Gap 6</p>
@@ -1129,7 +1133,8 @@
       ambient 512) — that controls for how concentrated the data manifold is. The old slot-wise Jaccard is not
       permutation-invariant, so it is degenerate (proved next).</p>
     <p class="impl">Impl: <code>src/autoencoder/stability_analysis.py</code>,
-      <code>src/sae_hidden/naming_hidden.py</code> (<code>compute_random_baseline</code>)</p>
+      <code>src/sae_hidden/naming_hidden.py</code> (<code>compute_random_baseline</code>)
+    </p>
     <aside class="aside" data-notes="08">
       <p>The metric is the contribution. Slot-wise seems reasonable but is degenerate under feature permutation — we
         prove it on the next slide.</p>
@@ -1138,7 +1143,7 @@
     </aside>
   </section>
 
-  <section class="slide hero dark center" data-screen-label="09 Headline result">
+  <section class="slide light" data-screen-label="11 Baseline results">
     <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <div class="eyebrow">The headline result · Gap 1</div>
@@ -1156,11 +1161,11 @@
     </aside>
   </section>
 
-  <section class="slide light" data-screen-label="10 Relabeling control">
+  <section class="slide dark" data-screen-label="12 Relabeling control">
     <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <p class="eyebrow">Relabeling control · Gap 6</p>
-    <h2 class="h-xl">The slot-wise metric is floor-by-construction.</h2>
+    <h2 class="h-xl">Slot-wise is floor-by-construction.</h2>
     <div class="fig-grid">
       <div>
         <p class="lead" style="margin-bottom:16px;">Rename one SAE's features with a random permutation — same network,
@@ -1177,7 +1182,8 @@
     </div>
 
     <div class="citations">
-      <div class="citation"><span class="author">Contribution (1)</span> — Relabeling Control (This Work)</div>
+      <div class="citation"><span class="author">Contribution (1)</span> <span class="year"></span> — Relabeling Control
+        (This Work)</div>
     </div>
 
     <aside class="aside" data-notes="10">
@@ -1187,11 +1193,11 @@
     </aside>
   </section>
 
-  <section class="slide light" data-screen-label="11 Path A vs baseline">
+  <section class="slide light" data-screen-label="13 Path A · concept">
     <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">Path A (768-d) vs baseline (512-d) · Gap 3</p>
-    <h2 class="h-md">Moving the representation site is not enough.</h2>
+    <p class="eyebrow">Path A (768-d) vs baseline · Gap 3</p>
+    <h2 class="h-md">A healthier decomposition — same verdict.</h2>
     <div class="fig-grid">
       <div>
         <p class="lead">Path A trains the SAE on the hidden state <b>before</b> the projection. It is genuinely
@@ -1224,10 +1230,10 @@
     </aside>
   </section>
 
-  <section class="slide hero dark center" data-screen-label="12 Scale refuted">
+  <section class="slide hero dark center" data-screen-label="15 Scale refuted">
     <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <div class="eyebrow">The scale hypothesis · Gap 4</div>
+    <p class="eyebrow">The scale hypothesis · Gap 4</p>
     <div class="stat-num">10<span class="unit">×</span><span class="sub">ROCOv2 ~80k vs IU X-Ray ~7k</span></div>
     <p class="stat-caption">Ten times more data improves <b>training health</b> but <b>not identifiability</b> — every
       stability indicator stays flat. The binding constraint is the <b>representation site</b>, not data volume.</p>
@@ -1311,7 +1317,8 @@
       generic ancestors (e.g. "anatomical entity"). SPLiCE, the densest, cuts concepts-per-image <b>~1.75×</b> — but
       silhouette is weak (~0.02): the noisy vocabulary makes every cluster inherit a noisy ancestor.</p>
     <p class="impl">Impl: <code>src/concept_discovery/organize.py</code> — <code>cluster_concepts()</code>,
-      <code>annotate_radlex()</code></p>
+      <code>annotate_radlex()</code>
+    </p>
     <aside class="aside" data-notes="15">
       <p>Organisation does its job (1.75× redundancy reduction) but separation is weak because the IU vocabulary is
         noisy.</p>

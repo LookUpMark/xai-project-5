@@ -1663,18 +1663,21 @@
     <div class="pt-grid">
       <div class="pt">
         <h3>MedGemma 4B</h3>
-        <p>Domain-specialised medical LLM. Exhibits a <b>systematic positive bias</b>, rating all methods (including the
-          random null control) at ~80% Aligned.</p>
+        <p>MedGemma is a collection of Gemma 3 variants that are trained for performance on medical text and image
+          comprehension. Developers can use MedGemma to accelerate building healthcare-based AI applications. MedGemma
+          currently comes in three variants: a 4B multimodal version and 27B text-only and multimodal versions.</p>
       </div>
       <div class="pt">
         <h3>Llama 3.1 8B</h3>
-        <p>General-purpose instruction-tuned LLM. Defaults to <b>Uncertain</b> (~96% on IU X-Ray), showing low
-          discriminative power on small datasets.</p>
+        <p>Llama 3.1 is a collection of pretrained and instruction-tuned generative models developed by Meta. These
+          general-purpose models are optimized for dialogue use cases and complex reasoning tasks. The Llama 3.1 family
+          currently includes 8B, 70B, and 405B parameter variants.</p>
       </div>
       <div class="pt">
         <h3>Gemma 4 26B</h3>
-        <p>Large general-purpose LLM (4-bit). Shows a <b>strong rejection bias</b>, rejecting 87% of all baseline pairs
-          as Unaligned.</p>
+        <p>Gemma 4 is a family of lightweight, state-of-the-art open models built from the same research and technology
+          used to create the Gemini models. Designed for general-purpose applications, the Gemma 4 family includes
+          multiple sizes, featuring a highly capable 26B parameter variant.</p>
       </div>
     </div>
 
@@ -1693,9 +1696,12 @@
   <section class="slide light" data-screen-label="15 Results Matrix">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">5 · Experiments and analysis · Results Matrix</p>
-    <h2 class="h-xl">MedGemma vs. Llama 3.1: Aligned Rates.</h2>
-    <p class="lead" style="margin-bottom: 24px;">Extracting from the exhaustive evaluation on IU X-Ray (1,508 pairs).
+    <p class="eyebrow" style="text-align: center; margin-inline: auto;">5 · Experiments and analysis · Results Matrix
+    </p>
+    <h2 class="h-xl" style="text-align: center; margin-inline: auto; max-width: none;">MedGemma vs. Llama 3.1: Aligned
+      Rates.</h2>
+    <p class="lead" style="text-align: center; margin-inline: auto; margin-bottom: 24px;">Extracting from the exhaustive
+      evaluation on IU X-Ray (1,508 pairs).
       MedGemma rates nearly everything as "Aligned", even random assignments, failing the null control. Llama 3.1 is
       highly uncertain overall.</p>
 
@@ -1774,8 +1780,9 @@
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <p class="eyebrow">5 · Experiments and analysis · Judge Models · Gemma 4 26B</p>
-    <h2 class="h-xl">High computational cost and strong rejection bias.</h2>
-    <p class="lead">Running the <b>26B parameter model</b> locally via LM Studio proved computationally prohibitive,
+    <h2 class="h-xl" style="max-width: none;">High computational cost and strong rejection bias.</h2>
+    <p class="lead" style="max-width: none;">Running the <b>26B parameter model</b> locally via LM Studio proved
+      computationally prohibitive,
       limiting its evaluation to a single run on the IU X-Ray baseline. However, its results provide crucial insights
       into cross-model disagreement.</p>
 
@@ -1874,70 +1881,29 @@
         features, and Llama rewards this with more "Aligned" verdicts instead of "Uncertain".</p>
     </aside>
   </section>
-  <section class="slide light" data-screen-label="17 Organisation">
-    <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
-    <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">5 · Experiments and analysis · Concept organisation · Gap 5</p>
-    <h2 class="h-md">Dense, but weakly separated.</h2>
-    <p class="lead">We cluster the active vocabulary into <b>concept families</b> with ontology ancestors (RadLex for IU
-      X-Ray, MeSH for ROCOv2) and two degeneracy guards — leaf-root rejection, and a subtree canopy that rejects overly
-      generic ancestors (e.g. "anatomical entity"). SPLiCE, the densest, cuts concepts-per-image <b>~1.75×</b> — but
-      silhouette is weak (~0.02): the noisy vocabulary makes every cluster inherit a noisy ancestor.</p>
-    <p class="impl">Impl: <code>src/concept_discovery/organize.py</code> — <code>cluster_concepts()</code>,
-      <code>annotate_radlex()</code>
-    </p>
-    <aside class="aside" data-notes="17">
-      <p>Organisation does its job (1.75× redundancy reduction) but separation is weak because the IU vocabulary is
-        noisy.</p>
-      <p>Tab.4: SPLiCE 997 concepts → 32 families (silhouette 0.020); SAE baseline 80 concepts → 9 families (silhouette
-        0.094); Path A hidden 14 concepts → 4 families (silhouette 0.284).</p>
-    </aside>
-  </section>
-
-
-  <!--══════════════════════════════════════════════════════════════════
-    PART 3 — Carmine Francesco Benvenuto · Evaluation + conclusions  (slides 19–22)
-  ══════════════════════════════════════════════════════════════════-->
-  <section class="slide light" data-screen-label="19 Faithfulness">
-    <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
-    <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">5 · Experiments and analysis · Faithfulness · Gap 2</p>
-    <h2 class="h-xl">A small upper tail is genuinely faithful.</h2>
-    <p class="lead">Do <b>any</b> features track real pathology? Correlating activations against the ground-truth labels
-      (with a shuffle null), a <b>small upper tail</b> is genuinely faithful — the strongest looks like a <i>mass</i>,
-      clinically plausible. But those same features stay <b>unstable across seeds</b>: partially faithful, entirely
-      non-reproducible.</p>
-    <p class="impl">Impl: <code>scripts/run_faithfulness.py</code></p>
-    <aside class="aside" data-notes="15">
-      <p>Real signal exists but small: <b>17.8% ± 0.9</b> of live features exceed 95th percentile of shuffle null.
-        Strongest feature |r| = 0.459 ± 0.057 (on a "mass" feature).</p>
-      <p>Only <b>1.1%</b> at |r| > 0.30. Weak but non-zero. Yet cross-seed, zero features cluster at ≥0.90 (not above
-        seed-tag shuffle-null, p=0.17).</p>
-    </aside>
-  </section>
 
   <section class="slide hero dark center" data-screen-label="20 LLM judge">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <div class="eyebrow">5 · Experiments and analysis · LLM-as-judge · local plausibility</div>
-    <div class="stat-num">81.6<span class="unit">%</span><span class="sub">SPLiCE MedGemma · 79.6% null-k</span></div>
-    <p class="stat-caption">SPLiCE scores <b>high local plausibility</b> under a medical-tuned judge — but <b>almost
-        nothing</b> under a general one. <b>Random-k null explanations score comparably</b> (79.6%), indicating weak
-      discriminability. The Aligned rate is a property of the <b>judging model</b> as much as of the explanation. And
-      this local plausibility is <b>orthogonal</b> to global identifiability.</p>
+    <div class="eyebrow">5 · Experiments and analysis · LLM-as-judge · Discriminative Power</div>
+    <div class="stat-num">23.1<span class="unit">%</span><span class="sub">Llama 3.1 Aligned rate on ROCOv2 (up from
+        0.9%)</span></div>
+    <p class="stat-caption" style="max-width: 62ch; margin-inline: auto;">Unlike MedGemma's blind positive bias,
+      <b>Llama 3.1 shows true discriminative power</b>. By
+      scaling to a 10× larger dataset (ROCOv2), the concept quality improves significantly. Llama detects this
+      structural improvement, unlocking a massive jump in decisive "Aligned" verdicts. However, manual inspection
+      reveals that <b>some of these alignments are hallucinated</b>, underscoring the need for human calibration.</p>
 
     <div class="citations">
-      <div class="citation"><span class="author">Sellergren et al.</span> <span class="year">2025</span> — MedGemma-4B
+      <div class="citation"><span class="author">Meta</span> <span class="year">2024</span> — Llama 3.1 8B Instruct
       </div>
     </div>
 
-    <aside class="aside" data-notes="16">
-      <p>Cross-LLM spread (81.6% vs 3.3%) shows %Aligned is judge-dependent. Random-k null explanations score similarly:
-        79.6% MedGemma, 2.9% Llama.</p>
-      <p>Path A hidden source: 76.3% vs 0.5%. SAE baseline ROCOv2: 88.3% vs 23.1%. Orthogonal to non-identifiability.
-      </p>
-      <p>Verified on JSON: iu_xray/spliece 0.8156 / 0.0325 (n=1508); iu_xray/null_k5 0.7958 / 0.0292 (n=1508);
-        rocov2/baseline 0.8833 / 0.2314 (n=15957).</p>
+    <aside class="aside" data-notes="20">
+      <p>While MedGemma rubber-stamps everything, Llama 3.1 actually measures quality.</p>
+      <p>On IU X-Ray, Llama is 96% uncertain. On ROCOv2, the explanations are objectively better (fewer dead features,
+        better naming scores), and Llama rewards this by jumping to 23.1% aligned.</p>
+      <p>This proves that a general-purpose judge can discriminate quality when the signal is strong enough.</p>
     </aside>
   </section>
 

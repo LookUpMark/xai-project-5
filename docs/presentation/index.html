@@ -683,6 +683,20 @@
       display: none;
     }
 
+
+    /* ─── data tables ───────────────────────────────────────────── */
+    .tbl { width: 100%; max-width: 90ch; border-collapse: collapse; margin-top: clamp(18px, 2.2vw, 26px); font-size: clamp(14px, 1.25vw, 17px); }
+    .tbl caption { font-family: var(--font-mono); font-size: clamp(10px, 1vw, 12px); color: var(--muted); text-align: left; margin-bottom: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
+    .tbl th, .tbl td { text-align: left; padding: clamp(8px, 0.9vw, 11px) clamp(10px, 1.2vw, 16px); border-bottom: 1px solid var(--border-2); }
+    .tbl th { font-family: var(--font-mono); font-weight: 500; font-size: clamp(11px, 1vw, 13px); color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .tbl td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .tbl tr.hl td { color: var(--fg); font-weight: 500; }
+    .tbl tr.hl td.num { color: var(--accent); }
+    .slide.dark .tbl th { color: rgba(250,250,247,0.6); }
+    .slide.dark .tbl td { color: rgba(250,250,247,0.82); border-bottom-color: rgba(255,255,255,0.14); }
+    .slide.dark .tbl tr.hl td { color: var(--bg); }
+    .slide.dark .tbl tr.hl td.num { color: var(--accent); }
+
     /* ─── body text refinement (consistent hierarchy + improved readability) ─ */
     .lead,
     .stat-caption {
@@ -937,8 +951,7 @@
     <div class="pt-grid">
       <div class="pt">
         <h3>Supervised</h3>
-        <p>Concept Bottleneck Models (Koh 2020) and TCAV (Kim 2018) need a pre-defined, labelled concept set — exactly
-          the limitation unsupervised discovery targets.</p>
+        <p>Concept Bottleneck Models (Koh 2020) and TCAV (Kim 2018) need a pre-defined, labelled concept set.</p>
       </div>
       <div class="pt">
         <h3>Sparse Autoencoders</h3>
@@ -1084,44 +1097,27 @@
     </aside>
   </section>
 
-  <!--══════════════════════════════════════════════════════════════════
-    PART 2 — Marc'Antonio Lopez · Method + non-identifiability + deterministic alternatives  (slides 7–18)
-  ══════════════════════════════════════════════════════════════════-->
-
   <section class="slide light" data-screen-label="07 Method">
-    <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
+    <div class="part-tag"><b>Part 1 of 3</b> · Nicolò Colle</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <p class="eyebrow">Method · three paths</p>
     <h2 class="h-md">Three decompositions, one SAE config.</h2>
     <div class="pipeline" style="grid-template-columns: repeat(3, 1fr);">
-      <div class="step">
-        <span class="nb">01 · BASELINE</span>
-        <h3>Top-K SAE 512-d</h3>
-        <p>Faithful MedConcept re-implementation on the projected space. Trained across <b>multiple seeds</b> — that is
-          what makes a stability metric possible. (Gap 1)</p>
-      </div>
-      <div class="step">
-        <span class="nb">02 · PATH A</span>
-        <h3>Top-K SAE 768-d</h3>
-        <p>CLS hidden state <i>before</i> projection; bridge with frozen W_proj. Tests the representation site. (Gap 3)
-        </p>
-      </div>
-      <div class="step">
-        <span class="nb">03 · PATH B</span>
-        <h3>SPLiCE</h3>
-        <p>Decomposition over a fixed dictionary matched to each corpus (RadLex for IU X-Ray, MeSH for ROCOv2) — no
-          learning, so deterministic. (Gap 1+4)</p>
-      </div>
+      <div class="step"><span class="nb">01 · BASELINE</span><h3>Top-K SAE · 512-d</h3><p>Faithful MedConcept re-impl on the projected space. Multi-seed. (Gap 1)</p></div>
+      <div class="step"><span class="nb">02 · PATH A</span><h3>Top-K SAE · 768-d</h3><p>CLS hidden state <i>before</i> projection; bridge with frozen W_proj. (Gap 3)</p></div>
+      <div class="step"><span class="nb">03 · PATH B</span><h3>SPLiCE</h3><p>Fixed domain-matched dictionary (RadLex / MeSH) — no learning, deterministic. (Gap 1+4)</p></div>
     </div>
-    <p class="impl">Impl: <code>src/autoencoder/sae_module.py</code> (<code>SAEManager</code>),
-      <code>src/sae_hidden/</code>, <code>src/concept_discovery/spliece.py</code>
-    </p>
-    <aside class="aside" data-notes="07">
-      <p>One SAE config for clean comparisons: D=2048, k=32, 8k steps, 5 seeds (0,42,123,456,789). Multi-seed enables
-        stability.</p>
-      <p>Each path targets explicit gaps (tagged). Path B changes paradigm: fixed dictionary, not learned.</p>
-    </aside>
+    <table class="tbl"><caption>One SAE config for clean comparison</caption>
+      <thead><tr><th>Dictionary D</th><th>Top-k</th><th>Steps</th><th>Seeds</th></tr></thead>
+      <tbody><tr class="hl"><td class="num">2048</td><td class="num">32</td><td class="num">8,000</td><td class="num">5 (0, 42, 123, 456, 789)</td></tr></tbody></table>
+    <p class="impl">Impl: <code>src/autoencoder/sae_module.py</code> (<code>SAEManager</code>), <code>src/sae_hidden/</code>, <code>src/concept_discovery/spliece.py</code></p>
+    <aside class="aside" data-notes="07"><p>One SAE config for clean comparisons: D=2048, k=32, 8k steps, 5 seeds. Multi-seed enables the stability metric.</p><p>Each path targets explicit gaps (tagged). Path B changes paradigm: fixed dictionary, not learned.</p></aside>
   </section>
+
+
+   <!--══════════════════════════════════════════════════════════════════
+    PART 2 — Marc'Antonio Lopez · non-identifiability + deterministic alternatives  (slides 7–18)
+  ══════════════════════════════════════════════════════════════════-->
 
   <section class="slide hero dark center" data-screen-label="10 Headline result">
     <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
@@ -1475,31 +1471,24 @@
     </aside>
   </section>
 
-  <section class="slide hero dark center" data-screen-label="21 Future work">
+ <section class="slide hero dark center" data-screen-label="22 Future work">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <div class="eyebrow">Limitations &amp; future work</div>
-    <h2 class="h-hero">SAE on the patch-token residual stream.</h2>
-    <p class="lead">The diagnosis is predictive: decomposing BiomedCLIP <b>patch-token</b> residual stream (a mid layer,
-      not the pooled CLS) should restore identifiability — the experiment our characterisation points to as the next
-      step.</p>
+    <h2 class="h-hero">Future work</h2>
     <ul class="bl" style="margin-top: 24px;">
-      <li><b>Limitation (i)</b>: LLM-judge is model-dependent; random-k nulls score comparably.</li>
-      <li><b>Limitation (ii)</b>: predicted mitigation is SAE on patch-token residual stream.</li>
-      <li><b>Limitation (iii)</b>: ROCOv2 confounds scale with domain; PadChest (~160k chest X-rays) is the clean test.
-      </li>
+      <li><b>(i) The LLM-Judge is model dependant.</b> The %Aligned rate is a property of the judging model as much as of the concepts. Future work: multi-judge reporting or a judge-agnostic protocol.</li>
+      <li><b>(ii) Decisive test of our diagnosis: an SAE on the patch-token residual stream.</b> Decomposing BiomedCLIP's per-patch residual stream at a mid layer (as the SAE literature does) is the experiment that tests whether the 2D limit is intrinsic or escapable.</li>
+      <li><b>(iii) PadChest.</b> ROCOv2 is 10× larger but also broader (multimodal); PadChest (~160k images, same chest domain as IU X-Ray) is the test of whether scale alone restores reproducibility — begun, not finished.</li>
     </ul>
-    <p class="meta" style="margin-top:30px;">Thank you · questions — Marc'Antonio Lopez · Nicolò Colle · Carmine
-      Francesco Benvenuto</p>
+    <p class="meta" style="margin-top:30px;">Thank you · questions — Marc'Antonio Lopez · Nicolò Colle · Carmine Francesco Benvenuto</p>
 
     <div class="citations">
-      <div class="citation"><span class="author">Bricken et al.</span> <span class="year">2023</span> — SAEs on Residual
-        Streams</div>
+      <div class="citation"><span class="author">Bricken et al.</span> <span class="year">2023</span> — SAEs on Residual Streams</div>
     </div>
 
-    <aside class="aside" data-notes="21">
-      <p>Three limitations from main_extended.tex §6: (i) judge model-dependent + weak discriminability, (ii) predicted
-        mitigation (patch-token SAE), (iii) PadChest clean scale test (begun but unfinished).</p>
+    <aside class="aside" data-notes="18">
+      <p>Three limitations from main_extended.tex §6: (i) judge model-dependent + weak discriminability, (ii) predicted mitigation (patch-token SAE), (iii) PadChest clean scale test (begun but unfinished).</p>
       <p>Decisive close: one concrete future-work direction derived from the diagnosis, not generic "more data".</p>
       <p>Recap: Part 1 setup, Part 2 non-identifiability, Part 3 alternatives + evaluation. Thanks and Q&amp;A.</p>
     </aside>

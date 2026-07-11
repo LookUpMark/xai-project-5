@@ -88,7 +88,7 @@ evaluate_llm_judge (MedGemma 4B / Llama-3.1-8B, LangGraph) ──▶ judge_score
 | Naming cosine (live, mean) | 0.40 | 0.48 |
 | Slot-wise Jaccard (deprecated) | 0.0077 | 0.0077 |
 
-**LLM-judge (run to convergence, 0 parse errors):** SPLiCE on IU X-Ray **81.6% Aligned** (MedGemma-4B) vs 3.3% (Llama-3.1-8B); SAE baseline on ROCOv2 **88.3%** vs 23.1%. Judge Aligned measures *local* plausibility and is orthogonal to the cross-seed non-identifiability verdict.
+**LLM-judge (run to convergence, 0 parse errors):** SPLiCE on IU X-Ray **81.6% Aligned** (MedGemma-4B) vs 3.3% (Llama-3.1-8B); SAE baseline on ROCOv2 **88.3%** vs 23.1%; Path A hidden source **76.3%** vs 0.5%. Random-k null explanations score comparably (79.6% MedGemma, 2.9% Llama), indicating weak discriminability. Judge Aligned measures *local* plausibility and is orthogonal to the cross-seed non-identifiability verdict.
 
 ---
 

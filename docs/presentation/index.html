@@ -1,7 +1,7 @@
 <!doctype html>
 <!--
   Unsupervised Concept Discovery for Medical VLMs — project deck.
-  21 slides = 3 parts (one member per part). English, real numbers from
+  22 slides = 3 parts (one member per part). English, real numbers from
   docs/latex/main_extended.tex + implementations in src/. Design system: Cohere.
   Gaps follow the paper's §3 order (1→6). Skill: simple-deck (seed nav script intact).
 -->
@@ -1352,6 +1352,34 @@
     </aside>
   </section>
 
+  <section class="slide dark" data-screen-label="15b Gemma 4 26B">
+    <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
+    <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
+    <p class="eyebrow">Judge Models · Gemma 4</p>
+    <h2 class="h-xl">High computational cost and strong rejection bias.</h2>
+    <p class="lead">Running the <b>26B parameter model</b> locally via LM Studio proved computationally prohibitive. This difficulty led us to evaluate it only once on the IU X-Ray baseline. However, its results provide crucial insights into cross-model disagreement.</p>
+    
+    <div class="pt-grid">
+      <div class="pt">
+        <h3>Gemma 4 (26B)</h3>
+        <p>Shows a <b>strong rejection bias</b>, marking <b>87.1%</b> of pairs as Unaligned and only 1.1% Aligned.</p>
+      </div>
+      <div class="pt">
+        <h3>MedGemma (4B)</h3>
+        <p>Shows the opposite extreme on the same data, with an <b>81.2%</b> Aligned rate (an 80pp gap).</p>
+      </div>
+      <div class="pt">
+        <h3>Llama 3.1 (8B)</h3>
+        <p>Defaults to <b>96.0%</b> Uncertain, unable to confidently parse the same generated pseudo-reports.</p>
+      </div>
+    </div>
+    <p class="impl">Ref: <code>llm_judge_analysis_report.md</code> §3.3 &amp; §3.4</p>
+    <aside class="aside" data-notes="15b">
+      <p>We tested Gemma 4 26B via LM Studio locally, but the hardware requirements were too high, so we limited it to the IU X-Ray baseline.</p>
+      <p>Even with just one run, we observed an ~80 percentage point inter-model disagreement between Gemma 4 (87% Unaligned) and MedGemma (81% Aligned), while Llama 3.1 stayed Uncertain. This confirms the choice of judge fundamentally dictates the results.</p>
+    </aside>
+  </section>
+
   <section class="slide dark" data-screen-label="16 Judge Limitations">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
@@ -1496,7 +1524,7 @@
 
   <!-- chrome -->
   <div class="deck-progress" id="deck-progress" aria-hidden></div>
-  <div class="deck-counter" id="deck-counter">1 / 21</div>
+  <div class="deck-counter" id="deck-counter">1 / 22</div>
   <div class="deck-hint">← / → · space · N = notes</div>
 
   <!-- speaker notes overlay -->

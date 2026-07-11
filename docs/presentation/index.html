@@ -330,7 +330,7 @@
       </div>
       <div class="pt">
         <h3>MedConcept (Haque 2026)</h3>
-        <p>SAE extraction → alignment to a radiology vocabulary → an LLM-judge with Aligned/Unaligned/Uncertain metrics. The template we re-implement and stress-test.</p>
+        <p>SAE extraction → alignment to a radiology vocabulary → an LLM-judge with Aligned/Unaligned/Uncertain metrics.</p>
       </div>
     </div>
     <p class="impl">Impl: <code>src/autoencoder/</code>, <code>src/vocabulary_building/</code>, <code>src/evaluate_llm_judge.py</code></p>
@@ -360,11 +360,11 @@
       <div class="gap"><span class="gn">GAP 1</span><h3>Instability / non-identifiability</h3><p>Sparse factorisations are not reproducible across seeds; no prior medical-VLM work reports seed-stability against a null.</p></div>
       <div class="gap"><span class="gn">GAP 2</span><h3>Clinical validity</h3><p>A cosine-assigned name is cosmetic unless it tracks real pathology.</p></div>
       <div class="gap"><span class="gn">GAP 3</span><h3>Representation-location mismatch</h3><p>SAE literature uses raw hidden states; reference pipelines fit on the already-projected, gap-bearing CLIP space.</p></div>
-      <div class="gap"><span class="gn">GAP 4</span><h3>Small-data robustness</h3><p>SAEs need 10⁵–10⁶ activations; medical corpora are 2–3 orders smaller → dead features.</p></div>
+      <div class="gap"><span class="gn">GAP 4</span><h3>Small-data robustness</h3><p>SAEs need 10⁵–10⁶ activations; licence-free medical corpora are 2–3 orders smaller.</p></div>
       <div class="gap"><span class="gn">GAP 5</span><h3>Flat concepts</h3><p>Explanations are top-k lists that ignore anatomical / hierarchical structure.</p></div>
       <div class="gap"><span class="gn">GAP 6</span><h3>Non-reproducible evaluation</h3><p>Claims rest on single metrics whose chance floor is never reported; slot-wise overlap is degenerate under per-seed permutation.</p></div>
     </div>
-    <p class="impl">Ref: <code>main_extended.tex</code> §3 Research gaps</p>
+    <p class="impl">§3 Research gaps</p>
     <aside class="aside" data-notes="04">
       <p>Roadmap: every later experiment answers ≥1 of these gaps, tagged on each slide's eyebrow.</p>
       <p>Gap order is exactly the paper's §3. Results follow the paper's experiment sequence (§5), not strict 1→6 — the paper itself proves the metric (Gap 6) before using it.</p>
@@ -375,8 +375,8 @@
     <div class="part-tag"><b>Part 1 of 3</b> · Nicolò Colle</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <p class="eyebrow">Backbone &amp; vocabulary</p>
-    <h2 class="h-xl">BiomedCLIP + paired lexicons.</h2>
-    <p class="lead">Our backbone is BiomedCLIP. Its image encoder exposes a <b>768-d hidden state</b> that a frozen projection compresses into the <b>512-d</b> contrastive space we actually decompose. We name features against <b>domain-matched</b> vocabularies: <b>RadLex</b> for IU X-Ray (chest-specific), <b>MeSH</b> for ROCOv2 (multimodal). And we correct the <b>modality gap</b> — the systematic offset between the image and text cones — before any naming or decomposition.</p>
+    <h2 class="h-xl">Our Adapted Architecture.</h2>
+    <p class="lead">Instead of 3D Merlin, we use the 2D BiomedCLIP as backbone. Its image encoder exposes a <b>768-d hidden state</b> that a frozen projection compresses into the <b>512-d</b> contrastive space. Features are named against <b>domain-matched</b> vocabularies: <b>RadLex</b> for IU X-Ray (chest-specific), <b>MeSH</b> for ROCOv2 (multimodal). Before of this, we correct the <b>modality gap</b>.</p>
     <p class="impl">Impl: <code>src/embedding_extraction/extract_embeddings.py</code>, <code>src/vocabulary_building/build_vocabulary.py</code></p>
 
     <div class="citations">

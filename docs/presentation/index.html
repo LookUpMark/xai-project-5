@@ -134,7 +134,7 @@
     .fig-grid { display: grid; grid-template-columns: 1.02fr 0.98fr; gap: clamp(32px, 4vw, 48px); align-items: center; margin-top: clamp(24px, 2.8vw, 32px); }
     .fig { border: 1px solid var(--border-2); border-radius: var(--radius); background: var(--surface); padding: clamp(12px, 1.5vw, 16px); box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: box-shadow 0.2s ease; }
     .fig:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
-    .fig img { display: block; max-width: 100%; max-height: clamp(35vh, 45vh, 50vh); width: auto; height: auto; margin: 0 auto; border-radius: calc(var(--radius) - 8px); object-fit: contain; }
+    .fig img { display: block; max-width: 100%; max-height: clamp(26vh, 34vh, 40vh); width: auto; height: auto; margin: 0 auto; border-radius: calc(var(--radius) - 8px); object-fit: contain; }
     .fig .fcap { font-family: var(--font-mono); font-size: clamp(10px, 1.0vw, 11px); color: var(--muted); margin: clamp(8px, 1vw, 12px) 2px 2px; line-height: 1.5; text-align: center; }
     .slide.dark .fig { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.14); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
     .slide.dark .fig:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
@@ -234,9 +234,10 @@
     .metric-diagram { display: grid; grid-template-columns: 1fr auto 1fr; gap: clamp(20px, 3vw, 44px); align-items: center; margin-top: clamp(18px, 2.2vw, 26px); max-width: 80ch; }
     .md-col h4 { font-family: var(--font-mono); font-size: clamp(11px, 1vw, 13px); color: var(--accent); margin: 0 0 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 500; }
     .md-rows { display: flex; flex-direction: column; gap: 9px; }
-    .md-row { height: 13px; border-radius: 7px; background: var(--surface); border: 1px solid var(--border-2); }
-    .slide.dark .md-row { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.16); }
+    .md-row { height: 15px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border-2); }
+    .slide.dark .md-row { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.32); }
     .md-row.match { border-color: var(--accent); background: var(--accent-soft); }
+    .slide.dark .md-row.match { background: color-mix(in oklab, var(--accent) 58%, transparent); border-color: var(--accent); }
     .md-op { font-family: var(--font-display); font-size: clamp(22px, 2.4vw, 30px); color: var(--muted); text-align: center; }
     @media (max-width: 640px) { .metric-diagram { grid-template-columns: 1fr; } .md-op { display: none; } }
 

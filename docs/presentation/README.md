@@ -27,7 +27,7 @@ Open: `docs/presentation/index.html` (double-click, or `python3 -m http.server` 
 
 ## Structure — 3 parts (6 / 12 / 4 slides), < 15 min
 
-~35–40 s per slide → ~13.5–14 min total. One presenter per part: **Part 1 — Nicolò Colle**,
+~35–40 s per slide (Part 2 trimmed to ~25 s) → ~11 min total. One presenter per part: **Part 1 — Nicolò Colle**,
 **Part 2 — Marc'Antonio Lopez**, **Part 3 — Carmine Francesco Benvenuto** (swappable). Member 2
 (methodology core) carries more slides at lighter density.
 

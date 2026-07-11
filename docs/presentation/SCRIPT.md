@@ -11,7 +11,7 @@ A Rigorous Characterization of Sparse-Autoencoder Failure and Deterministic Alte
 ## How to use this script
 
 - **22 slides.** Part 1 — Nicolò Colle (01–06), Part 2 — Marc'Antonio Lopez (07–18), Part 3 — Carmine Francesco Benvenuto (19–22).
-- **~35–40 s per slide → ~13.5–14 min total** (under 15). Member 2 is the methodological core, so it carries more slides at lighter density (12 vs 6 / 4).
+- **Part 2 trimmed to ~5 min (~25 s/slide); Parts 1 & 3 ~35–40 s/slide → ~11 min total** (under 15). Member 2 is the methodological core — more slides, lighter density (12 vs 6 / 4).
 - The deck shows the essentials; **this script is what you actually say** (more detail, plain English).
 - Numbers are real — from `docs/latex/main_extended.tex`, cross-checked on `results/*.json`. If you round, say "about".
 - Each block: **slide label**, the spoken text, timing. Press **`N`** in the deck for on-side notes.
@@ -113,121 +113,67 @@ A Rigorous Characterization of Sparse-Autoencoder Failure and Deterministic Alte
 
 ---
 
-# PART 2 — Marc'Antonio Lopez · Method + non-identifiability + deterministic alternatives  (slides 07–18, ~7.5 min)
+# PART 2 — Marc'Antonio Lopez · Method + non-identifiability + deterministic alternatives  (slides 07–18, ~5 min)
 
 ## 07 · Method
-> Three decompositions, **one SAE config**. The **baseline** is a faithful MedConcept re-implementation —
-> Top-K SAE on the 512-d projected space, trained across **five seeds** so a stability metric is possible.
-> **Path A** runs the same SAE on the **768-d hidden state before** the projection, bridged by the frozen
-> projection matrix. **Path B** is **SPLiCE** — decomposition over a fixed domain-matched dictionary,
-> no learning, deterministic.
+> Three decompositions, **one SAE config**. **Baseline** — Top-K SAE on the 512-d projected space, five seeds. **Path A** — same SAE on the 768-d hidden state before projection. **Path B** — SPLiCE, fixed dictionary, no learning, deterministic. One config: D=2048, k=32, 8k steps, five seeds.
 >
-> One config for clean comparisons: dictionary D = 2048, top-k = 32, 8,000 steps, seeds 0/42/123/456/789.
-> Each path targets tagged gaps.
->
-> **Timing:** ~40 s
+> **Timing:** ~25 s
 
 ## 08 · Evaluation — matched metric
-> Stability must be measured **permutation-invariantly**. For each decoder row of one seed, take its
-> **best cosine match** across *all* rows of the other seed, then average. Feature order does not matter —
-> that is what makes it a real stability measure.
+> Stability must be **permutation-invariant**: for each decoder row of one seed, take its best cosine match across all rows of the other, then average. Order doesn't matter. The old slot-wise Jaccard isn't — degenerate, proved on slide 12.
 >
-> The old slot-wise Jaccard is *not* permutation-invariant, so it is degenerate. We prove that on slide 12.
->
-> **Timing:** ~35 s
+> **Timing:** ~22 s
 
 ## 09 · Evaluation — subspace null
-> The null is the honest part. Real decoder directions concentrate in a **subspace** of effective rank
-> about **357** on IU, **363** on ROCOv2 — not the ambient 512. We draw null vectors *inside* that
-> subspace. An isotropic full-512 null would inflate the ratio; we report it only as a lower bound.
+> The null is conditioned on **effective rank**. Real decoder directions live in a subspace of rank ~357 (IU) / ~363 (ROCOv2) — not the ambient 512. We draw nulls inside that subspace; an isotropic null would inflate the ratio.
 >
-> **Timing:** ~35 s
+> **Timing:** ~22 s
 
 ## 10 · Headline result
-> The headline. The baseline reconstructs its inputs almost perfectly — but cross-seed **feature identity
-> is absent**. Matched cosine sits at just **1.67×** the conditioned null on IU, **1.81×** on ROCOv2.
+> The headline: reconstruction is near-perfect, but cross-seed **feature identity is absent** — matched cosine just **1.67×** the null on IU, **1.81×** on ROCOv2. Genuine non-identifiability, not a training bug.
 >
-> This is genuine non-identifiability, not a training bug: decoders are full-rank, initializations distinct,
-> no collapse. It is intrinsic to decomposing a pooled, L2-normalized, contrastive-shaped global vector.
->
-> **Timing:** ~30 s
+> **Timing:** ~20 s
 
 ## 11 · Baseline results (Tab.1)
-> The numbers. Reconstruction is **0.99** on IU, **0.97** on ROCOv2 — looks great. But matched-over-null
-> is only **1.67× / 1.81×**, raw matched cosine **0.299 / 0.327**, and almost nothing matches strongly —
-> **0.0% / 0.3%** above cosine 0.9. Naming stays at **0.40 / 0.48**: a cosine-assigned name is cosmetic.
+> Reconstruction **0.99 / 0.97** — but matched-over-null only **1.67× / 1.81×**, almost nothing above cosine 0.9, naming **0.40 / 0.48**. A cosine-assigned name is cosmetic.
 >
-> **Timing:** ~35 s
+> **Timing:** ~22 s
 
 ## 12 · Relabeling control
-> Why is slot-wise degenerate? **Permutation invariance.** Take one trained SAE and rename its features
-> with a random permutation. The network is mathematically identical — reconstruction unchanged — yet
-> slot-wise Jaccard collapses to the **0.0077** floor, indistinguishable from two genuinely different SAEs.
-> The matched metric correctly sees identity.
+> Why is slot-wise degenerate? **Permutation.** Relabel one SAE's features randomly — same network, same reconstruction — and slot-wise Jaccard hits the **0.0077** floor; matched sees identity. Contribution 1; from here we use matched.
 >
-> Slot-wise is permutation noise. This is **contribution 1** of the paper. From here, every stability claim
-> uses the matched metric.
->
-> **Timing:** ~40 s
+> **Timing:** ~25 s
 
 ## 13 · Path A — concept
-> Path A moves the SAE to the hidden state **before** the projection. It is genuinely healthier — dead
-> features **1.7% vs 16%**, naming **0.47 vs 0.42**. But the matched verdict does **not** change: still
-> almost nothing matches strongly.
+> Path A moves the SAE **before** the projection — healthier: dead features **1.7% vs 16%**, naming **0.47 vs 0.42**. But the matched verdict is unchanged. **Weak universality**: a shared subspace, not identical features. Still the pooled CLS token.
 >
-> This is **weak universality** — a shared subspace exists, but not canonical, reproducible features. Path A
-> still operates on the pooled CLS token, not patch tokens.
->
-> **Timing:** ~40 s
+> **Timing:** ~25 s
 
 ## 14 · Path A — ablation (Tab.3)
-> The ablation confirms it. Pushing overcompleteness from D=1024 to 4096, matched-over-null falls
-> **2.78× → 2.63× → 2.00×** — toward the null, never away from it. No setting escapes weak universality.
+> The ablation confirms it. From D=1024 to 4096, matched-over-null falls **2.78× → 2.00×** — toward the null. No setting escapes. The constraint is the **representation site**, not capacity.
 >
-> The binding constraint is the **representation site**, not capacity.
->
-> **Timing:** ~35 s
+> **Timing:** ~20 s
 
 ## 15 · Scale refuted
-> Does ten-times more data cure non-identifiability? **No.** Training on ROCOv2 — 80 thousand images —
-> improves training health dramatically (dead features **16% → 0.6%**). But identifiability stays flat:
-> matched **0.299 → 0.327**, ratio **1.67× → 1.81×**, fraction ≥0.9 **0% → 0.3%**.
+> Does 10× more data help? **No.** ROCOv2 improves training health (dead **16% → 0.6%**) but identifiability stays flat: **0.299 → 0.327**, ratio **1.67× → 1.81×**. Constraint is the representation site. Contribution 3.
 >
-> The binding constraint is the representation site, not data volume. This is **contribution 3**.
->
-> **Timing:** ~35 s
+> **Timing:** ~22 s
 
 ## 16 · SPLiCE — concept
-> SPLiCE is the deterministic alternative. It decomposes each embedding into a sparse, non-negative
-> combination over a **fixed domain-matched dictionary** — RadLex for IU, MeSH for ROCOv2. The dictionary
-> is never estimated, so the result is **deterministic by construction**: zero cross-seed instability.
+> SPLiCE is the deterministic alternative — sparse non-negative combination over a **fixed dictionary** (RadLex / MeSH). Never estimated, so deterministic, zero cross-seed instability. Same schema as the SAE → same judge scores it.
 >
-> Same output schema as the SAE, so the same judge can score it. Honest caveat: frequent terms are
-> "mixed" — a property of the supplied dictionary, not SPLiCE's method.
->
-> **Timing:** ~40 s
+> **Timing:** ~25 s
 
 ## 17 · SPLiCE — coverage + gap correction
-> SPLiCE scales to both corpora. IU X-Ray: **1,515** images in **9.5 s**, using **997** of 1,031 RadLex
-> terms. ROCOv2: **15,958** images in **101 s**, all **1,024** MeSH terms.
+> It scales: IU **1,515** images in **9.5 s**, ROCOv2 **15,958** in **101 s**. And gap correction is the decisive fix — max atom–image cosine jumps **0.49 → 0.85** on IU. The gap was binding, not the solver.
 >
-> And correcting the modality gap is the decisive fix — max atom–image cosine jumps **0.49 → 0.85** on IU,
-> **0.54 → 0.86** on ROCOv2. The gap was binding, not the solver.
->
-> **Timing:** ~35 s
+> **Timing:** ~22 s
 
 ## 18 · Organisation
-> Finally, organisation. We cluster the active vocabulary into **concept families** using ontology ancestors
-> plus two degeneracy guards — leaf-root rejection, and a subtree canopy that rejects overly generic
-> ancestors like "anatomical entity". SPLiCE, the densest, cuts concepts-per-image about **1.75×**.
+> Finally, organisation: cluster into **concept families** via ontology ancestors plus two degeneracy guards. SPLiCE cuts concepts-per-image **1.75×**, but silhouette is weak (~0.02) — the noisy vocabulary poisons every cluster. ROCOv2 replicates non-degenerately. Hand off to Carmine.
 >
-> But silhouette is weak — **0.020** SPLiCE, **0.094** baseline, **0.284** Path A hidden (mostly empty):
-> the noisy IU vocabulary makes every cluster inherit a noisy ancestor. ROCOv2 SPLiCE replicates
-> non-degenerately (1,024 concepts, 32 families, silhouette 0.066).
->
-> End of Part 2. Hand off to Carmine: evaluation + conclusions.
->
-> **Timing:** ~40 s
+> **Timing:** ~25 s
 
 ---
 
@@ -278,7 +224,7 @@ A Rigorous Characterization of Sparse-Autoencoder Failure and Deterministic Alte
 
 ---
 
-**Total timing:** ~13.5–14 minutes (under 15).
+**Total timing:** ~11 minutes — Part 1 ~3.5 min · Part 2 ~5 min · Part 3 ~2.5 min.
 
 ---
 

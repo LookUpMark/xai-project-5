@@ -701,12 +701,11 @@
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <div class="eyebrow">Limitations &amp; future work</div>
-    <h2 class="h-hero">SAE on the patch-token residual stream.</h2>
-    <p class="lead">The diagnosis is predictive: decomposing BiomedCLIP <b>patch-token</b> residual stream (a mid layer, not the pooled CLS) should restore identifiability — the experiment our characterisation points to as the next step.</p>
+    <h2 class="h-hero">Future work</h2>
     <ul class="bl" style="margin-top: 24px;">
-      <li><b>Limitation (i)</b>: LLM-judge is model-dependent; random-k nulls score comparably.</li>
-      <li><b>Limitation (ii)</b>: predicted mitigation is SAE on patch-token residual stream.</li>
-      <li><b>Limitation (iii)</b>: ROCOv2 confounds scale with domain; PadChest (~160k chest X-rays) is the clean test.</li>
+      <li><b>(i) The LLM-Judge is model dependant.</b> The %Aligned rate is a property of the judging model as much as of the concepts. Future work: multi-judge reporting or a judge-agnostic protocol.</li>
+      <li><b>(ii) Decisive test of our diagnosis: an SAE on the patch-token residual stream.</b> Decomposing BiomedCLIP's per-patch residual stream at a mid layer (as the SAE literature does) is the experiment that tests whether the 2D limit is intrinsic or escapable.</li>
+      <li><b>(iii) PadChest.</b> ROCOv2 is 10× larger but also broader (multimodal); PadChest (~160k images, same chest domain as IU X-Ray) is the test of whether scale alone restores reproducibility — begun, not finished.</li>
     </ul>
     <p class="meta" style="margin-top:30px;">Thank you · questions — Marc'Antonio Lopez · Nicolò Colle · Carmine Francesco Benvenuto</p>
 

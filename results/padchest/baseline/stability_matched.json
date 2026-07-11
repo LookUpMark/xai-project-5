@@ -1,0 +1,127 @@
+{
+  "n_seeds": 5,
+  "n_pairs": 10,
+  "thresholds": [
+    0.7,
+    0.9
+  ],
+  "mean_best_match_cosine": 0.3454382508993149,
+  "mean_frac_matched_0.7": 0.00078125,
+  "mean_frac_matched_0.9": 0.0,
+  "mean_frac_mutual_1to1": 0.2697265625,
+  "null_mean": 0.15143094658851625,
+  "p_value": 0.0,
+  "min_p_value": 0.0,
+  "pairs": [
+    {
+      "mean_best_match_cosine": 0.3461955487728119,
+      "frac_matched_0.7": 0.0009765625,
+      "frac_matched_0.9": 0.0,
+      "frac_mutual_1to1": 0.2734375,
+      "null_mean": 0.15142452716827393,
+      "null_std": 0.00037039676681160927,
+      "p_value": 0.0,
+      "n_perm": 200,
+      "pair": "0-1"
+    },
+    {
+      "mean_best_match_cosine": 0.3455595374107361,
+      "frac_matched_0.7": 0.0009765625,
+      "frac_matched_0.9": 0.0,
+      "frac_mutual_1to1": 0.2763671875,
+      "null_mean": 0.1514216512441635,
+      "null_std": 0.000384379003662616,
+      "p_value": 0.0,
+      "n_perm": 200,
+      "pair": "0-2"
+    },
+    {
+      "mean_best_match_cosine": 0.34561291337013245,
+      "frac_matched_0.7": 0.0009765625,
+      "frac_matched_0.9": 0.0,
+      "frac_mutual_1to1": 0.2666015625,
+      "null_mean": 0.15143485367298126,
+      "null_std": 0.00041456817416474223,
+      "p_value": 0.0,
+      "n_perm": 200,
+      "pair": "0-3"
+    },
+    {
+      "mean_best_match_cosine": 0.34510448575019836,
+      "frac_matched_0.7": 0.00048828125,
+      "frac_matched_0.9": 0.0,
+      "frac_mutual_1to1": 0.27587890625,
+      "null_mean": 0.15144117176532745,
+      "null_std": 0.0003699857625178993,
+      "p_value": 0.0,
+      "n_perm": 200,
+      "pair": "0-4"
+    },
+    {
+      "mean_best_match_cosine": 0.34660547971725464,
+      "frac_matched_0.7": 0.0,
+      "frac_matched_0.9": 0.0,
+      "frac_mutual_1to1": 0.267578125,
+      "null_mean": 0.15144261717796326,
+      "null_std": 0.0003637017507571727,
+      "p_value": 0.0,
+      "n_perm": 200,
+      "pair": "1-2"
+    },
+    {
+      "mean_best_match_cosine": 0.34678876399993896,
+      "frac_matched_0.7": 0.00146484375,
+      "frac_matched_0.9": 0.0,
+      "frac_mutual_1to1": 0.27392578125,
+      "null_mean": 0.15138965845108032,
+      "null_std": 0.00037547555984929204,
+      "p_value": 0.0,
+      "n_perm": 200,
+      "pair": "1-3"
+    },
+    {
+      "mean_best_match_cosine": 0.34559452533721924,
+      "frac_matched_0.7": 0.0009765625,
+      "frac_matched_0.9": 0.0,
+      "frac_mutual_1to1": 0.26904296875,
+      "null_mean": 0.15139472484588623,
+      "null_std": 0.0004167608276475221,
+      "p_value": 0.0,
+      "n_perm": 200,
+      "pair": "1-4"
+    },
+    {
+      "mean_best_match_cosine": 0.3432985544204712,
+      "frac_matched_0.7": 0.0009765625,
+      "frac_matched_0.9": 0.0,
+      "frac_mutual_1to1": 0.265625,
+      "null_mean": 0.15146185457706451,
+      "null_std": 0.00035878963535651565,
+      "p_value": 0.0,
+      "n_perm": 200,
+      "pair": "2-3"
+    },
+    {
+      "mean_best_match_cosine": 0.343605101108551,
+      "frac_matched_0.7": 0.00048828125,
+      "frac_matched_0.9": 0.0,
+      "frac_mutual_1to1": 0.2607421875,
+      "null_mean": 0.15145862102508545,
+      "null_std": 0.0003840438148472458,
+      "p_value": 0.0,
+      "n_perm": 200,
+      "pair": "2-4"
+    },
+    {
+      "mean_best_match_cosine": 0.34601759910583496,
+      "frac_matched_0.7": 0.00048828125,
+      "frac_matched_0.9": 0.0,
+      "frac_mutual_1to1": 0.26806640625,
+      "null_mean": 0.15143978595733643,
+      "null_std": 0.0003587224055081606,
+      "p_value": 0.0,
+      "n_perm": 200,
+      "pair": "3-4"
+    }
+  ]
+}

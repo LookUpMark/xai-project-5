@@ -1,0 +1,11787 @@
+Quantifying Feature Space Universality Across
+Large Language Models via Sparse Autoencoders
+Michael Lan∗
+
+arXiv:2410.06981v4 [cs.LG] 21 May 2025
+
+Philip Torr‡
+
+Austin Meek§
+
+Ashkan Khakzar‡
+
+David Krueger♡
+
+Fazl Barez†‡
+†
+
+Tangentic
+
+‡
+
+University of Oxford
+
+§
+
+University of Delaware
+
+♡
+
+MILA
+
+Abstract
+The Universality Hypothesis in large language models (LLMs) claims that different
+models converge towards similar concept representations in their latent spaces.
+Providing evidence for this hypothesis would enable researchers to exploit universal
+properties, facilitating the generalization of mechanistic interpretability techniques
+across models. Previous works studied if LLMs learned the same features, which
+are internal representations that activate on specific concepts. Since comparing
+features across LLMs is challenging due to polysemanticity, in which LLM neurons
+often correspond to multiple unrelated features, rather to than distinct concepts,
+sparse autoencoders (SAEs) have been employed to disentangle LLM neurons into
+SAE features corresponding to distinct concepts. In this paper, we introduce a
+new variation of the universality hypothesis called Analogous Feature Universality:
+we hypothesize that even if SAEs across different models learn different feature
+representations, the spaces spanned by SAE features are similar, such that one SAE
+space is similar to another SAE space under rotation-invariant transformations.
+Evidence for this hypothesis would imply that interpretability techniques related
+to latent spaces, such as steering vectors, may be transferred across models via
+certain transformations. To investigate this hypothesis, we first pair SAE features
+across different models via activation correlation, and then measure spatial relation
+similarities between paired features via representational similarity measures, which
+transform spaces into representations that reveal hidden relational similarities. Our
+experiments demonstrate high similarities for SAE feature spaces across various
+LLMs, providing evidence for feature space universality. 2
+
+1
+
+Introduction
+
+Large language models (LLMs) have demonstrated remarkable capabilities across a wide range of
+natural language tasks [Bubeck et al., 2023, Naveed et al., 2024]. However, understanding how
+these models represent and process information internally remains a significant challenge [Bereska
+and Gavves, 2024]. The Universality Hypothesis claims that different models converge towards
+similar concept representations in their latent spaces [Huh et al., 2024]. Providing evidence for this
+hypothesis would enable researchers to exploit universal properties related to features, providing new
+ways for generalizating mechanistic interpretability techniques across models [Sharkey et al., 2024],
+and accelerating research towards safer and more controllable AI systems [Hendrycks et al., 2023].
+∗
+2
+
+Work done during the ERA-Krueger AI Safety Lab internship.
+Code for experiments is available at: https://github.com/wlg1/univ_feat_geom
+
+If LLMs learn similar internal concept representations, called features, it is vital is to understand which
+measures they are similar under, and to quantify the extent of these similarities [Chughtai et al., 2023,
+Gurnee et al., 2024]. Since comparing features across LLMs is challenging due to polysemanticity,
+in which individual neurons often correspond to multiple unrelated features, rather than to distinct
+concepts, sparse autoencoders (SAEs) have been employed to disentangle polysemantic LLM neurons
+into SAE features corresponding to distinct semantic concepts that are easier to analyze and compare
+across models [Cunningham et al., 2023]. Previous works have found that while SAEs learn similar
+features, they also learn a notable percentage of different features that are idiosyncratic to specific
+SAEs [Leask et al., 2025, Paulo and Belrose, 2025]. Even so, SAEs have been found to learn correlated
+features which activate on the same concepts across models [Bricken et al., 2023]. Moreover,
+semantically similar SAE feature arrangements are found across SAEs trained on different models,
+such as "months" features arranged circularly in GPT-2, Mistral-7B, and Llama-3 8B [Engels et al.,
+2025, Leask et al., 2024]. Research has also found other types of feature arrangements [Park et al.,
+2024a, Li et al., 2025, Ye et al., 2024]. These findings suggest investigating a new way to think of
+universality from the perspective of feature relations.
+In this paper, we introduce a new variation of the universality hypothesis called Analogous Feature
+Universality: we hypothesize that even if SAEs across different models learn different feature
+representations, the spaces spanned by SAE features are similar, such that one SAE space is similar
+to another SAE space under certain rotation-invariant transformations. Evidence supporting this
+hypothesis would imply that latent spaces may have similar geometric arrangements of semantic
+subspaces [Templeton et al., 2024], suggesting that features, and techniques related to feature spaces
+(e.g. steering vectors), may be transferred across models via particular transformations. Previous
+works transfer features across models [Merullo et al., 2023], but there is a lack of research explaining
+why this can be done.
+To investigate this hypothesis, we develop a novel approach that involves two main steps: (1) first, we
+pair SAE features across different models via activation correlation, and (2) afterwards, we measure
+the similarity of spatial relations between paired features using representational space similarity
+measures, which transform spaces into representations that reveal hidden relational similarities
+[Raghu et al., 2017, Kriegeskorte et al., 2008]. This approach addresses a different research question
+compared to previous representational similarity papers [Kornblith et al., 2019, Klabunde et al., 2024,
+2023, Sucholutsky et al., 2023], which did not measure the relationships among features, but
+among input data samples that were already known to correspond to the “same point” in input data
+space. In contrast, to investigate our hypothesis, our approach differs from previous approaches as it
+introduces step 1, which allows us to assess if we can use features, not input samples, to determine if
+representations are the same across models. Thus, we are applying representational similarity based
+on features in weight space, instead of based on input data samples in activation space.
+To better describe why this approach works for testing our hypothesis, we can consider the following
+analogy: given three points [1, 2, 3] on a right triangle, we can think of each point like a feature. One
+model may label these points as [A, B, C], with each position being a column of a matrix, and another
+model may label them as [X, Y, Z]. However, these points are not ordered the same in each matrix, so
+we may find them in the order of [B, C, A] and [Z, X, Y]. But if we rearrange them into pairs “close
+enough to” [1, 2, 3] by estimating which points they correspond to on a right triangle, then we can
+align the two representations, and measure if the relationship among them—a right triangle—is also
+similar. This necessitates step 1 in our approach: consistent high scores across models can only be
+found if these features are paired correctly.
+Our experiments demonstrate high similarities in SAE feature spaces between middle layers across
+multiple LLMs, providing evidence for feature space universality. Furthermore, we show that
+semantically meaningful subspaces exhibit notable similarity across models.
+Our key contributions include:
+1. Empirical evidence for similar SAE feature space representations across diverse LLMs.
+2. A novel approach to study similar feature spaces by comparing weight representations,
+instead of activation representations, via paired features.
+3. A quantitative analysis of how feature similarity varies by semantic subspaces (such as
+"Emotions").
+
+2
+
+Figure 1: We train SAEs on LLMs, and then compare their SAE feature space similarity using
+measures such as Singular Value Canonical Correlation Analysis (SVCCA).
+
+2
+
+Background and Definitions
+
+Feature Universality. We define a feature as an internal representation that activates on a concept
+[Park et al., 2024b]. To quantify the extent of feature space universality, we utilize the following
+definitions that build on terms defined in previous works: We define correlated features as features
+which are correlated in terms of activation similarity, and thus activate highly on the same tokens
+[Bricken et al., 2023]. We measure the representational universality of feature spaces by applying representational similarity measures on a set of correlated feature pairs [Gurnee et al., 2024].
+Correlated features that reside in spaces with statistically significant representational similarity (as
+measured by the main approach discussed in Section §3) are labeled as analogous features [Olah
+et al., 2020]. These similarity measures also measure how much analogical similarity, relative to a
+set of pairings and transformations, each feature has to its paired counterpart. Further discussion of
+these definitions is provided in Appendix §H.
+We do not measure how well models capture true features, which are atomic ground truth features
+that models may converge towards capturing [Chughtai et al., 2023]. Our hypothesis is that even if
+SAEs do not capture the same exact features, their features can be matched as analogous features
+that lie in spaces which can be transformed from one to another.
+Sparse Autoencoders. Superposition is a phenomenon in which a model, in response to the
+issue of having to represent more features than it has parameters, learns feature representations
+distributed across many parameters [Elhage et al., 2022]. This causes its parameters, or neurons,
+to be polysemantic, which means that each neuron is involved in representing more than one
+feature, making it difficult to compare features across different LLMs. To address this issue, Sparse
+Autoencoders (SAEs) have been applied to disentangle an LLM’s polysemantic neuron activations
+into monosemantic "feature neurons", which are encouraged to represent an isolated concept.
+SAEs are a type of autoencoder that learn sparse representations of input data by imposing a sparsity
+constraint on the hidden layer [Makhzani and Frey, 2013, Cunningham et al., 2023]. An SAE takes in
+LLM layer activations x ∈ Rn and reconstructs x as output x̂ = W′ σ(Wx + b), where W ∈ Rh×n
+is the encoder weight matrix, b is a bias term, σ is a nonlinear activation function, and W′ is the
+decoder matrix, which often uses the transpose of the encoder weights. SAE training aims to both
+encourage sparsity in the activations h = σ(Wx + b) and to minimize the reconstruction loss
+2
+∥x − x̂∥2 . The sparsity constraint encourages a large number of SAE neuron activations to remain
+inactive for any given input, while a few neurons, called feature neurons, are highly active. The active
+feature neurons tend to activate only for specific concepts in the data, promoting monosemanticity.
+Therefore, since there is a mapping from LLM neurons to SAE feature neurons that "translates" LLM
+activations to features, this method is a type of dictionary learning [Olshausen and Field, 1997].
+Several works make architectural improvements to SAEs [Gao et al., 2025, Rajamanoharan et al.,
+2024a,b], and analyze its ability to capture LLM features [Chanin et al., 2024].
+SAE Feature Weight Spaces. By analyzing feature weights UMAPs of an SAE trained on a
+middle residual stream layer of Claude 3 Sonnet, researchers discovered feature spaces organized
+in neighborhoods of semantic concepts, and identified subspaces corresponding to concepts such as
+"biology" and "conflict" [Templeton et al., 2024]. Additionally, these concepts appear to be organized
+in hierarchical clusters, such as "disease" clusters that contain sub-clusters of specific diseases like
+flus. In Section §4.3, we measure the extent of similarity of semantic feature spaces across LLMs.
+3
+
+Representational Space Similarity. Representational similarity measures typically compare neural
+network activations by assessing the similarity between activations from a consistent set of inputs
+[Klabunde et al., 2023]. In this paper, we take a different approach by comparing the representations
+using the SAE decoder weight matrices W ′ , whose columns correspond to feature neurons. We
+′
+calculate a similarity score m(WX
+, WY′ ) for pairs of representations from SAEs X We obtain two
+scores via the following representational similarity measures 3 :
+Singular Value Canonical Correlation Analysis (SVCCA): Given two sets of variables, X ∈ Rn×d1
+and Y ∈ Rn×d2 , Canonical Correlation Analysis (CCA) seeks to identify pairs of linear transformations a and b that maximize the correlation between Xa and Yb [Hotelling, 1936]. Singular
+Value Canonical Correlation Analysis (SVCCA) [Raghu et al., 2017] enhances CCA by first applying
+Singular Value Decomposition (SVD) to both X and Y to obtain the left singular matrices UX and
+UY which form orthonormal bases for the column space of their matrices:
+T
+X = UX SX VX
+,
+
+Y = UY SY VYT
+
+T
+SX and SY are diagonal matrices containing the singular values, and VX
+and VYT contain the right
+singular vectors. Dimensionality reduction is applied by truncating low variance directions, which
+reduces noise, to obtain UX,k and UY,k . These represent the principal directions of variance (most
+informative directions).
+
+Then, CCA is applied on UX,k and UY,k to find linear transformations a and b that maximize the
+Pearson correlation between UX,k a and UY,k b, such that a and b are the canonical directions in each
+space that are maximally correlated. The SVCCA score is the mean of the top canonical correlations.
+In other words, it measures how well linear relationships UX,k a and UY,k b align.
+Representational Similarity Analysis (RSA): Representational Similarity Analysis (RSA) [Kriegeskorte et al., 2008] has been applied to measure relational similarity of stimuli across brain regions and
+of activations across neural network layers [Klabunde et al., 2023]. First, for each space X ∈ Rn×d1
+and Y ∈ Rn×d2 , RSA constructs a Representational Dissimilarity Matrix (RDM) D ∈ Rn×n , where
+each element of the matrix represents the dissimilarity (or similarity) between every pair of data
+points within a space. The RDM essentially summarizes the pairwise distances between all possible
+data pairs in the feature space. For space X, the RDM has entries:
+Dij (X) = ∥xi − xj ∥2 ,
+where xi and xj are row vectors (e.g., features). A common distance metric used is the Euclidean
+distance. After an RDM is computed for each space, a correlation measurement like Spearman’s rank
+correlation coefficient is applied to the pair of RDMs to obtain a similarity score.
+
+3
+
+Methodology
+
+We compare SAEs trained on layer Ai from LLM A and layer Bj from LLM B. This is done
+for every layer pair. To compare latent spaces using our selected measures, we have to solve both
+permutation and rotational alignment issues. For the permutation issue, we have to find a way to
+pair neuron weights. This was not an issue in previous representational similarity studies because
+activations were already paired by input data samples. [Klabunde et al., 2023]. For our case, we do
+not pair activation vectors by input instances, but pair by feature neuron weights. This means we have
+to find neuron pairings in SAE SA to SAE SB based on individual local similarity. However, we do
+not know which features map to which features; the orderings of these features are permuted in the
+weight matrices, and some features may not have a corresponding partner. Therefore, we pair them
+via a correlation metric; a set of pairings is a mapping. For the rotational issue, models learn their own
+distinct basis for latent space representations, so features may be similar relation-wise across spaces,
+but not rotation-wise due to differing bases. To solve this, we employ rotation-invariant measures.
+Assessing Scores with Baseline. We follow the approach of Kriegeskorte et al. [2008] to randomly
+pair features to obtain a baseline score. We compare the score of the features paired by correlation
+(which we refer to as the "paired features") with the average score of N runs of randomly paired
+3
+
+Appendix I discusses details on how these measures are applied on decoder weight matrices.
+
+4
+
+features to obtain a p-value score. If the p-value is less than 0.05, the measure suggests that the
+similarity is statistically meaningful. In summary, the steps to carry out our similarity comparison
+experiments are given below, and steps 1 to 3 are illustrated in Figure 19:
+1. For the permutation issue: Get activation correlations for feature pairs from SAE decoder
+weights. Pair features from SAE A with its highest activation correlated feature from SAE
+B.
+2. Rearrange the order of features in each matrix to pair them row by row.
+3. For the rotational issue: Apply rotation-invariant measures to get a Paired Score.
+4. Using the same measures, obtain the similarity scores of N random pairings to estimate a
+null distribution. Obtain a p-value of where the paired score falls in the null distribution to
+determine statistical significance.
+Solving the Permutation Issue: Due to learned parameter variations specific to each LLM and SAE,
+we do not expect every feature in a SAE to have a corresponding feature that is "close enough" in
+another SAE. Else, we would forcibly pair features without corresponding partners, yielding low
+scores due to "bad pairings". Thus, we compare SAE feature subsets.
+Highest Activation Correlation. We take the activation correlations between every feature, following
+the approach of Bricken et al. [2023]. We pass a dataset of samples through both models. Then, for
+each feature in SAE A, we find its activation correlation with every feature in SAE B, using tokens
+as the common instance pairing. Lastly, for each feature in SAE A, we find its highest correlated
+feature in SAE B (as this allows for many-to-1 mappings, this is termed 1A-to-ManyB; the other way
+around is ManyA-to-1B). We pair these features together when conducting our experiments. We refer
+to scores obtained by pairing via highest activation correlation as Paired Scores.
+Filter by Top Tokens. We notice some pairings with "non-concept features" that have top 5 token
+activations on end-of-text / padding tokens, spaces, new lines, and punctuation; these non-concept
+pairings greatly reduce scores possibly due to being "bad pairings", as we describe further in Appendix
+K. By filtering out non-concept pairings, we significantly raise the similarity scores. We also only
+keep pairings that share at least one keyword in their top 5 token activations. The list of non-concept
+keywords is given in the Appendix K.
+Filter Many-to-1 Mappings. We find that some mappings are many-to-1, meaning more than one
+feature maps to the same feature. We found that removing many-to-1 pairings slightly increased
+the scores, and we discuss possible reasons why this occurs in Appendix J. However, the scores
+still show high similarity even with the inclusion of many-to-1 pairings. We show scores of 1-to-1
+pairings (filtering out many-to-1 pairings) in the main text, and show scores of many-to-1 pairings in
+Appendix J. We choose "many" features from the SAEs of the smaller LLM in a model pair, and find
+similar results if we choose from SAE of the larger LLM.
+Measures for the Rotational Issue: Each rotation-invariant measure scores a type of global, analogous similarity under a feature mapping. We apply measures for: 1) How well subspaces align using
+SVCCA, and 2) How similar feature relations like king↔queen are using RSA. For RSA, we set
+the inner similarity function using Pearson correlation the outer similarity function using Spearman
+correlation, and compute the RDM using Euclidean Distance.
+Semantic Subspace Matching Experiments. For these experiments, we first identify semantically
+similar subspaces, and then compare their similarity. We find a group of related features in each
+model by searching for features which highly activate on the top 5 samples’ tokens that belong to a
+concept category. For example, the "emotions" concept contains keywords like "rage".
+Baseline Tests Types. We use two types of tests which compare the paired score to a null distribution.
+Each test examines that the score is rare under a certain null distribution assumption.
+1. Test 1: We compare the score of a semantic subspace mapping to the mean score of randomly
+shuffled pairings of the same subspaces. This test shows just comparing the subspace of
+features is not enough; the features must be paired.
+2. Test 2: We compare the score of a semantic subspace mapping to a mean score of mappings
+between randomly selected feature subsets of the same sizes as the semantic subspaces. This
+shows that the high similarity score does not hold for any two subspaces of the same size.
+5
+
+4
+
+Experiments
+
+4.1
+
+Experimental Setup
+
+We run experiments on an A100 GPU.
+LLM Models. We compare LLMs that use the Transformer model architecture [Vaswani et al., 2017].
+We compare models that use the same tokenizer because the highest activation correlation pairing
+relies on comparing two activations using the same tokens. In the main text, we compare the following
+residual stream layers pairs: (1) Pythia-70m, which has 6 layers and 512 dimensions, to Pythia-160m,
+which has 12 layers and 768 hidden dimensions [Biderman et al., 2023], (2) Gemma-1-2B, which has
+18 layers and 2048 dimensions, to Gemma-2-2B, which has 26 layers and 2304 dimensions [Team
+et al., 2024a,b], (3) Gemma-2-2B to Gemma-2-9B, which has 42 layers and 3584 dimensions, and (4)
+Llama 3-8B-Instruct and Llama 3.1-8B, which both have 32 layers and 4096 dimensions. Appendix
+§A lists all 8 model pairs we compare.
+SAE Models. For Pythia models, we use SAEs with 32768 feature neurons trained on residual stream
+layers from Eleuther [EleutherAI, 2023]. For the Gemma models, we use SAEs with 16384 feature
+neurons trained on residual stream layers [Lieberum et al., 2024]. The Llama 3 SAE has a width of
+65536 features and uses Gated ReLU [Rajamanoharan et al., 2024a], while the Llama 3.1 SAE has a
+width of 32768 features and uses JumpReLU [Rajamanoharan et al., 2024b]. We access pretrained
+Gemma and Llama SAEs through the SAELens library [Bloom and Chanin, 2024], which only hosted
+one SAE for Llama 3 at the time of our work.
+In Appendix §C, we compare SAEs for base vs fined tuned versions for Gemma-2-9B vs Gemma-29B-Instruct and Gemma-1-2B vs Gemma-1-2B-Instruct (at Layer 12). In Appendix §D, we assess a
+baseline comparison that compares Pythia-70m SAEs with SAEs trained on a randomized Pythia-70m.
+In Appendix §E, we compare SAEs trained within the same model. In Appendix §F, we compare
+SAEs across Pythia-70m and Pythia-160m as we vary SAE widths.
+Datasets. We obtain SAE activations using OpenWebText, a dataset that scraps internet content
+[Gokaslan and Cohen, 2019]. We use 100 samples with a max sequence length of 300 for Pythia for
+a total of 30k tokens, and we use 150 samples with a max sequence length of 150 for Gemma for a
+total of 22.5k tokens. Top activating dataset tokens were also obtained using OpenWebText samples.
+In Appendix §G, we vary the dataset and number of tokens used to obtain activations to show that
+our results do not drastically change when these factors are varied.
+4.2
+
+SAE Space Similarity
+
+In summary, for almost all layer pairs after layer 0, we find the p-value of SAE experiments for
+SVCCA, which measures rotationally-invariant alignment, to be low; most are between 0.00 to
+0.01 using 100 samples.4 While RSA also passes many p-value tests, their values are much lower,
+suggesting a relatively weaker similarity in terms of pairwise differences. It is possible that many
+features are not represented in just one layer; hence, a layer from one model can have similarities to
+multiple layers in another model. We also note that the first layer of every model, layer 0, has a very
+high p-value when compared to every other layer, including when comparing layer 0 from another
+model. This may be because layer 0 contains few discernible, meaningful, and comparable features.
+We find that middle layer pairs have the highest scores. On the contrary, early layers have much lower
+scores, perhaps due to lacking content, while later layers also have scores lower than middle layers,
+perhaps due to being too specific/complex.
+As shown in Figure 24 for Pythia and Figure 25 for Gemma-1 vs Gemma-2 in Appendix M, we also
+find that mean of the highest (local) activation correlations does not always correlate with the global
+similarity measure scores. For instance, a subset of feature pairings with a moderately high mean
+activation correlation (eg. 0.6) may yield a low SVCCA score (eg. 0.03).
+Because LLMs, even with the same architecture, can learn many different features, we do not expect
+entire feature spaces to be highly similar; instead, we hypothesize there may be highly similar
+subspaces. In other words, there are many similar features universally found across SAEs, but not
+every feature learned by different SAEs is the same. Our results support this hypothesis. For all
+4
+
+Only 100 samples were used as we found the variance to be low for the null distribution, and that the mean
+was similar for using 100 vs 1k samples.
+
+6
+
+experiments in this section, approximately 10-30% (and typically 20%) of feature pairs are kept after
+filtering both non-concept and many-1 pairings.
+Pythia-70m vs Pythia-160m. In Figure 2, we compare Pythia-70m, which has 6 layers, to Pythia160m, which has 12 layers. When compared to Figures 26 and 27 in Appendix M, for all layers pairs
+(excluding Layers 0), and for both SVCCA and RSA scores, almost all the p-values of the residual
+stream layer pairs are between 0% to 1%, indicating that the feature space similarities are statistically
+meaningful. In particular, Figure 2 shows that Layers 2 and 3, which are middle layers of Pythia-70m,
+are more similar by SVCCA and RSA scores to middle layers 4 to 7 of Pythia-160m compared to
+other layers. Figure 20 also shows that Layer 5, the last layer of Pythia-70m, is more similar to later
+layers of Pythia-160m than to other layers. The number of features after filtering non-concept and
+many-to-1 features is given in Tables 5 and 6 in Appendix M.
+0.304
+
+0.480
+
+0.065
+
+0.145
+
+0.206
+
+0.341
+
+0.541
+
+0.294
+
+0.299
+
+0.509
+
+0.367
+
+0.452
+
+8
+
+0.318
+
+0.384
+
+0.541
+
+0.347
+
+0.379
+
+7
+
+0.507
+
+0.623
+
+0.649
+
+0.246
+
+0.253
+
+6
+
+0.498
+
+0.600
+
+0.633
+
+0.318
+
+0.290
+
+5
+
+0.561
+
+0.678
+
+0.661
+
+0.263
+
+0.226
+
+4
+
+0.506
+
+0.570
+
+0.521
+
+0.192
+
+0.064
+
+0.381
+
+0.348
+
+0.244
+
+0.129
+
+0.092
+
+0.406
+
+0.398
+
+0.340
+
+0.164
+
+0.078
+
+0.243
+1
+
+0.190
+2
+
+0.155
+3
+
+0.028
+4
+
+0.011
+5
+
+1
+
+Pythia-160m Layers
+
+9
+
+10 11
+
+0.198
+
+3
+
+Paired RSA Scores
+
+0.189
+
+2
+
+Paired SVCCA Scores
+0.111
+
+Pythia-70m Layers
+
+0.6
+
+0.5
+
+0.4
+
+0.3
+
+0.2
+
+0.1
+
+0.044
+
+0.071
+
+0.093
+
+0.076
+
+0.110
+
+0.071
+
+0.104
+
+0.131
+
+0.091
+
+0.107
+
+0.095
+
+0.133
+
+0.164
+
+0.077
+
+0.088
+
+0.111
+
+0.164
+
+0.183
+
+0.080
+
+0.082
+
+0.108
+
+0.153
+
+0.173
+
+0.064
+
+0.071
+
+0.132
+
+0.176
+
+0.201
+
+0.067
+
+0.076
+
+0.148
+
+0.207
+
+0.200
+
+0.069
+
+0.078
+
+0.127
+
+0.189
+
+0.180
+
+0.065
+
+0.059
+
+0.100
+
+0.110
+
+0.111
+
+0.037
+
+0.043
+
+0.092
+
+0.103
+
+0.088
+
+0.032
+
+0.029
+
+0.050
+1
+
+0.048
+2
+
+0.037
+3
+
+0.013
+4
+
+0.011
+5
+
+Pythia-70m Layers
+
+(a)
+
+0.200
+0.175
+0.150
+0.125
+0.100
+0.075
+0.050
+0.025
+
+(b)
+
+Figure 2: (a) SVCCA and (b) RSA 1-1 paired scores of SAEs for layers in Pythia-70m vs layers in
+Pythia-160m. We find that middle layers have the most similarity with one another (as shown by
+the high-similarity block spanned by layers 1 to 3 in Pythia-70m and Layers 4 to 7 in Pythia-160m).
+We exclude layers 0, as we observe they always have non-statistically significant similarity. The 1-1
+scores are slightly higher for most of the Many-to-1 scores shown in Figure 20, and the SVCCA
+score at L2 vs L3 for 70m vs 160m is much higher.
+Gemma-1-2B vs Gemma-2-2B. As shown by the paired SVCCA and RSA results for these models
+in Figure 3, we find that using SAEs, we can detect highly similar features in layers across Gemma-12B and Gemma-2-2B. Compared to mean random pairing scores and p-values in Figures 28 and 29 in
+Appendix M, for all layers pairs (excluding Layers 0), and for both SVCCA and RSA scores, almost
+all the p-values of the residual stream layer pairs are between 0% to 1%, indicating that the feature
+space similarities are statistically meaningful. The number of features after filtering non-concept
+features and many-to-1 features are given in Tables 7 and 8 in Appendix M.
+Gemma-2-2B vs Gemma-2-9B. We obtain activations from OpenWebText using 150 samples with a
+max sequence length of 150, for a total of 22.5k tokens. Figure 4 shows SVCCA and RSA scores
+after filtering keywords and for 1-1. In particular, the L11 vs L21 comparison achieves an SVCCA
+score of 0.70 (while mean random pairing has a score of 0.009) and an RSA score of 0.195 (while
+mean random pairing for has a score of 4.38 × 10−4 ). For these experiments, we use 10 runs for
+mean random pairings at only one layer pair due to the longer run times for larger model pairs.
+Llama 3-8B-Instruct vs Llama 3.1-8B . We compare Llama 3-8B-Instruct and Llama 3.1-8B at
+each model’s Layer 25 residual stream, a later layer in both models. We obtain activations using 100
+samples with a max sequence length of 100, for 10000 total tokens. After filtering to keep 7% of
+Llama 3.1-8B feature pairs, this comparison achieves an SVCCA score of 0.3, comparable to the
+score of later layers in both Gemma and Pythia, and a mean activation correlation score of 66%.
+4.3
+
+Similarity of Semantically Matched SAE Feature Spaces
+
+We find that for all layers and for all concept categories, Test 2 described in §3 is passed. Thus, we
+only report specific results for Test 1 in Tables 1 and 2. Overall, in both Pythia and Gemma models
+7
+
+22
+
+Paired SVCCA Scores
+0.064
+
+0.274
+
+Paired RSA Scores
+
+0.536
+
+0.354
+
+0.053
+
+0.060
+
+0.079
+
+0.076
+
+0.052
+
+0.068
+
+0.092
+
+0.072
+
+0.079
+
+0.105
+
+0.119
+
+0.085
+
+0.083
+
+0.104
+
+0.114
+
+0.069
+
+0.235
+
+0.584
+
+0.328
+
+14
+
+0.210
+
+0.325
+
+0.540
+
+0.270
+
+10
+
+0.203
+
+0.282
+
+0.491
+
+0.254
+
+6
+
+0.183
+
+0.239
+
+0.449
+
+0.140
+
+0.2
+
+0.069
+
+0.094
+
+0.098
+
+0.053
+
+0.124
+
+0.316
+
+0.241
+
+0.140
+
+0.1
+
+0.037
+
+0.052
+
+0.055
+
+0.029
+
+10
+
+12
+
+17
+
+10
+
+12
+
+17
+
+Gemma-2-2B Layers
+
+18
+
+0.078
+
+2
+
+0.5
+0.10
+
+0.4
+
+0.3
+
+0.08
+
+0.06
+
+6
+
+Gemma-1-2B Layers
+
+6
+
+Gemma-1-2B Layers
+
+(a)
+
+0.04
+
+(b)
+
+Figure 3: (a) SVCCA and (b) RSA 1-1 paired scores of SAEs for layers in Gemma-1-2B vs layers
+in Gemma-2-2B. Middle layers have the best performance. The later layer 17 in Gemma-1 is more
+similar to later layers in Gemma-2. Early layers like Layer 2 in Gemma-2 have very low similarity.
+We exclude layers 0, as we observe they always have non-statistically significant similarity. The 1-1
+scores are slightly higher for most of the Many-to-1 scores shown in Figure 22.
+
+41
+
+Paired SVCCA Scores
+0.049
+
+0.273
+
+0.368
+
+Paired RSA Scores
+
+0.443
+
+0.478
+
+0.018
+
+0.033
+
+0.048
+
+0.048
+
+0.113
+
+0.043
+
+0.091
+
+0.115
+
+0.126
+
+0.182
+
+0.044
+
+0.119
+
+0.195
+
+0.129
+
+0.084
+
+0.041
+
+0.158
+
+0.164
+
+0.098
+
+0.069
+
+0.18
+
+0.6
+
+31
+
+0.512
+
+0.582
+
+0.605
+
+0.449
+
+0.573
+
+0.700
+
+0.533
+
+0.509
+
+11
+
+Gemma2-9B Layers
+
+0.469
+
+21
+
+0.16
+
+0.244
+
+0.5
+
+0.12
+
+0.4
+
+0.3
+
+0.371
+
+0.584
+
+0.561
+
+0.344
+
+0.391
+
+1
+
+0.118
+
+1
+
+6
+
+0.188
+
+0.162
+
+0.229
+
+11
+
+16
+
+21
+
+Gemma2-2B Layers
+
+0.10
+0.08
+0.06
+
+0.2
+
+0.372
+
+0.14
+
+0.1
+
+(a)
+
+0.040
+
+0.035
+
+1
+
+6
+
+0.038
+
+0.027
+
+0.029
+
+11
+
+16
+
+21
+
+Gemma2-2B Layers
+
+0.04
+0.02
+
+(b)
+
+Figure 4: (a) SVCCA and (b) RSA 1-1 paired scores of SAEs for layers in Gemma-2-2B vs layers in
+Gemma-2-9B. Middle layers have the best performance. We exclude layers 0, as we observe they
+always have non-statistically significant similarity.
+
+and for many concept categories, we find that semantic subspaces are more similar to one another
+than non-semantic subspaces. More discussion on these results is given in Appendix L.
+Rather than just finding that middle layers are more similar to middle layers, we also find that they are
+the best at representing concepts. This is consistent with work by [Rimsky et al., 2024], which find
+the best steering vectors in middle layers for steering behaviors such as sycophancy. Other papers
+find that middle layers tend to provide better directions for eliminating refusal behavior [Arditi et al.,
+2024] and work well for representing goals and finding steering vectors in policy networks [Mini
+et al., 2023].
+Pythia-70m vs Pythia-160m. We compare every layer of Pythia-70m to every layer of Pythia-160m
+for several concept categories. While many layer pairs have similar semantic subspaces, middle
+layers appear to have the semantic subspaces with the highest similarity. Table 1 demonstrates one
+example of this by comparing the SVCCA score for layer 3 to layer 5 of Pythia-160m, which shows
+high similarity for semantic subspaces across models, as the concept categories all pass Test 1, having
+p-values below 0.05. We show the scores for other layer pairs and categories in Figures 30 and 32 in
+Appendix M, which include RSA scores in Table 9.
+8
+
+Table 1: SVCCA scores and random mean results for 1-1 semantic subspaces of L3 of Pythia-70m
+vs L5 of Pythia-160m. P-values are taken for 1000 samples in the null distribution.
+Concept Subspace
+
+Number of Features
+
+Paired Mean
+
+Random Shuffling Mean
+
+p-value
+
+Time
+Calendar
+Nature
+Countries
+People/Roles
+Emotions
+
+228
+126
+46
+32
+31
+24
+
+0.59
+0.65
+0.50
+0.72
+0.50
+0.83
+
+0.05
+0.07
+0.12
+0.14
+0.15
+0.15
+
+0.00
+0.00
+0.00
+0.00
+0.00
+0.00
+
+Gemma-1-2B vs Gemma-2-2B. In Table 2, we compare L12 of Gemma-1-2B vs L14 of Gemma-22B. As shown in Figure 22, this layer pair has a very high similarity for most concept spaces; as such,
+they likely have high similar semantically-meaningful feature subspaces. Notably, not all concept
+group are not highly similar; for instance, unlike in Pythia, the Country concept group does not pass
+the Test 1 as it has a p-value above 0.05. We show the scores for other layer pairs and categories in
+Figures 34 and 36 in Appendix M.
+Table 2: SVCCA scores and random mean results for 1-1 semantic subspaces of L12 of Gemma-1-2B
+vs L14 of Gemma-2-2B. P-values are taken for 1000 samples in the null distribution.
+
+5
+
+Concept Subspace
+
+Number of Features
+
+Paired SVCCA
+
+Random Shuffling Mean
+
+p-value
+
+Time
+Calendar
+Nature
+Countries
+People/Roles
+Emotions
+
+228
+105
+51
+21
+36
+35
+
+0.46
+0.54
+0.30
+0.39
+0.66
+0.60
+
+0.06
+0.07
+0.11
+0.17
+0.15
+0.12
+
+0.00
+0.00
+0.01
+0.07
+0.00
+0.00
+
+Related Work
+
+Feature Universality. Previous works studied universality in terms of components such as features
+and circuits [Olah and Batson, 2023, Chughtai et al., 2023]. Bricken et al. [2023] measure individual
+SAE feature similarity for two 1-layer toy models; however, this study did not analyze the global
+properties of feature spaces. Gurnee et al. [2024] find evidence of universal neurons across language
+models by applying pairwise correlation metrics. Ye et al. [2024] discover "feature families" representing related hierarchical concepts in SAEs across semantically different datasets. Huh et al. [2024]
+showed that as vision and language models are trained with more parameters and with better methods,
+their representational spaces converge towards more similar representations. Crosscoders [Lindsey
+et al., 2024, Mishra-Sharma et al., 2025] and Universal SAEs [Thasarathan et al., 2025] are SAE
+variations that capture individual features shared across models.
+Representational Space Similarity. Previous work has studied neuron activation spaces by utilizing
+metrics to compare the geometric similarities of representational spaces [Raghu et al., 2017, Wang
+et al., 2018b, Kornblith et al., 2019, Klabunde et al., 2024, 2023, Kriegeskorte et al., 2008, Sucholutsky
+et al., 2023], finding that even models with different architectures may share similar representation
+spaces, hinting at feature universality. However, these techniques have yet to be applied to the feature
+spaces of SAEs trained on LLMs. Moreover, these techniques compare the similarity of paired input
+activations. Our work differs as it compares the similarity of paired feature weights. Essentially,
+previous works do not show that one can match LLMs by features learned by both LLMs. For vision
+models, Kondapaneni et al. [2025] discover shared and unique visual concepts between different
+models.
+Mechanistic Interpretability. Previous work has made notable progress in neuron interpretation
+[Foote et al., 2023, Garde et al., 2023] and interpreting the interactions between components [Neo
+et al., 2024]. Other work in mechanistic interpretability focus on circuits analysis [Elhage et al.,
+9
+
+2021], as well using steering vectors to control model behaviors [Zou et al., 2023, Turner et al., 2024].
+These approaches have been combined with SAEs to steer models in the more interpretable SAE
+feature space [Chalnev et al., 2024]. Steering vectors have been found across models, such as vectors
+that steered a model to refuse harmful instructions across 13 different models [Arditi et al., 2024].
+AI Safety. Advanced AI may not be well aligned with the values of their designers [Ngo et al., 2022],
+due to phenomena such as goal misgeneralization [Shah et al., 2022], deceptive alignment [Greenblatt
+et al., 2024], and reward tampering [Denison et al., 2024]. SAEs can find steerable safety-related
+features across models, such as refusal features [O’Brien et al., 2024]. Finding reliable universal
+capabilities and control methods, such as in SAEs, may help provide solutions to AI safety issues.
+
+6
+
+Conclusion
+
+In this study, we take the first steps in investigating the unexplored topic of feature space universality
+in LLMs via SAEs trained on different models. To achieve these insights, we developed a novel
+methodology to pair features with high activation correlations, and then assess the global similarity
+of the resulting subspaces using SVCCA and RSA. Our findings reveal a high degree of SVCCA
+similarity in SAE feature subspaces across various models, particularly between their middle layers.
+Furthermore, our research reveals that subspaces of features associated with specific semantic
+concepts, such as calendar or people tokens, demonstrate remarkably high similarity across different
+models. This suggests that certain semantic feature subspaces may be universally encoded across
+varied LLM architectures. However, our results also show that there are parts of SAE feature spaces
+which do not match, and may suggest that either certain features are not captured universally, or
+that SAEs have limitations in capturing universal features. We believe that future work can benefit
+from these discoveries to find better ways on improving methods to capture feature universality.
+Lastly, while we discover evidence that LLMs learn "weakly universal" features, and that SAEs can
+capture both these features and these relations, we also find that there is a notable fraction of features
+idiosyncractic to different SAEs, a finding that is supported by previous work [Leask et al., 2025,
+Paulo and Belrose, 2025]. Thus, our research guides future work to improve upon methods that can
+better capture universal feature representations, and contributes to ongoing research that aims to
+improve SAEs [Engels et al., 2024]. Our approach may be generalized to compare feature spaces
+beyond those of SAEs.
+Examining feature universality implications for AI safety and control, particularly in identifying
+and mitigating potentially harmful representations, can contribute to the development of safer AI
+systems [Barez et al., 2023]. Overall, understanding the commonalities and differences in model
+representations is a crucial step towards a more comprehensive theory of how models encode language.
+
+Limitations
+We perform analysis on only a sample of SAEs for similar LLMs that use the same tokenizer, and
+focus on SAEs with the same or similar number of features. As we pair features by activation
+correlation, we do not perform analysis on models that use different tokenizers. Although, for some
+examples, we obtain good results when pairing featuers only by semantic similarity, these results
+were not consistent when applied to other examples, perhaps due to the lower pairing quality, as the
+representational similarity measures depend on the pairing choice. Future work can analyze models
+whose representations do not depend as much on the tokenizer choice [team et al., 2024].
+Our study is also limited by the inherent challenges in interpreting and comparing high-dimensional
+feature spaces. The methods we used to measure similarity, while robust, may not capture all nuances
+of feature interactions and representations within the SAEs. Additionally, our analysis is constrained
+by the computational resources available, which limited our activations dataset sizes, along with the
+scale and depth of our comparisons. The generalizability of our findings to SAEs trained on more
+diverse datasets or specialized domain-specific LLMs remains an open question. Lastly, our analysis
+does not account for potential temporal dynamics in feature representation that may occur at different
+training stages of LLMs and SAEs.
+10
+
+Author Contributions
+Michael conceived the study and designed the experiments with help from Fazl. Michael performed
+the experiments with help from Austin and led the writing of the manuscript. Philip, Ashkan and
+David provided advice throughout the project. Fazl advised this work and helped significantly with
+the write-up of the paper.
+
+Acknowledgments
+We thank the Torr Vision Group at the University of Oxford for providing compute and hosting
+Michael Lan during the internship. We thank Clement Neo, Luke Marks, Minseon Kim, Lovis Heindrich, Tingchen Fu, Constantin Venhoff, Hazel Kim, Will Lin, Alasdair Paren, Christian Schroeder
+de Witt, Kiho Park, and Max Klabunde for providing helpful feedback. Clement Neo helped design
+Figure 1.
+
+References
+Andy Arditi, Oscar Obeso, Aaquib Syed, Daniel Paleka, Nina Rimsky, Wes Gurnee, and Neel Nanda.
+Refusal in language models is mediated by a single direction, 2024.
+Yamini Bansal, Preetum Nakkiran, and Boaz Barak. Revisiting model stitching to compare neural representations. NIPS ’21, Red Hook, NY, USA, 2021. Curran Associates Inc. ISBN 9781713845393.
+Fazl Barez, Hosien Hasanbieg, and Alesandro Abbate. System iii: Learning with domain knowledge
+for safety constraints, 2023.
+Leonard Bereska and Efstratios Gavves. Mechanistic interpretability for ai safety – a review, 2024.
+URL https://arxiv.org/abs/2404.14082.
+Stella Biderman, Hailey Schoelkopf, Quentin Anthony, Herbie Bradley, Kyle O’Brien, Eric Hallahan,
+Mohammad Aflah Khan, Shivanshu Purohit, USVSN Sai Prashanth, Edward Raff, Aviya Skowron,
+Lintang Sutawika, and Oskar van der Wal. Pythia: A suite for analyzing large language models
+across training and scaling, 2023. URL https://arxiv.org/abs/2304.01373.
+Joseph Bloom and David Chanin. Saelens. https://github.com/jbloomAus/SAELens,
+2024.
+Trenton Bricken, Adly Templeton, Joshua Batson, Brian Chen, Adam Jermyn, Tom Conerly, Nick
+Turner, Cem Anil, Carson Denison, Amanda Askell, Robert Lasenby, Yifan Wu, Shauna Kravec,
+Nicholas Schiefer, Tim Maxwell, Nicholas Joseph, Zac Hatfield-Dodds, Alex Tamkin, Karina
+Nguyen, Brayden McLean, Josiah E Burke, Tristan Hume, Shan Carter, Tom Henighan, and
+Christopher Olah. Towards monosemanticity: Decomposing language models with dictionary
+learning. Transformer Circuits Thread, 2023. https://transformer-circuits.pub/2023/monosemanticfeatures/index.html.
+Sébastien Bubeck, Varun Chandrasekaran, Ronen Eldan, Johannes Gehrke, Eric Horvitz, Ece Kamar,
+Peter Lee, Yin Tat Lee, Yuanzhi Li, Scott Lundberg, Harsha Nori, Hamid Palangi, Marco Tulio
+Ribeiro, and Yi Zhang. Sparks of artificial general intelligence: Early experiments with gpt-4,
+2023. URL https://arxiv.org/abs/2303.12712.
+Sviatoslav Chalnev, Matthew Siu, and Arthur Conmy. Improving Steering Vectors by Targeting
+Sparse Autoencoder Features, 2024. URL http://arxiv.org/abs/2411.02193.
+David Chanin, James Wilken-Smith, Tomáš Dulka, Hardik Bhatnagar, and Joseph Bloom. A is
+for absorption: Studying feature splitting and absorption in sparse autoencoders, 2024. URL
+https://arxiv.org/abs/2409.14507.
+Bilal Chughtai, Lawrence Chan, and Neel Nanda. A toy model of universality: reverse engineering
+how networks learn group operations. In Proceedings of the 40th International Conference on
+Machine Learning, ICML’23. JMLR.org, 2023.
+11
+
+Hoagy Cunningham, Aidan Ewart, Logan Riggs, Robert Huben, and Lee Sharkey. Sparse
+autoencoders find highly interpretable features in language models, 2023. URL https:
+//arxiv.org/abs/2309.08600.
+Carson Denison, Monte MacDiarmid, Fazl Barez, David Duvenaud, Shauna Kravec, Samuel Marks,
+Nicholas Schiefer, Ryan Soklaski, Alex Tamkin, Jared Kaplan, Buck Shlegeris, Samuel R. Bowman,
+Ethan Perez, and Evan Hubinger. Sycophancy to Subterfuge: Investigating Reward-Tampering in
+Large Language Models, June 2024. URL http://arxiv.org/abs/2406.10162.
+Zhiwei Ding, Dat T. Tran, Kayla Ponder, Erick Cobos, Zhuokun Ding, Paul G. Fahey, Eric Wang,
+Taliah Muhammad, Jiakun Fu, Santiago A. Cadena, Stelios Papadopoulos, Saumil Patel, Katrin
+Franke, Jacob Reimer, Fabian H. Sinz, Alexander S. Ecker, Xaq Pitkow, and Andreas S. Tolias.
+Bipartite invariance in mouse primary visual cortex. bioRxiv, March 2023. doi: 10.1101/2023.03.
+15.532836. URL https://www.biorxiv.org/content/10.1101/2023.03.15.5
+32836v1. Preprint.
+Ronen Eldan. Tinystories-1layer-21m. https://huggingface.co/roneneldan/TinySt
+ories-1Layer-21M, 2023.
+EleutherAI. Sparse autoencoders (sae) repository. https://github.com/EleutherAI/sae,
+2023.
+Nelson Elhage, Neel Nanda, Catherine Olsson, Tom Henighan, Nicholas Joseph, Ben Mann, Amanda
+Askell, Yuntao Bai, Anna Chen, Tom Conerly, Nova DasSarma, Dawn Drain, Deep Ganguli,
+Zac Hatfield-Dodds, Danny Hernandez, Andy Jones, Jackson Kernion, Liane Lovitt, Kamal
+Ndousse, Dario Amodei, Tom Brown, Jack Clark, Jared Kaplan, Sam McCandlish, and Chris
+Olah. A mathematical framework for transformer circuits. Transformer Circuits Thread, 2021.
+https://transformer-circuits.pub/2021/framework/index.html.
+Nelson Elhage, Tristan Hume, Catherine Olsson, Nicholas Schiefer, Tom Henighan, Shauna
+Kravec, Zac Hatfield-Dodds, Robert Lasenby, Dawn Drain, Carol Chen, Roger Grosse,
+Sam McCandlish, Jared Kaplan, Dario Amodei, Martin Wattenberg, and Christopher Olah.
+Toy models of superposition. Transformer Circuits Thread, 2022. https://transformercircuits.pub/2022/toy_model/index.html.
+Joshua Engels, Logan Riggs, and Max Tegmark. Decomposing the dark matter of sparse autoencoders,
+2024. URL https://arxiv.org/abs/2410.14670.
+Joshua Engels, Eric J. Michaud, Isaac Liao, Wes Gurnee, and Max Tegmark. Not all language model
+features are one-dimensionally linear, 2025. URL https://arxiv.org/abs/2405.148
+60.
+Alex Foote, Neel Nanda, Esben Kran, Ioannis Konstas, Shay Cohen, and Fazl Barez. Neuron to
+graph: Interpreting language model neurons at scale, 2023. URL https://arxiv.org/abs/
+2305.19911.
+Leo Gao, Tom Dupre la Tour, Henk Tillman, Gabriel Goh, Rajan Troll, Alec Radford, Ilya Sutskever,
+Jan Leike, and Jeffrey Wu. Scaling and evaluating sparse autoencoders. In The Thirteenth
+International Conference on Learning Representations, 2025. URL https://openreview.n
+et/forum?id=tcsZt9ZNKD.
+Albert Garde, Esben Kran, and Fazl Barez. Deepdecipher: Accessing and investigating neuron
+activation in large language models, 2023. URL https://arxiv.org/abs/2310.01870.
+Aaron Gokaslan and Vanya Cohen. Openwebtext corpus. http://Skylion007.github.io
+/OpenWebTextCorpus, 2019. Accessed: March 12 2025.
+Ariel Goldstein, Avigail Grinstein-Dabush, Mariano Schain, Haocheng Wang, Zhuoqiao Hong, Bobbi
+Aubrey, Samuel A. Nastase, Zaid Zada, Eric Ham, Amir Feder, Harshvardhan Gazula, Eliav
+Buchnik, Werner Doyle, Sasha Devore, Patricia Dugan, Roi Reichart, Daniel Friedman, Michael
+Brenner, Avinatan Hassidim, Orrin Devinsky, Adeen Flinker, and Uri Hasson. Alignment of brain
+embeddings and artificial contextual embeddings in natural language points to common geometric
+patterns. Nature Communications, 15(1):2768, 2024. doi: 10.1038/s41467-024-46631-y.
+12
+
+Ryan Greenblatt, Carson Denison, Benjamin Wright, Fabien Roger, Monte MacDiarmid, Sam Marks,
+Johannes Treutlein, Tim Belonax, Jack Chen, David Duvenaud, Akbir Khan, Julian Michael,
+Sören Mindermann, Ethan Perez, Linda Petrini, Jonathan Uesato, Jared Kaplan, Buck Shlegeris,
+Samuel R. Bowman, and Evan Hubinger. Alignment faking in large language models, 2024. URL
+http://arxiv.org/abs/2412.14093. arXiv:2412.14093 [cs].
+Wes Gurnee, Theo Horsley, Zifan Carl Guo, Tara Rezaei Kheirkhah, Qinyi Sun, Will Hathaway,
+Neel Nanda, and Dimitris Bertsimas. Universal neurons in gpt2 language models, 2024. URL
+https://arxiv.org/abs/2401.12181.
+Thomas Heap, Tim Lawson, Lucy Farnik, and Laurence Aitchison. Sparse autoencoders can interpret
+randomly initialized transformers, 2025. URL https://arxiv.org/abs/2501.17727.
+Dan Hendrycks, Mantas Mazeika, and Thomas Woodside. An overview of catastrophic ai risks, 2023.
+URL https://arxiv.org/abs/2306.12001.
+Sai Sumedh R. Hindupur, Ekdeep Singh Lubana, Thomas Fel, and Demba Ba. Projecting assumptions:
+The duality between sparse autoencoders and concept geometry, 2025. URL https://arxiv.
+org/abs/2503.01822.
+Harold Hotelling. Relations between two sets of variates. Biometrika, 28(3/4):321–377, 1936.
+Minyoung Huh, Brian Cheung, Tongzhou Wang, and Phillip Isola. The platonic representation
+hypothesis, 2024.
+A. Karvonen, C. Rager, J. Lin, C. Tigges, J. Bloom, D. Chanin, Y.-T. Lau, E. Farrell, A. Conmy,
+C. McDougall, K. Ayonrinde, M. Wearden, S. Marks, and N. Nanda. Saebench: A comprehensive
+benchmark for sparse autoencoders, 2024. URL https://www.neuronpedia.org/sa
+e-bench/info. Accessed: March 12, 2025.
+Connor Kissane, Robert Krzyzanowski, Arthur Conmy, and Neel Nanda. SAEs (usually) Transfer
+Between Base and Chat Models, 2024a. URL https://www.lesswrong.com/posts/fm
+wk6qxrpW8d4jvbd/saes-usually-transfer-between-base-and-chat-mod
+els. Accessed: March 15, 2025.
+Connor Kissane, robertzk, Neel Nanda, and Arthur Conmy. Saes are highly dataset dependent: a
+case study on the refusal direction, November 2024b. URL https://www.lesswrong.co
+m/posts/rtp6n7Z23uJpEH7od/saes-are-highly-dataset-dependent-a-c
+ase-study-on-the. LessWrong post; accessed March 12, 2025.
+Max Klabunde, Tobias Schumacher, Markus Strohmaier, and Florian Lemmerich. Similarity of
+neural network models: A survey of functional and representational measures, 2023. URL
+https://arxiv.org/abs/2305.06329.
+Max Klabunde, Tassilo Wald, Tobias Schumacher, Klaus Maier-Hein, Markus Strohmaier, and Florian
+Lemmerich. Resi: A comprehensive benchmark for representational similarity measures, 2024.
+URL https://arxiv.org/abs/2408.00531.
+Neehar Kondapaneni, Oisin Mac Aodha, and Pietro Perona. Representational similarity via interpretable visual concepts. In The Thirteenth International Conference on Learning Representations,
+2025. URL https://openreview.net/forum?id=ih3BJmIZbC.
+Simon Kornblith, Mohammad Norouzi, Honglak Lee, and Geoffrey Hinton. Similarity of neural
+network representations revisited, 2019. URL https://arxiv.org/abs/1905.00414.
+Nikolaus Kriegeskorte, Marieke Mur, and Peter Bandettini. Representational similarity analysis –
+connecting the branches of systems neuroscience. Frontiers in Systems Neuroscience, 2:4, 2008.
+doi: 10.3389/neuro.06.004.2008. URL https://www.frontiersin.org/articles/1
+0.3389/neuro.06.004.2008/full.
+Taras Kutsyk, Tommaso Mencattini, and Ciprian Florea. Do sparse autoencoders (saes) transfer
+across base and finetuned language models?, sep 2024. URL https://www.lesswrong.co
+m/posts/bsXPTiAhhwt5nwBW3/do-sparse-autoencoders-saes-transfer-a
+cross-base-and. LessWrong post; accessed March 12, 2025.
+13
+
+Patrick Leask, Bart Bussmann, and Neel Nanda. Calendar Feature Geometry in GPT-2 Layer 8
+Residual Stream SAEs. LessWrong, August 2024. URL https://www.lesswrong.com/
+posts/WsPyunwpXYCM2iN6t/calendar-feature-geometry-in-gpt-2-layer
+-8-residual-stream. Mirror on AI Alignment Forum; accessed May 18, 2025.
+Patrick Leask, Bart Bussmann, Michael T. Pearce, Joseph I. Bloom, Curt Tigges, N. Al Moubayed,
+Lee Sharkey, and Neel Nanda. Sparse autoencoders do not find canonical units of analysis. In
+Proceedings of the 13th International Conference on Learning Representations (ICLR 2025), 2025.
+URL https://openreview.net/forum?id=9ca9eHNrdH.
+Yuxiao Li, Eric J. Michaud, David D. Baek, Joshua Engels, Xiaoqing Sun, and Max Tegmark. The
+geometry of concepts: Sparse autoencoder feature structure. Entropy, 27(4):344, March 2025. ISSN
+1099-4300. doi: 10.3390/e27040344. URL http://dx.doi.org/10.3390/e27040344.
+Tom Lieberum, Senthooran Rajamanoharan, Arthur Conmy, Lewis Smith, Nicolas Sonnerat, Vikrant
+Varma, János Kramár, Anca Dragan, Rohin Shah, and Neel Nanda. Gemma scope: Open sparse
+autoencoders everywhere all at once on gemma 2, 2024. URL https://arxiv.org/abs/
+2408.05147.
+Jack Lindsey, Adly Templeton, Jonathan Marcus, Thomas Conerly, Joshua Batson, and Christopher
+Olah. Sparse crosscoders for cross-layer features and model diffing. https://transfor
+mer-circuits.pub/2024/crosscoders/index.html, January 2024. Transformer
+Circuits Thread.
+Alireza Makhzani and Brendan Frey. k-sparse autoencoders. arXiv preprint arXiv:1312.5663, 2013.
+Jack Merullo, Louis Castricato, Carsten Eickhoff, and Ellie Pavlick. Linearly mapping from image to
+text space, 2023. URL https://arxiv.org/abs/2209.15162.
+Ulisse Mini, Peli Grietzer, Mrinank Sharma, Austin Meek, Monte MacDiarmid, and Alexander Matt
+Turner. Understanding and Controlling a Maze-Solving Policy Network, 2023. URL http:
+//arxiv.org/abs/2310.08043. arXiv:2310.08043 [cs].
+Siddharth Mishra-Sharma, Trenton Bricken, Jack Lindsey, Adam Jermyn, Jonathan Marcus, Kelley
+Rivoire, Christopher Olah, and Thomas Henighan. Insights on crosscoder model diffing. https:
+//transformer-circuits.pub/2025/crosscoder-diffing-update/index.
+html, February 2025. Transformer Circuits Thread.
+Humza Naveed, Asad Ullah Khan, Shi Qiu, Muhammad Saqib, Saeed Anwar, Muhammad Usman,
+Naveed Akhtar, Nick Barnes, and Ajmal Mian. A comprehensive overview of large language
+models, 2024. URL https://arxiv.org/abs/2307.06435.
+Clement Neo, Shay B. Cohen, and Fazl Barez. Interpreting context look-ups in transformers:
+Investigating attention-mlp interactions, 2024. URL https://arxiv.org/abs/2402.150
+55.
+Richard Ngo, Lawrence Chan, and Sören Mindermann. The Alignment Problem from a Deep Learning
+Perspective, 2022. URL http://arxiv.org/abs/2209.00626. arXiv:2209.00626 [cs].
+Kyle O’Brien, David Majercak, Xavier Fernandes, Richard Edgar, Jingya Chen, Harsha Nori, Dean
+Carignan, Eric Horvitz, and Forough Poursabzi-Sangde. Steering language model refusal with
+sparse autoencoders, 2024. URL https://arxiv.org/abs/2411.11296.
+Chris Olah and Josh Batson. Feature manifold toy model. Transformer Circuits May Update, May
+2023. URL https://transformer-circuits.pub/2023/may-update/index.
+html#feature-manifolds.
+Chris Olah, Nick Cammarata, Ludwig Schubert, Gabriel Goh, Michael Petrov, and Shan Carter.
+Zoom in: An introduction to circuits. Distill, 2020. doi: 10.23915/distill.00024.001.
+https://distill.pub/2020/circuits/zoom-in.
+Bruno A. Olshausen and David J. Field. Sparse coding with an overcomplete basis set: A strategy
+employed by v1? Vision Research, 37(23):3311–3325, 1997. ISSN 0042-6989. doi: https:
+//doi.org/10.1016/S0042-6989(97)00169-7. URL https://www.sciencedirect.com/
+science/article/pii/S0042698997001697.
+14
+
+Kiho Park, Yo Joong Choe, Yibo Jiang, and Victor Veitch. The geometry of categorical and
+hierarchical concepts in large language models, 2024a.
+Kiho Park, Yo Joong Choe, and Victor Veitch. The linear representation hypothesis and the geometry
+of large language models. In Proceedings of the 41st International Conference on Machine
+Learning, ICML’24. JMLR.org, 2024b.
+Gonçalo Paulo and Nora Belrose. Sparse autoencoders trained on the same data learn different
+features, 2025. URL https://arxiv.org/abs/2501.16615.
+Maithra Raghu, Justin Gilmer, Jason Yosinski, and Jascha Narain Sohl-Dickstein. Svcca: Singular
+vector canonical correlation analysis for deep learning dynamics and interpretability. In Neural
+Information Processing Systems, 2017. URL https://api.semanticscholar.org/Co
+rpusID:23890457.
+Senthooran Rajamanoharan, Arthur Conmy, Lewis Smith, Tom Lieberum, Vikrant Varma, János
+Kramár, Rohin Shah, and Neel Nanda. Improving dictionary learning with gated sparse autoencoders, 2024a. URL https://arxiv.org/abs/2404.16014.
+Senthooran Rajamanoharan, Tom Lieberum, Nicolas Sonnerat, Arthur Conmy, Vikrant Varma, János
+Kramár, and Neel Nanda. Jumping ahead: Improving reconstruction fidelity with jumprelu sparse
+autoencoders, 2024b. URL https://arxiv.org/abs/2407.14435.
+Nina Rimsky, Nick Gabrieli, Julian Schulz, Meg Tong, Evan Hubinger, and Alexander Matt Turner.
+Steering llama 2 via contrastive activation addition, 2024.
+Ludwig Schubert, Chelsea Voss, Nick Cammarata, Gabriel Goh, and Chris Olah. High-low frequency
+detectors. Distill, 2021. doi: 10.23915/distill.00024.005. https://distill.pub/2020/circuits/frequencyedges.
+Rohin Shah, Vikrant Varma, Ramana Kumar, Mary Phuong, Victoria Krakovna, Jonathan Uesato,
+and Zac Kenton. Goal Misgeneralization: Why Correct Specifications Aren’t Enough For Correct
+Goals, November 2022. URL http://arxiv.org/abs/2210.01790.
+Lee Sharkey, Dan Braun, and Beren Millidge. Interim research report: Taking features out of
+superposition with sparse autoencoders. AI Alignment Forum, 2022. URL https://www.alig
+nmentforum.org/posts/z6QQJbtpkEAX3Aojj/interim-research-report-t
+aking-features-out-of-superposition.
+Lee Sharkey, Lucius Bushnaq, Dan Braun, Stefan Hex, and Nicholas Goldowsky-Dill. A list of 45
+mech interp project ideas from apollo research. https://www.lesswrong.com/posts/
+KfkpgXdgRheSRWDy8/a-list-of-45-mech-interp-project-ideas-from-a
+pollo-research, 2024. Accessed: July 25, 2024.
+Ilia Sucholutsky, Lukas Muttenthaler, Adrian Weller, Andi Peng, Andreea Bobu, Been Kim, Bradley C.
+Love, Erin Grant, Jascha Achterberg, Joshua B. Tenenbaum, Katherine M. Collins, Katherine L.
+Hermann, Kerem Oktar, Klaus Greff, Martin N. Hebart, Nori Jacoby, Qiuyi Zhang, Raja Marjieh, Robert Geirhos, Sherol Chen, Simon Kornblith, Sunayana Rane, Talia Konkle, Thomas P.
+O’Connell, Thomas Unterthiner, Andrew K. Lampinen, Klaus-Robert Müller, Mariya Toneva, and
+Thomas L. Griffiths. Getting aligned on representational alignment. CoRR, abs/2310.13018, 2023.
+Gemma Team, Thomas Mesnard, Cassidy Hardin, Robert Dadashi, Surya Bhupatiraju, Shreya Pathak,
+Laurent Sifre, Morgane Rivière, Mihir Sanjay Kale, Juliette Love, Pouya Tafti, Léonard Hussenot,
+Pier Giuseppe Sessa, Aakanksha Chowdhery, Adam Roberts, Aditya Barua, Alex Botev, Alex
+Castro-Ros, Ambrose Slone, Amélie Héliou, Andrea Tacchetti, Anna Bulanova, Antonia Paterson,
+Beth Tsai, Bobak Shahriari, Charline Le Lan, Christopher A. Choquette-Choo, Clément Crepy,
+Daniel Cer, Daphne Ippolito, David Reid, Elena Buchatskaya, Eric Ni, Eric Noland, Geng Yan,
+George Tucker, George-Christian Muraru, Grigory Rozhdestvenskiy, Henryk Michalewski, Ian
+Tenney, Ivan Grishchenko, Jacob Austin, James Keeling, Jane Labanowski, Jean-Baptiste Lespiau,
+Jeff Stanway, Jenny Brennan, Jeremy Chen, Johan Ferret, Justin Chiu, Justin Mao-Jones, Katherine
+Lee, Kathy Yu, Katie Millican, Lars Lowe Sjoesund, Lisa Lee, Lucas Dixon, Machel Reid, Maciej
+Mikuła, Mateo Wirth, Michael Sharman, Nikolai Chinaev, Nithum Thain, Olivier Bachem, Oscar
+Chang, Oscar Wahltinez, Paige Bailey, Paul Michel, Petko Yotov, Rahma Chaabouni, Ramona
+15
+
+Comanescu, Reena Jana, Rohan Anil, Ross McIlroy, Ruibo Liu, Ryan Mullins, Samuel L Smith,
+Sebastian Borgeaud, Sertan Girgin, Sholto Douglas, Shree Pandya, Siamak Shakeri, Soham De,
+Ted Klimenko, Tom Hennigan, Vlad Feinberg, Wojciech Stokowiec, Yu hui Chen, Zafarali Ahmed,
+Zhitao Gong, Tris Warkentin, Ludovic Peran, Minh Giang, Clément Farabet, Oriol Vinyals, Jeff
+Dean, Koray Kavukcuoglu, Demis Hassabis, Zoubin Ghahramani, Douglas Eck, Joelle Barral,
+Fernando Pereira, Eli Collins, Armand Joulin, Noah Fiedel, Evan Senter, Alek Andreev, and
+Kathleen Kenealy. Gemma: Open models based on gemini research and technology, 2024a. URL
+https://arxiv.org/abs/2403.08295.
+Gemma Team, Morgane Riviere, Shreya Pathak, Pier Giuseppe Sessa, Cassidy Hardin, Surya
+Bhupatiraju, Léonard Hussenot, Thomas Mesnard, Bobak Shahriari, Alexandre Ramé, Johan
+Ferret, Peter Liu, Pouya Tafti, Abe Friesen, Michelle Casbon, Sabela Ramos, Ravin Kumar,
+Charline Le Lan, Sammy Jerome, Anton Tsitsulin, Nino Vieillard, Piotr Stanczyk, Sertan Girgin,
+Nikola Momchev, Matt Hoffman, Shantanu Thakoor, Jean-Bastien Grill, Behnam Neyshabur,
+Olivier Bachem, Alanna Walton, Aliaksei Severyn, Alicia Parrish, Aliya Ahmad, Allen Hutchison,
+Alvin Abdagic, Amanda Carl, Amy Shen, Andy Brock, Andy Coenen, Anthony Laforge, Antonia
+Paterson, Ben Bastian, Bilal Piot, Bo Wu, Brandon Royal, Charlie Chen, Chintu Kumar, Chris
+Perry, Chris Welty, Christopher A. Choquette-Choo, Danila Sinopalnikov, David Weinberger,
+Dimple Vijaykumar, Dominika Rogozińska, Dustin Herbison, Elisa Bandy, Emma Wang, Eric
+Noland, Erica Moreira, Evan Senter, Evgenii Eltyshev, Francesco Visin, Gabriel Rasskin, Gary
+Wei, Glenn Cameron, Gus Martins, Hadi Hashemi, Hanna Klimczak-Plucińska, Harleen Batra,
+Harsh Dhand, Ivan Nardini, Jacinda Mein, Jack Zhou, James Svensson, Jeff Stanway, Jetha
+Chan, Jin Peng Zhou, Joana Carrasqueira, Joana Iljazi, Jocelyn Becker, Joe Fernandez, Joost
+van Amersfoort, Josh Gordon, Josh Lipschultz, Josh Newlan, Ju yeong Ji, Kareem Mohamed,
+Kartikeya Badola, Kat Black, Katie Millican, Keelin McDonell, Kelvin Nguyen, Kiranbir Sodhia,
+Kish Greene, Lars Lowe Sjoesund, Lauren Usui, Laurent Sifre, Lena Heuermann, Leticia Lago,
+Lilly McNealus, Livio Baldini Soares, Logan Kilpatrick, Lucas Dixon, Luciano Martins, Machel
+Reid, Manvinder Singh, Mark Iverson, Martin Görner, Mat Velloso, Mateo Wirth, Matt Davidow,
+Matt Miller, Matthew Rahtz, Matthew Watson, Meg Risdal, Mehran Kazemi, Michael Moynihan,
+Ming Zhang, Minsuk Kahng, Minwoo Park, Mofi Rahman, Mohit Khatwani, Natalie Dao, Nenshad
+Bardoliwalla, Nesh Devanathan, Neta Dumai, Nilay Chauhan, Oscar Wahltinez, Pankil Botarda,
+Parker Barnes, Paul Barham, Paul Michel, Pengchong Jin, Petko Georgiev, Phil Culliton, Pradeep
+Kuppala, Ramona Comanescu, Ramona Merhej, Reena Jana, Reza Ardeshir Rokni, Rishabh
+Agarwal, Ryan Mullins, Samaneh Saadat, Sara Mc Carthy, Sarah Perrin, Sébastien M. R. Arnold,
+Sebastian Krause, Shengyang Dai, Shruti Garg, Shruti Sheth, Sue Ronstrom, Susan Chan, Timothy
+Jordan, Ting Yu, Tom Eccles, Tom Hennigan, Tomas Kocisky, Tulsee Doshi, Vihan Jain, Vikas
+Yadav, Vilobh Meshram, Vishal Dharmadhikari, Warren Barkley, Wei Wei, Wenming Ye, Woohyun
+Han, Woosuk Kwon, Xiang Xu, Zhe Shen, Zhitao Gong, Zichuan Wei, Victor Cotruta, Phoebe
+Kirk, Anand Rao, Minh Giang, Ludovic Peran, Tris Warkentin, Eli Collins, Joelle Barral, Zoubin
+Ghahramani, Raia Hadsell, D. Sculley, Jeanine Banks, Anca Dragan, Slav Petrov, Oriol Vinyals,
+Jeff Dean, Demis Hassabis, Koray Kavukcuoglu, Clement Farabet, Elena Buchatskaya, Sebastian
+Borgeaud, Noah Fiedel, Armand Joulin, Kathleen Kenealy, Robert Dadashi, and Alek Andreev.
+Gemma 2: Improving open language models at a practical size, 2024b. URL https://arxiv.
+org/abs/2408.00118.
+LCM team, Loïc Barrault, Paul-Ambroise Duquenne, Maha Elbayad, Artyom Kozhevnikov, Belen
+Alastruey, Pierre Andrews, Mariano Coria, Guillaume Couairon, Marta R. Costa-jussà, David
+Dale, Hady Elsahar, Kevin Heffernan, João Maria Janeiro, Tuan Tran, Christophe Ropers, Eduardo
+Sánchez, Robin San Roman, Alexandre Mourachko, Safiyyah Saleem, and Holger Schwenk.
+Large concept models: Language modeling in a sentence representation space, 2024. URL
+https://arxiv.org/abs/2412.08821.
+Adly Templeton, Tom Conerly, Jonathan Marcus, Jack Lindsey, Trenton Bricken, Brian Chen, Adam
+Pearce, Craig Citro, Emmanuel Ameisen, Andy Jones, Hoagy Cunningham, Nicholas L Turner,
+Callum McDougall, Monte MacDiarmid, C. Daniel Freeman, Theodore R. Sumers, Edward
+Rees, Joshua Batson, Adam Jermyn, Shan Carter, Chris Olah, and Tom Henighan. Scaling
+monosemanticity: Extracting interpretable features from claude 3 sonnet. Transformer Circuits
+Thread, 2024. URL https://transformer-circuits.pub/2024/scaling-monos
+emanticity/index.html.
+16
+
+Harrish Thasarathan, Julian Forsyth, Thomas Fel, Matthew Kowal, and Konstantinos Derpanis.
+Universal sparse autoencoders: Interpretable cross-model concept alignment, 2025. URL https:
+//arxiv.org/abs/2502.03714.
+Demian Till. Do sparse autoencoders find ’true features’?, 2023. URL https://www.lesswron
+g.com/posts/QoR8noAB3Mp2KBA4B/do-sparse-autoencoders-find-true-f
+eatures. Accessed: January 29, 2025.
+Alexander Matt Turner, Lisa Thiergart, Gavin Leech, David Udell, Juan J. Vazquez, Ulisse Mini,
+and Monte MacDiarmid. Steering language models with activation engineering, 2024. URL
+https://arxiv.org/abs/2308.10248.
+Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N Gomez, Łukasz
+Kaiser, and Illia Polosukhin. Attention is all you need. Advances in neural information processing
+systems, 30, 2017.
+Liwei Wang, Lunjia Hu, Jiayuan Gu, Yue Wu, Zhiqiang Hu, Kun He, and John Hopcroft. Towards
+understanding learning representations: To what extent do different neural networks learn the same
+representation. In Advances in Neural Information Processing Systems, volume 31, 2018a. URL
+https://proceedings.neurips.cc/paper/2018/file/5fc34ed307aac159a
+30d81181c99847e-Paper.pdf.
+Liwei Wang, Lunjia Hu, Jiayuan Gu, Yue Wu, Zhiqiang Hu, Kun He, and John Hopcroft. Towards
+understanding learning representations: To what extent do different neural networks learn the
+same representation. In Proceedings of the 32nd International Conference on Neural Information
+Processing Systems, NIPS’18, pages 9607–9616, Red Hook, NY, USA, 2018b. Curran Associates
+Inc. ISBN 9781510860964.
+Maurice Weber, Daniel Fu, Quentin Anthony, Yonatan Oren, Shane Adams, Anton Alexandrov,
+Xiaozhong Lyu, Huu Nguyen, Xiaozhe Yao, Virginia Adams, Ben Athiwaratkun, Rahul Chalamala,
+Kezhen Chen, Max Ryabinin, Tri Dao, Percy Liang, Christopher Ré, Irina Rish, and Ce Zhang.
+Redpajama: an open dataset for training large language models, 2024. URL https://arxiv.
+org/abs/2411.12372.
+Christine Ye, Charles O’Neill, John F Wu, and Kartheik G. Iyer. Sparse autoencoders for dense text
+embeddings reveal hierarchical feature sub-structure. In NeurIPS 2024 Workshop on Scientific
+Methods for Understanding Deep Learning, 2024. URL https://openreview.net/for
+um?id=hjROYyfxfO.
+Jason Yosinski, Jeff Clune, Yoshua Bengio, and Hod Lipson. How transferable are features in deep
+neural networks? In Proceedings of the 27th International Conference on Neural Information
+Processing Systems - Volume 2, NIPS’14, page 3320–3328, Cambridge, MA, USA, 2014. MIT
+Press.
+Andy Zou, Long Phan, Sarah Chen, James Campbell, Phillip Guo, Richard Ren, Alexander Pan,
+Xuwang Yin, Mantas Mazeika, Ann-Kathrin Dombrowski, Shashwat Goel, Nathaniel Li, Michael J.
+Byun, Zifan Wang, Alex Mallen, Steven Basart, Sanmi Koyejo, Dawn Song, Matt Fredrikson,
+J. Zico Kolter, and Dan Hendrycks. Representation engineering: A top-down approach to ai
+transparency, 2023.
+
+A
+
+List of Models Analyzed in Experiments
+1. Pythia-70m VS Pythia-160m
+2. Gemma-1-2B VS Gemma-2-2B
+3. Gemma-2-2B vs Gemma-2-9B
+4. Gemma-2-9B vs Gemma-2-9B-Instruct
+5. Gemma-1-2B vs Gemma-1-2B-Instruct (at Layer 12)
+6. Llama 3-8B and Llama 3.1-8B (at Layer 25)
+7. Pythia-70m vs Randomized Pythia-70m (Baseline Comparisons)
+17
+
+8. TinyStories-1L-21M (Within Model Comparisons)
+Unless otherwise specified, all experiments filter feature pairs by non-concept keywords, 1-1, and
+low correlation (less than 0.1).
+
+B
+
+Trained SAE Metric Evaluations
+
+For SAEs with an expansion factor of 64 (and thus 32768 total latents) and a top-k of 32 trained
+on residual stream layers of Pythia-70m using 100 million tokens from the RedPajama dataset,
+we obtain explained variances of between 0.70 to 0.82 (µ = 0.75, σ = 0.04), cosine similarities
+between 0.92 to 0.99, cross entropy losses between 0.78 to 0.94, and L1 norm between 24.0 to 50.75
+(µ = 35.55, σ = 8.78). Likewise, these are also SAEs with good reconstruction and sparsity metrics.
+In general, all of our custom trained SAEs on Pythia-70m and on Pythia-160m have similar metrics
+as the ones reported for the SAEs in this section. We evaluate the SAEs on SAEBench [Karvonen
+et al., 2024].
+For the random SAEs trained on identical conditions as the non-random SAEs mentioned above, but
+on a randomized Pythia-70m with the embedding layer not being randomized, we obtain explained
+variances of between 0.63 to 0.80 (µ = 0.71, σ = 0.006), cosine similarities 1, cross entropy losses
+of 1, and L1 norm between 27.38 to 38.25. These results are similar to the results for Pythia-70mdeduped SAEs found by Heap et al. [2025], and indicates SAEs with good reconstruction and sparsity
+metrics.
+However, for our experiments that use these custom trained SAEs, we find that only around 2 to 4%
+of feature pairs are kept on average, in contrast to the 20 to 30% of features kept when running the
+pretrained models hosted by Eleuther and SAELens. We attribute this low amount of feature spaces
+to the quality of our trained SAEs in capturing features; while SAEs like those trained by Eleuther
+used around 8 billion tokens, our SAEs were trained using 100 million tokens, and as such may not
+be capturing features as well.
+
+C
+
+Base vs Fine Tuned Results
+
+We compare Gemma-2-2B vs Gemma-2-9B-Instruct, a fine tuned version, at Layers 9, 20, and 31
+of each model. Each SAE has a width of 16384 features. Only the pretrained SAEs for layers 9, 20
+and 31 were publically available online and hosted on SAELens. We obtain activations from the
+RedPajamas dataset [Weber et al., 2024] using 150 samples with a max sequence length of 150, for
+a total of 22.5k tokens. On average, 22.2% of feature pairs are kept after filtering, with the range
+between 16.4% and 33.5%. Figure 5 shows that closer layers had higher SVCCA scores, while RSA
+scores were low except for matching layers. This is consistent with previous work which found that
+SAE features can transfer across base to fine-tuned language models [Kissane et al., 2024a, Kutsyk
+et al., 2024].
+We also compare Gemma-1-2B vs Gemma-1-2B-Instruct, a fine tuned version, at Layer 12 of each
+model. Each SAE has a width of 16384 features. We obtain activations using 150 samples with a
+max sequence length of 150, for a total of 22.5k tokens. After filtering, the comparison achieves an
+SVCCA score of 0.84 (while mean random pairing has a score of 0.008) and an RSA score of 0.25
+(while mean random pairing has a score of 4.29 × 10−4 ). Around 50% of feature pairs are kept after
+filtering.
+
+D
+
+Baseline Comparisons to SAEs Trained on LLMs with Randomized
+Weights
+
+Recent research has demonstrated that training SAEs on randomly initialized transformers—where
+parameters are independently sampled from a Gaussian distribution rather than learned from text
+data—yields latent representations that are similarly interpretable to those from trained transformers
+[Heap et al., 2025]. One caveat is that the interpretable features of SAEs trained on "randomized"
+LLMs tend to activate on simple features, such as ones that activate on specific single tokens instead
+of more general concepts, rather than complex abstract features learned by middle to later layer SAEs.
+18
+
+31
+
+Paired SVCCA Scores
+0.455
+
+0.582
+
+Paired RSA Scores
+
+1.0
+
+0.617
+
+0.9
+
+0.080
+
+0.124
+
+1.0
+
+0.478
+
+9
+
+20
+
+Gemma2-9B-IT Layers
+
+0.8
+0.8
+
+0.7
+
+0.577
+
+0.819
+
+0.6
+
+0.337
+
+0.102
+
+0.419
+
+0.067
+
+0.6
+0.4
+0.5
+
+0.798
+
+0.615
+
+0.278
+
+20
+
+31
+
+0.402
+
+0.4
+
+0.140
+
+0.067
+
+20
+
+31
+
+0.2
+
+0.3
+
+9
+
+Gemma2-9B Layers
+
+9
+
+Gemma2-9B Layers
+
+(a)
+
+(b)
+
+Figure 5: Gemma-2-9B vs Gemma-2-9B-Instruct 1-1 paired SAE scores for (a) SVCCA and (b)
+RSA.
+The authors propose that there may be cases where "simple" interpretable latents may arise from
+the inherent sparsity of the text data used to train language models, rather than from uncovering the
+computational structure embedded within the underlying model. Thus, we test whether the feature
+similarities found across LLMs are due to the sparsity of the training data or due to the computational
+structure. We run experiments comparing the representational similarity of SAE features trained on
+randomized LLMs to SAE trained on the original LLMs. We call the former "random SAEs", and the
+latter "non-random SAEs".
+We find that, relative to other across model experiments, there is little similarity between the nonrandom SAEs and random SAEs, which suggests that our method is demonstrating SAE feature space
+similarity that is capturing the model’s computational structure, and is not just capturing similarity
+due to interpretability from the inherent sparity of the text data. In particular, not even the same layers
+have medium similarity. However, the small amounts of similarity do suggest that SAEs trained on
+even randomized LLMs can capture features in the data, which is consistent with the interpretable
+"simple, low information" features, such as those that just activate on single tokens, that were also
+present in random SAEs found by Heap et al. [2025].
+SAE Models. For Pythia-70m, we compare residual stream layer SAEs trained on a randomized
+Pythia-70m, to SAEs trained on the original Pythia-70m. Both SAEs were trained using 100 million
+tokens from the RedPajama dataset [Weber et al., 2024], with an expansion factor of 64 and a Top-K
+of 32. The embedding layer was not randomized. We evaluate the SAEs on SAEBench [Karvonen
+et al., 2024] and report their results in Section §B. Overall, all SAEs obtained good reconstruction
+and sparsity metric scores.
+Results. As shown in Figure 6, using 200 samples with a max sequence length of 200 for a total of
+40k tokens, we find that after filtering, we obtain very low SVCCA and RSA scores, indicating that
+random SAEs do not find features with notably similar relations compared to non-random SAEs. In
+comparison, the non-random SAEs obtained higher similarity scores when compared to other SAEs
+also trained on Pythia-70m, such as when comparing to the Eleuther SAEs as shown in Figure 12.
+Additionally, we find that only 1% of feature pairs are kept on average. The reason why this may
+occur is discussed in Section §B.
+
+E
+
+Within Model Feature Space Similarity Results
+
+E.1
+
+Comparing the same SAE to themselves
+
+As a sanity check that our method works, we compare running the same Pythia SAEs against
+themselves using our method. As expected, the same layers achieve 99 to 100% similar activation
+correlation, SVCCA, and RSA scores. However, for other layer pairs, our results obtained for the
+same model demonstrate that similarity scores greatly depend on the quality of the SAE that is
+trained. As shown in Figure 7, the Pythia-70m 32k latent SAEs trained on 8.2 billion tokens from
+19
+
+Paired SVCCA Scores
+
+Paired RSA Scores
+
+5
+
+0.043
+
+0.036
+
+0.028
+
+0.020
+
+0.029
+
+4
+
+0.081
+
+0.025
+
+0.093
+
+0.112
+
+0.097
+
+3
+
+0.021
+
+0.028
+
+0.037
+
+0.034
+
+0.052
+
+2
+
+0.045
+
+0.048
+
+0.042
+
+0.104
+
+0.091
+
+1
+
+1.0
+
+0.010
+
+0.017
+
+0.032
+
+0.045
+
+1
+
+2
+
+3
+
+4
+
+1.0
+
+0.013
+
+0.007
+
+0.015
+
+0.019
+
+0.023
+
+0.021
+
+0.009
+
+0.017
+
+0.018
+
+0.017
+
+0.006
+
+0.004
+
+0.016
+
+0.025
+
+0.041
+
+0.008
+
+0.010
+
+0.014
+
+0.001
+
+0.004
+
+0.102
+
+0.006
+
+0.003
+
+0.003
+
+0.018
+
+0.022
+
+5
+
+1
+
+2
+
+3
+
+4
+
+5
+
+0.8
+
+Pythia-70m Layers
+
+0.8
+
+0.6
+
+0.6
+
+0.4
+
+0.4
+
+0.2
+
+0.2
+
+Pythia-70m Rand Layers
+
+Pythia-70m Rand Layers
+
+(a)
+
+(b)
+
+Figure 6: Baseline Comparisons with SAEs trained on Randomized Pythia-70m: (a) SVCCA 1-1
+paired scores of SAEs, (b) RSA 1-1 paired scores of SAEs.
+The Pile show notable similarity between middle and later layers. However, as shown in Figure 8,
+the Pythia-70m 32k latent SAEs trained on only 100 million tokens from RedPajamas, which were
+trained on 1% of the training data as Eleuther’s SAEs, show almost no similarity for some middle /
+later layer pairs. This demonstrates that while models may have notable similarity, these similarities
+may not always be revealed by just any SAE; the quality of the SAE in capturing these features is
+important. Additionally, different SAEs may reveal different features. For instance, the Layer 5 to
+Layer 1 pair in Figure 7 shows low similarity, while the same pair in Figure 8 shows medium-high
+similarity.
+This is consistent with recent results which found that SAEs do not learn consistent features [Leask
+et al., 2025, Hindupur et al., 2025]. Thus, while we show that certain subspaces learned by LLMs
+have high similarity, as revealed by SAEs, these subspaces may not always be consistently captured
+by arbitrary SAEs. This demonstrates a limitation of SAEs- they can capture different features that are
+shared across models, but cannot do this consistently. Thus, future work can attempt to address this
+limitation to develop SAEs that capture features more consistently. Indeed, recent work has already
+developed "universal SAEs" that can better capture features found across models [Thasarathan et al.,
+2025].
+Paired SVCCA Scores
+
+Paired RSA Scores
+
+5
+
+0.050
+
+0.129
+
+0.166
+
+0.263
+
+1.000
+
+4
+
+0.262
+
+0.197
+
+0.314
+
+1.000
+
+0.279
+
+3
+
+0.529
+
+0.648
+
+1.000
+
+0.290
+
+0.082
+
+2
+
+0.626
+
+1.000
+
+0.669
+
+0.303
+
+0.092
+
+1
+
+1.0
+
+1.000
+
+0.564
+
+0.462
+
+0.169
+
+1
+
+2
+
+3
+
+4
+
+1.0
+
+0.059
+
+0.095
+
+0.133
+
+0.140
+
+1.000
+
+0.078
+
+0.092
+
+0.177
+
+1.000
+
+0.146
+
+0.164
+
+0.257
+
+1.000
+
+0.133
+
+0.084
+
+0.268
+
+1.000
+
+0.310
+
+0.094
+
+0.085
+
+0.010
+
+1.000
+
+0.240
+
+0.171
+
+0.061
+
+0.047
+
+5
+
+1
+
+2
+
+3
+
+4
+
+5
+
+Pythia-70m Layers
+
+0.8
+
+0.8
+
+0.6
+
+0.6
+
+0.4
+
+0.4
+
+0.2
+
+Pythia-70m Layers
+
+0.2
+
+(a)
+
+Pythia-70m Layers
+
+(b)
+
+Figure 7: (a) SVCCA 1-1 paired scores of the same SAE trained on 8.2 billion tokens from The Pile
+by Eleuther, (b) RSA 1-1 paired scores of the same SAE.
+E.2
+
+Comparing SAEs trained with different seeds
+
+Pythia-70m Results . We trained two SAEs with different seeds on Pythia-70m. As discussed in
+Section §E.1, due to training limitations such as only using 100 million tokens during training, these
+20
+
+Paired SVCCA Scores
+
+Paired RSA Scores
+
+5
+
+0.330
+
+0.133
+
+0.149
+
+0.032
+
+1.000
+
+4
+
+0.316
+
+0.074
+
+0.025
+
+1.000
+
+0.004
+
+3
+
+0.561
+
+0.165
+
+1.000
+
+0.095
+
+0.330
+
+2
+
+0.299
+
+1.000
+
+0.011
+
+0.020
+
+0.107
+
+1
+
+1.0
+
+1.000
+
+0.609
+
+0.553
+
+0.371
+
+1
+
+2
+
+3
+
+4
+
+1.0
+
+0.039
+
+0.039
+
+0.039
+
+0.038
+
+1.000
+
+0.066
+
+0.073
+
+0.061
+
+1.000
+
+0.048
+
+0.111
+
+0.137
+
+1.000
+
+0.060
+
+0.066
+
+0.142
+
+1.000
+
+0.103
+
+0.051
+
+0.064
+
+0.519
+
+1.000
+
+0.128
+
+0.110
+
+0.067
+
+0.067
+
+5
+
+1
+
+2
+
+3
+
+4
+
+5
+
+Pythia-70m Layers
+
+0.8
+
+0.8
+
+0.6
+
+0.6
+
+0.4
+
+0.4
+
+0.2
+
+Pythia-70m Layers
+
+0.2
+
+(a)
+
+Pythia-70m Layers
+
+(b)
+
+Figure 8: (a) SVCCA 1-1 paired scores of the same SAE trained on 100 million tokens from
+RedPajamas, (b) RSA 1-1 paired scores of the same SAE.
+SAEs do not capture features as well as higher quality SAEs such as Eleuther’s SAEs trained on 8.2
+billion tokens from the Pile. Thus, we compare the results of SAEs trained on different seeds with
+the results of Figure 8, which compare the SAE with itself as a baseline, rather than assuming that
+the adjacent layers must be highly similar (or in other words, Figure 7 would not be suitable as a
+baseline).
+The SAE results on different seeds is shown in Figure 9, and show some resemblance to the results of
+Figure 8. Notably, this occurs in how the first layer (bottom row) have high similarities, while the
+later layer comparisons show very low or no similarity. However, there are still notable dissimilarities;
+for instance, the same-layer comparisons along the diagonal for SAEs trained on different seeds only
+have a similarity of 0.376 on average, which is much less than the similarity of 1 for the same SAEs.
+Thus, the results of comparing SAEs trained on different seeds are similar to the results of comparing
+the same SAE to itself, but with notable differences.
+As mentioned before in Section §E.1, this is consistent with recent results which found that SAEs
+do not learn consistent features [Leask et al., 2025, Hindupur et al., 2025]. Despite not finding the
+same features, which can be viewed as a form of strong universality, these SAEs still show notable
+similarity. This can be viewed as a form of weak universality; see Appendix H for further discussion
+on this topic.
+Paired SVCCA Scores
+
+Paired RSA Scores
+
+5
+
+0.294
+
+0.215
+
+0.059
+
+0.049
+
+0.354
+
+4
+
+0.283
+
+0.175
+
+0.111
+
+0.172
+
+0.044
+
+3
+
+0.544
+
+0.401
+
+0.303
+
+0.226
+
+0.234
+
+2
+
+0.034
+
+0.412
+
+0.106
+
+0.012
+
+0.036
+
+1
+
+1.0
+
+0.638
+
+0.403
+
+0.493
+
+0.451
+
+1
+
+2
+
+3
+
+4
+
+1.0
+
+0.034
+
+0.043
+
+0.041
+
+0.033
+
+0.069
+
+0.065
+
+0.075
+
+0.053
+
+0.089
+
+0.051
+
+0.110
+
+0.138
+
+0.116
+
+0.059
+
+0.065
+
+0.137
+
+0.158
+
+0.103
+
+0.051
+
+0.063
+
+0.414
+
+0.125
+
+0.134
+
+0.119
+
+0.071
+
+0.063
+
+5
+
+1
+
+2
+
+3
+
+4
+
+5
+
+Pythia-70m Layers
+
+0.8
+
+0.8
+
+0.6
+
+0.6
+
+0.4
+
+0.4
+
+0.2
+
+Pythia-70m Layers
+
+0.2
+
+(a)
+
+Pythia-70m Layers
+
+(b)
+
+Figure 9: (a) SVCCA 1-1 paired scores of two SAEs trained with different seeds on 100 million
+tokens from RedPajamas, (b) RSA 1-1 paired scores of the SAEs. The SAE on the rows (y-axis) is
+the same SAE as the one in Figure 8.
+Tinystories Results . To examine SAE feature space similarities when trained on the same model,
+we train multiple SAEs on a one-layer Tinystories model.
+21
+
+SAE Training Parameters. We train two SAEs at different seeds for a TinyStories-1L-21M model
+[Eldan, 2023]. Both SAEs are trained at 30k steps with expansion factor of 16, for a 16384 total
+features, on a TinyStories dataset, and using ReLU as the activation function. We use a batch size
+of 4096 tokens and train with an Adam optimizer, applying a constant learning rate of 1 × 10−5 .
+The learning rate follows a warm-up-free schedule with a decay period spanning 20% of the total
+training steps. L1 sparsity regularization is applied with a coefficient of 5, and its effect gradually
+increases over the first 5% of training steps. We obtain SAE activations using 500 samples from the
+TinyStories dataset with a max sequence length of 128 (for a total of 64000 tokens).
+ManyA-to-1B. This experiment allows multiple features from SAE A to map onto a single feature
+from SAE B. Before filtering non-concept features, this comparison achieves an SVCCA score
+of 0.73, retaining 9930 feature pairs. After filtering for non-concept features (for this study, we
+only filter for periods and padding tokens), this pair achieves an SVCCA score of 0.94. Randomly
+paired achieves a score of 0.004 for 10 runs. We found that filtering for 1-1 did not change the score
+much. In contrast, for 10 random runs where we randomly choose 7 tokens that are not part of the
+non-concept tokens, the filtering of these randomly chosen tokens does not change the unfiltered
+SVCCA score of 0.73.
+1A-to-ManyB. This experiment allows multiple features from SAE B to map onto a single feature
+from SAE A. Before filtering nonconcept features, this comparison achieves an SVCCA score of
+0.8. After filtering for nonconcept features, this pair achieves an SVCCA score of 0.94, retaining
+13073 feature pairs. We found that filtering for 1-1 did not change the score much. The results for
+"randomly chosen tokens filtering" and "randomly shuffled pairing" match those for the ManyA-to-1B
+experiment.
+Cosine Similarity. Given that these SAEs were trained on the same model, we also compare use
+cosine similarity instead of activation correlation to pair the features. We obtain an average cosine
+similarity of 0.9. When using cosine similarity to pair the SAE features, we obtain an SVCCA score
+of 0.92. This occurs whether we use 1A-to-ManyB or ManyA-to-1B. Every feature finds a unique
+pairing, despite neither matrix containing exact matches for their features with one another.
+Different SAE Widths. We find similar results for SAEs trained using an expansion factor of 8, for
+8192 total features. For ManyA-to-1B, before filtering, an SVCCA score of 0.84 is achieved, and
+after filtering, an SVCCA score of 0.94 is achieved. For 1A-to-ManyB, before filtering, an SVCCA
+score of 0.87 is achieved, and after filtering, an SVCCA score of 0.94 is achieved.
+E.3
+
+Comparing SAEs with different widths
+
+Figure 10 shows SAEs with 32k latents vs SAEs with 16k latents, both trained on Pythia-70m. This
+32k SAE is the SAE shown on the columns (x-axis) of Figure 9. After filtering, around 3.47% of
+feature pairs are kept on average. Figure 11 shows an SAE with 64k latents vs an SAE with 32k
+latents, both trained on Pythia-70m. After filtering, around 3.88% of feature pairs are kept on average.
+The reason why this may occur is discussed in Section §B.
+In general, we do not find noticeable trends in scores as we vary SAE widths. This may be because
+each SAE varies in the features they capture Leask et al. [2025], so while they capture feature
+similarities across models, the similar features that they do capture are not the same for each SAE.
+We did not evaluate for feature splitting or absorption [Chanin et al., 2024].
+E.4
+
+Comparing SAEs trained on different datasets
+
+We compare SAEs on Pythia-70m trained on different training data. We trained an SAE trained on
+the residual stream layers of Pythia-70m using 100 million tokens using the RedPajama dataset at a
+context length of 256, with 32768 feature neurons (an expansion factor of 64 and Top-K) of 32. We
+compare our SAE with Eleuther’s SAE trained at residual streams using 8.2 billion tokens from the
+Pile training set at a context length of 2049 with 32768 feature neurons and Top-K of 16.
+To obtain activations, we use 200 samples with a max sequence length of 200, and after filtering
+around 4.58% of feature pairs are kept on average, in contrast to the 20 to 30% of feature pairs kept
+by comparing Eleuther’s pretrained SAEs with each other, perhaps due to the lower quality of our
+SAEs as discussed in Section §B.
+22
+
+Paired SVCCA Scores
+0.306
+
+0.135
+
+0.051
+
+0.475
+
+4
+
+0.396
+
+0.144
+
+0.156
+
+0.019
+
+0.100
+
+3
+
+0.418
+
+0.378
+
+0.131
+
+0.082
+
+0.178
+
+2
+
+0.154
+
+0.443
+
+0.029
+
+0.055
+
+0.126
+
+1
+
+0.489
+
+0.524
+
+0.498
+
+0.481
+
+2
+
+3
+
+4
+
+5
+
+0.399
+
+Pythia-70m (16k width) Layers
+
+Paired RSA Scores
+
+1.0
+
+1.0
+
+0.050
+
+0.064
+
+0.055
+
+0.045
+
+0.106
+
+0.079
+
+0.099
+
+0.075
+
+0.116
+
+0.078
+
+0.130
+
+0.163
+
+0.148
+
+0.076
+
+0.068
+
+0.151
+
+0.197
+
+0.129
+
+0.068
+
+0.081
+
+0.366
+
+0.137
+
+0.152
+
+0.135
+
+0.079
+
+0.065
+
+5
+
+1
+
+2
+
+3
+
+4
+
+5
+
+0.8
+
+0.8
+
+0.6
+
+0.6
+
+0.4
+
+0.4
+
+0.2
+
+1
+
+Pythia-70m (32k width) Layers
+
+0.2
+
+Pythia-70m (32k width) Layers
+
+(a)
+
+(b)
+
+Figure 10: (a) SVCCA 1-1 paired scores of an SAE with 32k latents vs an SAE with 16k latents, (b)
+RSA 1-1 paired scores of the SAEs.
+
+0.184
+
+0.015
+
+Paired RSA Scores
+
+1.0
+
+0.007
+
+0.372
+
+1.0
+
+0.035
+
+0.038
+
+0.034
+
+0.033
+
+0.061
+
+0.059
+
+0.069
+
+0.048
+
+0.075
+
+0.037
+
+0.102
+
+0.124
+
+0.103
+
+0.052
+
+0.054
+
+0.124
+
+0.142
+
+0.084
+
+0.044
+
+0.050
+
+0.125
+
+0.106
+
+0.058
+
+0.052
+
+2
+
+3
+
+4
+
+5
+
+0.8
+
+4
+
+0.154
+
+0.028
+
+0.208
+
+0.036
+
+3
+
+0.551
+
+0.141
+
+0.306
+
+0.036
+
+0.088
+
+2
+
+0.8
+
+0.365
+
+0.002
+
+0.459
+
+0.179
+
+0.014
+
+0.083
+
+1
+
+Pythia-70m (32k width) Layers
+
+5
+
+Paired SVCCA Scores
+0.373
+
+0.672
+
+0.545
+
+0.509
+
+0.441
+
+0.392
+
+0.116
+
+2
+
+3
+
+4
+
+5
+
+1
+
+0.6
+
+0.6
+
+0.4
+
+0.4
+
+0.2
+
+1
+
+Pythia-70m (64k width) Layers
+
+0.2
+
+(a)
+
+Pythia-70m (64k width) Layers
+
+(b)
+
+Figure 11: (a) SVCCA 1-1 paired scores of an SAE with 64k latents vs an SAE with 32k latents, (b)
+RSA 1-1 paired scores of the SAEs.
+Figure 12 shows that the two sets of SAEs show some similarities, such as at Layers 1, 3, and
+5, but also notable dissimilarities, such as having nearly no similarities at Layers 2 and 4. These
+discrepencies may be due to the difference in training data, as it has been shown that SAEs are highly
+dataset dependent [Kissane et al., 2024b]. However, despite these discrepencies in individual features,
+the feature subspaces we compare appears to be highly similar, which may suggest that while the
+specific values captured by feature weight vectors may differ, these values lie in similar latent space
+regions that capture similar semantics.
+We also train SAEs using 100 million tokens from OpenWebText and compare them to the SAEs we
+trained on RedPajamas. These results are shown in Figure 13. Similar to the results in Figure 12, we
+find both similarities and dissimlarities which suggest that SAEs are highly dataset dependent.
+
+F
+
+Cross Model SAE Width Variation Results
+
+We compare what happens to similarity scores as we increase SAE widths for both Pythia-70m and
+Pythia-160m. All SAEs were trained using 100 million tokens from RedPajamas and use Top-K of 32.
+Similar to Section §E.3, we do not find noticeable trends in scores as we vary SAE widths. This may
+be because each SAE varies in the features they capture, so while they capture feature similarities
+across models, the similar features that they do capture are not the same for each SAE.
+Figure 14 SVCCA and RSA 1-1 paired scores of 24k latent SAEs trained on Pythia-160m vs 16k
+latent SAEs trained on Pythia-70m, and Figure 15 SVCCA and RSA 1-1 paired scores of 49k latent
+23
+
+Paired SVCCA Scores
+
+Paired RSA Scores
+
+5
+
+0.191
+
+0.297
+
+0.311
+
+0.018
+
+0.390
+
+4
+
+0.112
+
+0.037
+
+0.073
+
+0.067
+
+0.094
+
+3
+
+0.292
+
+0.384
+
+0.348
+
+0.294
+
+0.299
+
+2
+
+0.082
+
+0.084
+
+0.248
+
+0.055
+
+0.014
+
+1
+
+1.0
+
+0.318
+
+0.275
+
+0.237
+
+0.425
+
+2
+
+3
+
+4
+
+1.0
+
+0.022
+
+0.040
+
+0.049
+
+0.037
+
+0.070
+
+0.052
+
+0.071
+
+0.089
+
+0.090
+
+0.062
+
+0.086
+
+0.131
+
+0.195
+
+0.089
+
+0.100
+
+0.133
+
+0.182
+
+0.237
+
+0.077
+
+0.110
+
+0.429
+
+0.136
+
+0.158
+
+0.186
+
+0.126
+
+0.101
+
+5
+
+1
+
+2
+
+3
+
+4
+
+5
+
+Pythia-70m Layers
+
+0.8
+
+0.8
+
+0.6
+
+0.6
+
+0.4
+
+0.4
+
+0.2
+
+1
+
+Eleuther Pythia-70m Layers
+
+0.2
+
+Eleuther Pythia-70m Layers
+
+(a)
+
+(b)
+
+Figure 12: (a) SVCCA 1-1 paired scores of Eleuther’s SAE (trained on 8.2 billion tokens from the
+Pile) vs our SAE (trained on 100 million tokens from RedPajamas). Both have 32k latents. (b) RSA
+1-1 paired scores of the SAEs.
+Paired SVCCA Scores
+0.324
+
+0.073
+
+0.139
+
+0.009
+
+0.059
+
+4
+
+0.350
+
+0.004
+
+0.148
+
+0.173
+
+0.116
+
+3
+
+0.500
+
+0.379
+
+0.411
+
+0.038
+
+0.271
+
+2
+
+0.083
+
+0.438
+
+0.086
+
+0.064
+
+0.005
+
+1
+
+0.630
+
+0.579
+
+0.543
+
+0.318
+
+1
+
+2
+
+3
+
+4
+
+5
+
+Paired RSA Scores
+
+1.0
+
+1.0
+
+0.045
+
+0.047
+
+0.044
+
+0.036
+
+0.065
+
+0.062
+
+0.071
+
+0.061
+
+0.079
+
+0.039
+
+0.127
+
+0.128
+
+0.107
+
+0.064
+
+0.061
+
+0.135
+
+0.137
+
+0.091
+
+0.051
+
+0.059
+
+0.470
+
+0.121
+
+0.127
+
+0.114
+
+0.069
+
+0.064
+
+5
+
+1
+
+2
+
+3
+
+4
+
+5
+
+Pythia-70m Layers (OWT)
+
+0.8
+
+0.8
+
+0.6
+
+0.6
+
+0.4
+
+0.4
+
+0.2
+
+Pythia-70m (RP) Layers
+
+0.2
+
+(a)
+
+Pythia-70m (RP) Layers
+
+(b)
+
+Figure 13: (a) SVCCA 1-1 paired scores of our SAEs trained on RedPajamas (columns, x-axis) vs
+our SAEs trained on OpenWebText (rows, y-axis). Both have 32k latents. (b) RSA 1-1 paired scores
+of the SAEs.
+SAEs trained on Pythia-160m vs 32k latent SAEs trained on Pythia-70m. In both figures, while
+SVCCA scores are moderately high for some layers, the RSA scores are very low.
+
+G
+
+Varying factors used to obtain activations
+
+G.1
+
+Comparing different datasets to obtain activations
+
+We compare results using different datasets, namely the RedPajamas and OpenWebText datasets,
+to obtain dataset activations used for matching features by activation correlation. For Eleuther’s
+32k SAEs trained on Pythia-160m vs on Pythia-70m, Figure 16 displays results from using the
+RedPajamas dataset, whereas Figure 17 displays results from using the OpenWebText dataset.
+Overall, the results are similar, with scores from OpenWebText being slightly higher in most cases.
+This demonstrates that our method is not highly dataset dependent when obtaining activations to pair
+features by correlation.
+Note that these results differ from previous results in Figure 2 because for features matching using
+Many-to-1 (before filtering), we are using Pythia 160m as the model whose features can have "Many"
+mappings and Pythia 70m as model whose features can only have "1" mapping, whereas the results in
+Figure 2 reverse these roles. As implied in Section §J, the results of using a model in the "Many" or
+24
+
+Paired SVCCA Scores
+
+Paired RSA Scores
+
+5
+
+0.409
+
+0.187
+
+0.320
+
+0.208
+
+0.359
+
+4
+
+0.239
+
+0.233
+
+0.113
+
+0.197
+
+0.181
+
+3
+
+0.217
+
+0.339
+
+0.338
+
+0.334
+
+0.273
+
+2
+
+0.155
+
+0.092
+
+0.005
+
+0.054
+
+0.069
+
+1
+
+1.0
+
+0.227
+
+0.308
+
+0.516
+
+0.591
+
+2
+
+4
+
+6
+
+8
+
+1.0
+
+0.050
+
+0.050
+
+0.056
+
+0.058
+
+0.083
+
+0.060
+
+0.062
+
+0.061
+
+0.075
+
+0.075
+
+0.088
+
+0.079
+
+0.089
+
+0.100
+
+0.092
+
+0.103
+
+0.092
+
+0.109
+
+0.101
+
+0.090
+
+0.514
+
+0.074
+
+0.087
+
+0.104
+
+0.100
+
+0.080
+
+10
+
+2
+
+4
+
+6
+
+8
+
+10
+
+Pythia-70m Layers
+
+0.8
+
+0.8
+
+0.6
+
+0.6
+
+0.4
+
+0.4
+
+0.2
+
+Pythia-160m Layers
+
+(a)
+
+Pythia-160m Layers
+
+0.2
+
+(b)
+
+Figure 14: (a) SVCCA 1-1 paired scores of 24k latent SAEs trained on Pythia-160m vs 16k latent
+SAEs trained on Pythia-70m. (b) RSA 1-1 paired scores of the SAEs.
+Paired SVCCA Scores
+
+Paired RSA Scores
+
+5
+
+0.270
+
+0.149
+
+0.229
+
+0.157
+
+4
+
+0.093
+
+0.114
+
+0.074
+
+0.108
+
+0.060
+
+3
+
+0.303
+
+0.315
+
+0.380
+
+0.416
+
+0.244
+
+2
+
+0.211
+
+0.152
+
+0.034
+
+0.232
+
+0.196
+
+1
+
+1.0
+
+0.249
+
+0.432
+
+0.501
+
+0.568
+
+0.545
+
+2
+
+4
+
+6
+
+8
+
+1.0
+
+0.037
+
+0.032
+
+0.035
+
+0.042
+
+0.042
+
+0.053
+
+0.041
+
+0.045
+
+0.046
+
+0.055
+
+0.078
+
+0.068
+
+0.073
+
+0.081
+
+0.067
+
+0.086
+
+0.078
+
+0.084
+
+0.085
+
+0.067
+
+0.517
+
+0.075
+
+0.096
+
+0.097
+
+0.094
+
+0.076
+
+10
+
+2
+
+4
+
+6
+
+8
+
+10
+
+0.8
+
+Pythia-70m Layers
+
+0.8
+
+0.6
+
+0.6
+
+0.4
+
+0.4
+
+0.2
+
+0.2
+
+Pythia-160m Layers
+
+(a)
+
+Pythia-160m Layers
+
+(b)
+
+Figure 15: (a) SVCCA 1-1 paired scores of 49k latent SAEs trained on Pythia-160m vs 32k latent
+SAEs trained on Pythia-70m. (b) RSA 1-1 paired scores of the SAEs.
+"1" places of Many-to-1 are not symmetric, partly due to using max correlation to choose a feature’s
+partner.
+Paired SVCCA Scores
+
+Paired RSA Scores
+
+5
+
+0.004
+
+0.073
+
+0.147
+
+0.473
+
+0.505
+
+4
+
+0.140
+
+0.143
+
+0.252
+
+0.352
+
+0.178
+
+3
+
+0.361
+
+0.451
+
+0.540
+
+0.250
+
+0.004
+
+2
+
+0.407
+
+0.431
+
+0.557
+
+0.205
+
+0.028
+
+1
+
+1.0
+
+0.345
+
+0.348
+
+0.406
+
+0.014
+
+2
+
+4
+
+6
+
+8
+
+1.0
+
+0.033
+
+0.067
+
+0.082
+
+0.099
+
+0.095
+
+0.049
+
+0.087
+
+0.107
+
+0.122
+
+0.098
+
+0.067
+
+0.129
+
+0.130
+
+0.134
+
+0.074
+
+0.084
+
+0.158
+
+0.156
+
+0.144
+
+0.068
+
+0.073
+
+0.071
+
+0.109
+
+0.102
+
+0.093
+
+0.049
+
+10
+
+2
+
+4
+
+6
+
+8
+
+10
+
+Pythia-70m Layers
+
+0.8
+
+0.8
+
+0.6
+
+0.6
+
+0.4
+
+0.4
+
+0.2
+
+Pythia-160m Layers
+
+0.2
+
+(a)
+
+Pythia-160m Layers
+
+(b)
+
+Figure 16: (a) SVCCA 1-1 paired scores of Eleuther’s 32k SAEs trained on Pythia-160m vs on
+Pythia-70m. (b) RSA 1-1 paired scores of the SAEs. The dataset activations were obtained using 40k
+tokens from the RedPajamas dataset.
+25
+
+Paired SVCCA Scores
+
+Paired RSA Scores
+
+5
+
+0.059
+
+0.087
+
+0.289
+
+0.457
+
+0.516
+
+4
+
+0.211
+
+0.294
+
+0.240
+
+0.344
+
+0.307
+
+3
+
+0.422
+
+0.572
+
+0.573
+
+0.436
+
+0.120
+
+2
+
+0.462
+
+0.612
+
+0.628
+
+0.397
+
+0.160
+
+1
+
+1.0
+
+0.362
+
+0.418
+
+0.401
+
+0.106
+
+0.053
+
+2
+
+4
+
+6
+
+8
+
+10
+
+1.0
+
+0.040
+
+0.080
+
+0.096
+
+0.116
+
+0.121
+
+0.055
+
+0.096
+
+0.095
+
+0.123
+
+0.114
+
+0.087
+
+0.155
+
+0.159
+
+0.165
+
+0.101
+
+0.123
+
+0.208
+
+0.193
+
+0.193
+
+0.097
+
+0.085
+
+0.126
+
+0.117
+
+0.113
+
+0.060
+
+2
+
+4
+
+6
+
+8
+
+10
+
+0.8
+
+Pythia-70m Layers
+
+0.8
+
+0.6
+
+0.6
+
+0.4
+
+0.4
+
+Pythia-160m Layers
+
+0.2
+
+0.2
+
+(a)
+
+Pythia-160m Layers
+
+(b)
+
+Figure 17: (a) SVCCA 1-1 paired scores of Eleuther’s 32k SAEs trained on Pythia-160m vs on
+Pythia-70m. (b) RSA 1-1 paired scores of the SAEs. The dataset activations were obtained using 40k
+tokens from the OpenWebText dataset.
+G.2
+
+Comparing more data to obtain activations
+
+Figure 18 shows SVCCA Many-1 paired scores of SAEs for layers in Pythia-70m vs layers in
+Pythia-160m. This is run with 90k tokens, using 300 samples with a max sequence length of 300.
+Layer 3 appears to be an outlier, perhaps due to errors in feature matching. These results are similar
+to and consistent with the results of Figure 20, suggesting that other method is not heavily dependent
+on the number of tokens used to obtain activations.
+
+Figure 18: (a) SVCCA Many-1 paired scores of SAEs for layers in Pythia-70m vs layers in Pythia160m. This is run with 90k tokens, using 300 samples with a max sequence length of 300. Layer 3
+appears to be an outlier, perhaps due to errors in feature matching. This is consistent with Figure 20.
+
+H
+
+Universal Vs True Features
+
+Our definition of universal features is based on Claim 3 of "Zoom In: An Introduction to Circuits",
+which defines universality as studying the extent to which analogous features and circuits form across
+models and tasks [Olah et al., 2020]. Previous work has investigated similar claims by showing
+evidence for highly correlated neurons [Yosinski et al., 2014, Gurnee et al., 2024] and similar
+feature space representations at hidden layers [Kornblith et al., 2019, Klabunde et al., 2023]. Using
+these definitions of universality, our results find both highly correlated features and similar feature
+representations in SAEs.
+On the other hand, “true features” [Bricken et al., 2023] can be interpreted as atomic linear directions,
+such that activations are a linear combination of "true feature" directions [Till, 2023], though this
+26
+
+definition is still subject to change in future works. This definition for features imposes stricter
+requirements which do not just rely on high correlation and similar representations, but define "true
+features" as linear directions that model the same concepts, assuming they exist in ground truth.
+Previous work has shown that SAEs may capture ground truth features Sharkey et al. [2022], and
+provided evidence that SAE features are not atomic [Leask et al., 2025], which suggests SAEs may
+not be sufficient to capture "true features" if they exist.
+Chughtai et al. [2023] define universality in terms of weak and strong universality. Strong universality
+claims that models trained in similar ways will develop the same features and circuits, whereas
+weak universality argues that fundamental principles, such as similar functionalities, are learned
+across models, but their exact implementations may vary considerably. From this perspective, strong
+universality would correspond more with "true features", while our paper would align closer to
+measuring weak universality in terms of similar feature space correlations.
+The Importance of Analogous Features. While features across models may not capture the same
+ground truth feature representations, having analogous feature spaces could suggest that there may be
+transformations or mappings between the representation spaces of models which reveal their similarity.
+As such, this has implications for transfer learning and model stitching in which representations,
+including cross-layer circuits, from one model may be transferred to another (possibly larger) model
+through a mapping model [Bansal et al., 2021], allowing for feature functionality transfer. These
+studies may also have implications for furthering studies in neuroscience, as past research has been
+conducted on measuring the extent of alignment across biological and artificial neural networks
+[Goldstein et al., 2024], and previous work has also found high-low feature detectors in both vision
+models [Schubert et al., 2021] and mouse brains [Ding et al., 2023].
+Currently, there are no standardized definitions for analogous features, though it may be possible to
+develop them. For instance, one possible way to better formalize a definition of analogous features
+would be along the lines of using a criteria akin to (f ◦ g)(x) = (h ◦ f )(y) , given that f is a mapping,
+while g and h are relations, such as distances, between points x ∈ X and y ∈ Y for spaces X and Y .
+This paper seeks to measure the extent of universality in terms of "analogous features in representational space", and unlike Huh et al. [2024], does not claim that models converge towards finding
+universal features. This follows previous papers which also measured the extent to which different
+neural networks learn the same representation [Wang et al., 2018a]. We provide evidence that shows
+there are non-negligible signals of universality captured by subsets of SAE feature spaces across
+models, but also claim that many feature space subsets in SAEs are dissimilar in terms of their
+representations and relations in feature space. Still, since this may be due to the limitations of SAEs
+in capturing features [Engels et al., 2024], these results do not conclude that in these dissimilar areas,
+models do not share universal features, and further work must be done in this area to draw stronger
+conclusions.
+Stated another way, this paper is not claiming that different SAEs consistently learn the same universal
+features captured by LLMs. Rather, it is claiming that LLMs learn weakly universal features, and
+that SAEs can capture not only these features, but their relations. However, one notable limitation is
+that SAEs cannot capture these features consistently.
+
+I
+
+Illustrated Steps of Comparison Method
+
+Figure 19 demonstrates steps 1 to 3 to carry out our similarity comparison experiments. Since
+SVCCA and RSA are carried out by using the features (or data samples) on the rows, we take the
+transpose of the decoder weight matrices, which represent the features on its columns.
+Note that while these measures are permutation-invariant in their columns, they are not invariant in
+regards to their rows, which must still be paired correctly [Klabunde et al., 2023]. Additionally, these
+measures require both matrices to have the same number of rows. For SAEs with the same number
+of feature columns, this is not an issue, but for SAEs with different number of columns, we only
+consider 1-1 mappings.
+27
+
+Figure 19: Steps to Main Results. We first find correlated pairs to solve neuron permutation, and then
+apply similarity metrics to solve latent space rotation issues.
+0.100
+
+0.278
+
+0.025
+
+0.036
+
+0.048
+
+0.038
+
+0.059
+
+0.027
+
+0.063
+
+0.219
+
+0.235
+
+0.222
+
+0.041
+
+0.059
+
+0.078
+
+0.051
+
+0.064
+
+0.200
+
+0.206
+
+0.100
+
+0.037
+
+0.284
+
+0.053
+
+0.074
+
+0.086
+
+0.032
+
+0.058
+
+8
+
+0.352
+
+0.438
+
+0.230
+
+0.294
+
+0.272
+
+0.070
+
+0.104
+
+0.113
+
+0.039
+
+0.061
+
+7
+
+0.425
+
+0.519
+
+0.519
+
+0.264
+
+0.141
+
+0.064
+
+0.097
+
+0.099
+
+0.034
+
+0.045
+
+6
+
+0.415
+
+0.469
+
+0.389
+
+0.296
+
+0.166
+
+0.080
+
+0.107
+
+0.123
+
+0.036
+
+0.051
+
+5
+
+0.505
+
+0.598
+
+0.597
+
+0.305
+
+0.149
+
+0.111
+
+0.160
+
+0.151
+
+0.045
+
+0.054
+
+4
+
+0.432
+
+0.471
+
+0.458
+
+0.268
+
+0.127
+
+0.090
+
+0.132
+
+0.123
+
+0.041
+
+0.045
+
+0.082
+
+0.033
+
+0.112
+
+0.050
+
+0.070
+
+0.053
+
+0.043
+
+0.048
+
+0.015
+
+0.018
+
+0.328
+
+0.325
+
+0.280
+
+0.133
+
+0.038
+
+0.064
+
+0.079
+
+0.065
+
+0.022
+
+0.023
+
+0.185
+1
+
+0.158
+2
+
+0.138
+3
+
+0.031
+4
+
+0.003
+5
+
+0.036
+1
+
+0.041
+2
+
+0.030
+3
+
+0.010
+4
+
+0.011
+5
+
+1
+
+Pythia-160m Layers
+
+9
+
+10 11
+
+0.055
+
+3
+
+Paired RSA Scores
+
+0.085
+
+2
+
+Paired SVCCA Scores
+0.133
+
+Pythia-70m Layers
+
+0.5
+
+0.4
+
+0.3
+
+0.2
+
+0.1
+
+(a)
+
+Pythia-70m Layers
+
+0.14
+
+0.12
+
+0.10
+
+0.08
+
+0.06
+
+0.04
+
+0.02
+
+(b)
+
+Figure 20: (a) SVCCA and (b) RSA Many-to-1 paired scores of SAEs for layers in Pythia-70m vs
+layers in Pythia-160m. We note there appears to be an "anomaly" at L2 vs L3 with a low SVCCA
+score; we find that taking 1-1 features greatly increases this score from 0.03 to 0.35, as shown and
+explained in Figure 2.
+
+J
+
+Noise of Many-to-1 mappings
+
+Overall, we do not aim for mappings that uniquely pair every feature of both spaces as we hypothesize
+that it is unlikely that all the features are the same in each SAE; rather, we are looking for large
+subspaces where the features match by activations and we can map one subspace to another.
+We hypothesize that these many-to-1 features may contribute a lot of noise to feature space alignment
+similarity, as information from a larger space (eg. a ball) is collapsed into a dimension with much
+less information (eg. a point). Thus, when we only include 1-1 features in our similarity scores, we
+receive scores with much less noise.
+As shown in the comparisons of Figure 20 to Figure 21, we find the 1-1 feature mappings give
+slightly higher scores for many layer pairs, like for the SVCCA scores at L2 vs L3 for Pythia-70m vs
+Pythia-160m, though they give slightly lower scores for a few layer pairs, like for the SVCCA scores
+28
+
+0.304
+
+0.480
+
+0.065
+
+0.145
+
+0.206
+
+0.341
+
+0.541
+
+0.294
+
+0.299
+
+0.509
+
+0.367
+
+0.452
+
+8
+
+0.318
+
+0.384
+
+0.541
+
+0.347
+
+0.379
+
+7
+
+0.507
+
+0.623
+
+0.649
+
+0.246
+
+0.253
+
+6
+
+0.498
+
+0.600
+
+0.633
+
+0.318
+
+0.290
+
+5
+
+0.561
+
+0.678
+
+0.661
+
+0.263
+
+0.226
+
+4
+
+0.506
+
+0.570
+
+0.521
+
+0.192
+
+0.064
+
+0.381
+
+0.348
+
+0.244
+
+0.129
+
+0.092
+
+0.406
+
+0.398
+
+0.340
+
+0.164
+
+0.078
+
+0.243
+1
+
+0.190
+2
+
+0.155
+3
+
+0.028
+4
+
+0.011
+5
+
+1
+
+Pythia-160m Layers
+
+9
+
+10 11
+
+0.198
+
+3
+
+Paired RSA Scores
+
+0.189
+
+2
+
+Paired SVCCA Scores
+0.111
+
+Pythia-70m Layers
+
+0.6
+
+0.5
+
+0.4
+
+0.3
+
+0.2
+
+0.1
+
+0.044
+
+0.071
+
+0.093
+
+0.076
+
+0.110
+
+0.071
+
+0.104
+
+0.131
+
+0.091
+
+0.107
+
+0.095
+
+0.133
+
+0.164
+
+0.077
+
+0.088
+
+0.111
+
+0.164
+
+0.183
+
+0.080
+
+0.082
+
+0.108
+
+0.153
+
+0.173
+
+0.064
+
+0.071
+
+0.132
+
+0.176
+
+0.201
+
+0.067
+
+0.076
+
+0.148
+
+0.207
+
+0.200
+
+0.069
+
+0.078
+
+0.127
+
+0.189
+
+0.180
+
+0.065
+
+0.059
+
+0.100
+
+0.110
+
+0.111
+
+0.037
+
+0.043
+
+0.092
+
+0.103
+
+0.088
+
+0.032
+
+0.029
+
+0.050
+1
+
+0.048
+2
+
+0.037
+3
+
+0.013
+4
+
+0.011
+5
+
+Pythia-70m Layers
+
+(a)
+
+0.200
+0.175
+0.150
+0.125
+0.100
+0.075
+0.050
+0.025
+
+(b)
+
+Figure 21: (a) SVCCA and (b) RSA 1-1 paired scores of SAEs for layers in Pythia-70m vs layers in
+Pythia-160m. Compared to Figure 20, some of the scores are slightly higher, and the SVCCA score
+at L2 vs L3 for 70m vs 160m is much higher. On the other hand, some scores are slightly lower, such
+as SVCCA at L5 vs L4 for 70m vs 160m. This is the same figure as Figure 2; it is shown here again
+for easier comparison to the Many-to-1 scores in Figure 20.
+
+0.507
+
+0.315
+
+0.001
+
+0.275
+
+0.569
+
+0.327
+
+6
+
+10
+
+14
+
+Gemma-2-2B Layers
+
+22
+
+Paired RSA Scores
+
+0.380
+
+18
+
+Paired SVCCA Scores
+0.014
+
+0.5
+
+0.043
+
+0.050
+
+0.066
+
+0.059
+
+0.045
+
+0.061
+
+0.083
+
+0.071
+
+0.065
+
+0.093
+
+0.107
+
+0.080
+
+0.061
+
+0.085
+
+0.094
+
+0.059
+
+0.057
+
+0.080
+
+0.084
+
+0.051
+
+0.4
+
+0.149
+
+0.317
+
+0.551
+
+0.305
+
+0.456
+
+0.191
+0.2
+
+0.159
+
+0.295
+
+0.442
+
+2
+
+0.07
+0.06
+0.05
+
+0.194
+
+0.04
+
+0.1
+
+0.085
+
+0.352
+
+0.333
+
+0.096
+
+0.027
+
+0.036
+
+0.041
+
+0.023
+
+6
+
+10
+
+12
+
+17
+
+6
+
+10
+
+12
+
+17
+
+Gemma-1-2B Layers
+
+0.09
+0.08
+
+0.311
+0.3
+
+0.179
+
+0.10
+
+(a)
+
+Gemma-1-2B Layers
+
+0.03
+
+(b)
+
+Figure 22: (a) SVCCA and (b) RSA Many-to-1 paired scores of SAEs for layers in Gemma-1-2B vs
+layers in Gemma-2-2B. We obtain similar scores compared to the 1-1 paired scores in Figure 3.
+at L5 vs L4 for Pythia-70m vs Pythia-160m. Given that most layer pair scores are slightly higher, we
+use 1-1 feature mappings in our main text results.
+Additionally, we notice that for semantic subspace experiments, 1-1 gave vastly better scores than
+many-to-1. We hypothesize that this is because since these feature subspaces are smaller, the noise
+from the many-to-1 mappings have a greater impact on the score.
+We also looked into using more types of 1-1 feature matching, such as pairing many-to-1 features
+with their "next highest" or using efficient methods to first select the mapping pair with the highest
+correlation, taking those features off as candidates for future mappings, and continuing this for the
+next highest correlations. This also appeared to work well, though further investigation is needed.
+More analysis can also be done for mapping one feature from SAE A to many features in SAE B.
+
+K
+
+Noise of Non-Concept Feature Pairings
+
+We define "non-concept features" as features which are not modeling specific concepts that can be
+mapped well across models. Their highest activations are on new lines, spaces, punctuation, and EOS
+tokens. As such, they may introduce noise when computing similarity scores, as their removal appears
+to greatly improve similarity scores. We hypothesize that one reason they introduce noise is that these
+29
+
+22
+
+Paired SVCCA Scores
+0.064
+
+0.274
+
+0.536
+
+Paired RSA Scores
+0.354
+
+0.053
+
+0.060
+
+0.079
+
+0.076
+
+0.052
+
+0.068
+
+0.092
+
+0.072
+
+0.079
+
+0.105
+
+0.119
+
+0.085
+
+0.083
+
+0.104
+
+0.114
+
+0.069
+
+0.235
+
+0.584
+
+0.328
+
+14
+
+0.210
+
+0.325
+
+0.540
+
+0.270
+
+10
+
+0.203
+
+0.282
+
+0.491
+
+0.254
+
+6
+
+0.183
+
+0.239
+
+0.449
+
+0.140
+
+0.2
+
+0.069
+
+0.094
+
+0.098
+
+0.053
+
+0.124
+
+0.316
+
+0.241
+
+0.140
+
+0.1
+
+0.037
+
+0.052
+
+0.055
+
+0.029
+
+10
+
+12
+
+17
+
+10
+
+12
+
+17
+
+Gemma-2-2B Layers
+
+18
+
+0.078
+
+2
+
+0.5
+0.10
+
+0.4
+
+0.3
+
+0.08
+
+0.06
+
+6
+
+Gemma-1-2B Layers
+
+6
+
+(a)
+
+Gemma-1-2B Layers
+
+0.04
+
+(b)
+
+Figure 23: (a) SVCCA and (b) RSA 1-1 paired scores of SAEs for layers in Gemma-1-2B vs layers
+in Gemma-2-2B. Compared to Figure 22, some of the scores are slightly higher, whiel some are
+slightly lower. This is the same figure as Figure 3; it is shown here again for easier comparison to the
+Many-to-1 scores in Figure 20.
+could be tokens that aren’t specific to concepts, but multiple concepts. More specifically, since tokens
+are context dependent to a model, as information propagates through layers, the activations at a token
+position can aggregate information about that position’s neighbors. Therefore, it is possible that these
+features are not "noisy" features, but are capturing concepts which are not represented well purely by
+activation correlation based on highest activating positions, and thus they are not well matched via
+activation correlation.
+For instance, say feature X from model A fires highly on "!" in the sample “I am BOB!”, while
+feature Y from model B fires highly on "!" in the sample, “that cat ate!”
+A feature X that activates on "!" in "BOB!" may be firing for names, while a feature Y that activates
+on "!" in "ate!" may fire on food-related tokens. As such, features activating on non-concept features
+are not concept specific, and we could map a feature firing on names to a feature firing on food.
+We call these possibly "incoherent" mappings "non-concept mappings". By removing non-concept
+mappings, we show that SAEs reveal highly similar feature spaces.
+A second hypothesis is that there are not diverse enough tokens to allow features to fire on what
+they should fire on. As such, providing more data to obtain correlations may allow these features to
+activate on more concepts, and thus be matched more accurately.
+We filter "non-concept features" that fire, for at least one of their top 5 dataset examples, on a
+"non-concept" keyword. The list of "non-concept" keywords we use is given below:
+• \\n
+• \n
+• (empty string)
+• (space)
+• .
+• ,
+• !
+• ?
+•• respective padding token of tokenizer ( <bos>, <|endoftext|>, etc.)
+There may exist other non-concept features that we did not filter, such as colons, brackets and carats.
+We do not include arithmetic symbols, as those are domain specific to specific concepts. Additionally,
+we have yet to perform a detailed analysis on which non-concept features influence the similarity
+scores more than others; this may be done in future work.
+30
+
+L
+
+Concept Categories List and Further Semantic Subspace Analysis
+
+The keywords used for each concept group for the semantic subspace experiments are given in Table
+4. We generate keywords using GPT-4 [Bubeck et al., 2023] using the prompt "give a list of N single
+token keywords as a python list that are related to the concept of C", such that N is a number (we
+use N = 50 or 100) and C is a concept like Emotions. We then manually filter these lists to avoid
+using keywords which have meanings outside of the concept group (eg. "even" does not largely mean
+"divisible by two" because it is often used to mean "even if..."). We also aim to select case-insensitive
+keywords which are single-tokens with no spaces. 5
+When searching for keyword matches from each feature’s list of top 5 highest activating tokens, we use
+keyword matches that avoid features with dataset samples which use the keywords in compound words.
+For instance, when searching for features that activate on the token "king" from the People/Roles
+concept, we avoid using features that activate on "king" when "king" is a part of the word "seeking",
+because "seeking" is unrelated to People/Roles.
+We perform interpretability experiments to check, of the features kept, which keywords are activated
+on. We find that many feature pairs activate on the same keyword and are monosemantic. Most
+keywords in each concept group are not kept. Additionally, for the layer pairs we checked on, after
+filtering there were only a few keywords that multiplied features fired on. This shows that the high
+similarity is not because the same keyword is over-represented in a space.
+For instance, for Layer 3 in Pythia-70m vs Layer 5 in Pythia-160m, and for the concept category of
+Emotions, we find which keywords from the category appear in the top 5 activating tokens of each of
+the Pythia-70m features from the 24 feature mappings described in Table 1. We only count a feature
+if it appears once in the top 5 of a feature’s top activating tokens; if three out of five of a feature’s
+top activating tokens are "smile", then smile is only counted once. The results for Models A and B
+are given in Table 3. Not only are their counts similar, indicating similar features, but there is not a
+great over-representation of features. There are a total of 24 features, and a total of 25 keywords (as
+some features can activate on multiple keywords in their top 5). We note that even if a feature fires
+for a keyword, that does not mean that that feature’s purpose is only to "recognize that keyword", as
+dataset examples as just one indicator of what a feature’s purpose is (which still can have multiple,
+hard-to-interpret purposes).
+Table 3: Count of Model A vs Model B features with keywords from the Emotion category in the
+semantic subspace found in Table 1.
+Model A
+Keyword Count
+free
+4
+pain
+4
+smile
+3
+love
+2
+hate
+2
+calm
+2
+sad
+2
+kind
+1
+shy
+1
+doubt
+1
+trust
+1
+peace
+1
+joy
+1
+
+Model B
+Keyword Count
+free
+5
+pain
+4
+love
+3
+hate
+2
+calm
+2
+smile
+2
+kind
+1
+shy
+1
+doubt
+1
+trust
+1
+peace
+1
+joy
+1
+sad
+1
+
+However, as there are many feature pairs, we did not perform a thorough analysis of this yet, and thus
+did not include this analysis in this paper. We also check this in LLMs, and find that the majority of
+LLM neurons are polysemantic. We do not just check the top 5 dataset samples for LLM neurons,
+but the top 90, as the SAEs have an expansion factor that is around 16x or 32x bigger than the LLM
+dimensions they take in as input.
+5
+
+However, not all the tokens in the Table 4 are single token.
+
+31
+
+Category
+Time
+
+Calendar
+
+People/Roles
+Nature
+
+Emotions
+
+MonthNames
+Countries
+Biology
+
+Table 4: Keywords Organized by Category
+Keywords
+day, night, week, month, year, hour, minute, second, now, soon, later,
+early, late, morning, evening, noon, midnight, dawn, dusk, past, present,
+future, before, after, yesterday, today, tomorrow, next, previous, instant,
+era, age, decade, century, millennium, moment, pause, wait, begin, start,
+end, finish, stop, continue, forever, constant, frequent, occasion, season,
+spring, summer, autumn, fall, winter, anniversary, deadline, schedule,
+calendar, clock, duration, interval, epoch, generation, period, cycle,
+timespan, shift, quarter, term, phase, lifetime, timeline, delay, prompt,
+timely, recurrent, daily, weekly, monthly, yearly, annual, biweekly,
+timeframe
+day, night, week, month, year, hour, minute, second, morning, evening,
+noon, midnight, dawn, dusk, yesterday, today, tomorrow, decade, century, millennium, season, spring, summer, autumn, fall, winter, calendar, clock, daily, weekly, monthly, yearly, annual, biweekly, timeframe
+man, girl, boy, kid, dad, mom, son, sis, bro, chief, priest, king, queen,
+duke, lord, friend, clerk, coach, nurse, doc, maid, clown, guest, peer,
+punk, nerd, jock
+tree, grass, stone, rock, cliff, hill, dirt, sand, mud, wind, storm, rain,
+cloud, sun, moon, leaf, branch, twig, root, bark, seed, tide, lake, pond,
+creek, sea, wood, field, shore, snow, ice, flame, fire, fog, dew, hail, sky,
+earth, glade, cave, peak, ridge, dust, air, mist, heat
+joy, glee, pride, grief, fear, hope, love, hate, pain, shame, bliss, rage,
+calm, shock, dread, guilt, peace, trust, scorn, doubt, hurt, wrath, laugh,
+cry, smile, frown, gasp, blush, sigh, grin, woe, spite, envy, glow, thrill,
+mirth, bored, cheer, charm, grace, shy, brave, proud, glad, mad, sad,
+tense, free, kind
+January, February, March, April, May, June, July, August, September,
+October, November, December
+USA, Canada, Brazil, Mexico, Germany, France, Italy, Spain, UK,
+Australia, China, Japan, India, Russia, Korea, Argentina, Egypt, Iran,
+Turkey
+gene, DNA, RNA, virus, bacteria, fungus, brain, lung, blood, bone,
+skin, muscle, nerve, vein, organ, evolve, enzyme, protein, lipid, membrane, antibody, antigen, ligand, substrate, receptor, cell, chromosome,
+nucleus, cytoplasm
+
+Calendar is a subset of Time, removing keywords like “after” and “soon”, and keeping only “day”
+and “month” type of keywords pertaining to dates.
+Future work can test on several groups of unrelated keywords, manually inspecting to check that
+each word belongs to its own category. Another test to run is to compare the score of a semantic
+subspace mapping to a mean score of subspace mapping of the same number of correlated features,
+using the correlation matrix of the entire space. Showing that these tests result in high p-values will
+provide more evidence that selecting any subset of correlated features is not enough, and that having
+the features be semantically correlated with one another yields higher similarity.
+
+M
+
+Additional Results for Pythia and Gemma
+
+As shown in Figure 24 for Pythia and Figure 25 for Gemma, we also find that mean activation
+correlation does not always correlate with the global similarity metric scores. For instance, a subset
+of feature pairings with a moderately high mean activation correlation (eg. 0.6) may yield a low
+SVCCA score (eg. 0.03).
+The number of features after filtering non-concept features and many-to-1 features are given in Tables
+5 and 6. The number of features after filtering non-concept features and many-to-1 features are given
+in Tables 7 and 8.
+32
+
+Table 5: Number of Features in each Layer Pair Mapping after filtering Non-Concept Features for
+Pythia-70m (cols) vs Pythia-160m (rows) out of a total of 32768 SAE features in both models.
+Layer
+
+1
+
+2
+
+3
+
+4
+
+5
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+
+23600
+16079
+7482
+12756
+7987
+10971
+15074
+14445
+13320
+9834
+6936
+
+21423
+14201
+7788
+11195
+6825
+9578
+12988
+12580
+11950
+8573
+6551
+
+26578
+17578
+7841
+13349
+8170
+10937
+16326
+15300
+14338
+9742
+7128
+
+19696
+12831
+7017
+9019
+5367
+8099
+12720
+11779
+11380
+7858
+5531
+
+19549
+12738
+6625
+9357
+5624
+8273
+12841
+11942
+11436
+8084
+6037
+
+Table 6: Number of 1-1 Features in each Layer Pair Mapping after filtering Non-Concept Features
+for Pythia-70m (cols) vs Pythia-160m (rows) out of a total of 32768 SAE features in both models.
+Layer
+
+1
+
+2
+
+3
+
+4
+
+5
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+
+7553
+6987
+4025
+6649
+5051
+5726
+7017
+6667
+6205
+4993
+3609
+
+5049
+4935
+3152
+5058
+4057
+4528
+5659
+5179
+4820
+3859
+2837
+
+5853
+5663
+3225
+6015
+4796
+5230
+6762
+6321
+5773
+4602
+3377
+
+3244
+3217
+2178
+3202
+2539
+3226
+4032
+3887
+3675
+3058
+2339
+
+3115
+3066
+1880
+3182
+2596
+3031
+3846
+3808
+3682
+3356
+2691
+
+Table 7: Number of Features in each Layer Pair Mapping after filtering Non-Concept Features for
+Gemma-1-2B (cols) vs Gemma-2-2B (rows) out of a total of 16384 SAE features in both models.
+Layer
+
+6
+
+10
+
+12
+
+17
+
+2
+6
+10
+14
+18
+22
+
+8926
+4252
+6458
+4213
+3672
+4130
+
+8685
+4183
+6320
+4208
+3679
+4100
+
+8647
+4131
+6277
+4214
+3771
+4168
+
+4816
+2474
+3658
+2672
+2515
+3338
+
+Table 8: Number of 1-1 Features in each Layer Pair Mapping after filtering Non-Concept Features
+for Gemma-1-2B (cols) vs Gemma-2-2B (rows) out of a total of 16384 SAE features in both models.
+Layer
+
+6
+
+10
+
+12
+
+17
+
+2
+6
+10
+14
+18
+22
+
+3427
+3056
+4110
+2967
+2636
+2646
+
+3874
+3336
+4650
+3524
+3058
+3037
+
+3829
+3261
+4641
+3553
+3239
+3228
+
+1448
+1266
+1616
+1414
+1543
+1883
+
+33
+
+0.560
+
+0.545
+
+0.578
+
+0.520
+
+0.520
+
+0.472
+
+0.511
+
+0.401
+
+0.461
+
+0.455
+
+0.385
+
+0.421
+
+8
+
+0.392
+
+0.423
+
+0.419
+
+0.322
+
+0.363
+
+7
+
+0.454
+
+0.492
+
+0.483
+
+0.366
+
+0.410
+
+6
+
+0.482
+
+0.551
+
+0.550
+
+0.500
+
+0.519
+
+5
+
+0.607
+
+0.698
+
+0.698
+
+0.643
+
+0.662
+
+4
+
+0.561
+
+0.604
+
+0.597
+
+0.478
+
+0.515
+
+3
+
+0.638
+
+0.765
+
+0.748
+
+0.732
+
+0.738
+
+2
+
+0.690
+
+0.695
+
+0.658
+
+0.435
+
+0.503
+
+0.734
+1
+
+0.684
+2
+
+0.631
+3
+
+0.276
+4
+
+0.385
+5
+
+Pythia-160m Layers
+
+9 10 11
+
+0.561
+
+0.445
+
+1
+
+0.451
+
+Mean Actviation Correlation
+
+Pythia-70m Layers
+
+Correlation After Filtering
+Non-Concept Features
+
+0.395
+
+0.450
+
+0.421
+
+0.363
+
+0.424
+
+0.422
+
+0.458
+
+0.435
+
+0.336
+
+0.403
+
+0.425
+
+0.463
+
+0.443
+
+0.334
+
+0.383
+
+0.431
+
+0.453
+
+0.438
+
+0.304
+
+0.359
+
+0.469
+
+0.492
+
+0.469
+
+0.307
+
+0.368
+
+0.439
+
+0.458
+
+0.447
+
+0.328
+
+0.371
+
+0.547
+
+0.566
+
+0.536
+
+0.352
+
+0.415
+
+0.550
+
+0.551
+
+0.522
+
+0.312
+
+0.388
+
+0.522
+
+0.610
+
+0.546
+
+0.499
+
+0.502
+
+0.1
+
+0.713
+
+0.684
+
+0.627
+
+0.325
+
+0.434
+
+0.1
+
+0.0
+
+0.751
+1
+
+0.707
+2
+
+0.649
+3
+
+0.321
+4
+
+0.442
+5
+
+0.0
+
+0.7
+0.6
+0.5
+0.4
+0.3
+0.2
+
+Pythia-70m Layers
+
+(a)
+
+0.7
+0.6
+0.5
+0.4
+0.3
+0.2
+
+(b)
+
+Figure 24: Mean Activation Correlation before (a) and after (b) filtering non-concept features for
+Pythia-70m vs Pythia-160m. We note these patterns are different from those of the SVCCA and RSA
+scores in Figure 20, indicating that these three metrics each reveal different patterns not shown by
+other metrics.
+Mean Actviation Correlation
+
+Correlation After Filtering
+Non-Concept Features
+
+22
+
+0.635
+
+0.660
+
+0.668
+
+0.577
+
+18
+
+0.625
+
+0.652
+
+0.663
+
+0.540
+
+14
+
+0.610
+
+0.640
+
+0.642
+
+0.495
+
+10
+
+0.545
+
+0.573
+
+0.568
+
+6
+
+0.694
+
+0.706
+
+2
+
+0.7
+
+0.487
+
+0.516
+
+0.534
+
+0.357
+
+0.532
+
+0.562
+
+0.587
+
+0.320
+
+0.4
+
+0.534
+
+0.566
+
+0.572
+
+0.275
+
+0.361
+
+0.3
+
+0.552
+
+0.554
+
+0.556
+
+0.256
+
+0.700
+
+0.565
+
+0.2
+
+0.585
+
+0.581
+
+0.578
+
+0.281
+
+0.593
+
+0.619
+
+0.608
+
+0.310
+
+0.610
+
+0.624
+
+0.621
+
+0.250
+
+10
+
+12
+
+17
+
+10
+
+12
+
+17
+
+0.6
+
+Gemma-2-2B Layers
+
+0.6
+
+0.5
+
+0.5
+
+0.4
+
+0.3
+
+6
+
+Gemma-1-2B Layers
+
+0.2
+
+0.1
+
+0.1
+
+0.0
+
+6
+
+Gemma-1-2B Layers
+
+(a)
+
+0.0
+
+(b)
+
+Figure 25: Mean Activation Correlation before (a) and after (b) filtering non-concept features for
+Gemma-1-2B vs Gemma-2-2B. We note these patterns are different from those of the SVCCA and
+RSA scores in Figure 22, indicating that these three metrics each reveal different patterns not shown
+by other metrics.
+0.012
+
+0.015
+
+0.016
+
+0.009
+
+0.014
+
+0.013
+
+0.014
+
+0.010
+
+0.012
+
+0.009
+
+0.009
+
+0.013
+
+0.011
+
+8
+
+0.010
+
+0.009
+
+0.008
+
+0.016
+
+0.015
+
+7
+
+0.010
+
+0.009
+
+0.009
+
+0.013
+
+0.011
+
+6
+
+0.009
+
+0.010
+
+0.008
+
+0.013
+
+0.012
+
+5
+
+0.009
+
+0.011
+
+0.014
+
+0.014
+
+0.018
+
+4
+
+0.011
+
+0.010
+
+0.010
+
+0.016
+
+0.013
+
+3
+
+0.012
+
+0.012
+
+0.017
+
+0.017
+
+0.017
+
+0.011
+
+0.013
+
+0.012
+
+0.018
+
+0.014
+
+0.010
+1
+
+0.009
+2
+
+0.009
+3
+
+0.016
+4
+
+0.015
+5
+
+1
+
+Pythia-160m Layers
+
+9
+
+10 11
+
+0.011
+
+2
+
+Mean Rand SVCCA Scores
+0.010
+
+Pythia-70m Layers
+
+SVCCA P-Values
+
+0.6
+
+0.5
+
+0.4
+
+0.3
+
+0.2
+
+0.1
+
+(a)
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+1
+
+0.000
+2
+
+0.000
+3
+
+0.200
+4
+
+0.500
+5
+
+Pythia-70m Layers
+
+0.6
+
+0.5
+
+0.4
+
+0.3
+
+0.2
+
+0.1
+
+0.0
+
+(b)
+
+Figure 26: Mean Randomly Paired SVCCA scores and P-values of SAEs for layers in Pythia-70m vs
+Pythia-160m. Compared to Paired Scores in Figure 20, these are all very low.
+
+34
+
+0.000
+
+0.000
+
+-0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+-0.000
+
+-0.000
+
+0.150
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+8
+
+-0.000
+
+-0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+-0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.125
+
+7
+
+0.000
+
+6
+
+-0.000
+
+-0.001
+
+0.001
+
+-0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.100
+
+5
+
+0.000
+
+-0.000
+
+-0.000
+
+0.000
+
+-0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+4
+
+-0.000
+
+-0.000
+
+0.000
+
+-0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+-0.000
+
+0.000
+
+0.000
+
+0.000
+
+-0.000
+
+-0.000
+
+-0.001
+
+0.000
+
+0.001
+
+0.000
+
+0.000
+1
+
+-0.001
+2
+
+-0.000
+3
+
+0.000
+4
+
+0.000
+5
+
+9
+
+10 11
+
+0.000
+
+0.175
+
+Pythia-160m Layers
+
+0.000
+
+-0.000
+
+0.000
+
+-0.000
+
+0.000
+
+-0.000
+
+-0.000
+
+-0.000
+
+0.000
+
+-0.000
+
+0.000
+
+0.000
+
+0.200
+
+0.000
+
+3
+
+0.000
+
+RSA P-Values
+0.000
+
+1
+
+-0.000
+
+0.200
+
+2
+
+Mean Rand RSA Scores
+0.000
+
+Pythia-70m Layers
+
+0.125
+0.100
+0.075
+0.050
+
+0.175
+0.150
+
+0.075
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.050
+
+0.025
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.025
+
+0.000
+
+0.000
+1
+
+0.000
+2
+
+0.000
+3
+
+0.000
+4
+
+0.000
+5
+
+0.000
+
+Pythia-70m Layers
+
+(a)
+
+(b)
+
+Figure 27: Mean Randomly Paired RSA scores and P-values of SAEs for layers in Pythia-70m vs
+Pythia-160m. Compared to Paired Scores in Figure 20, these are all very low.
+
+Mean Rand SVCCA Scores
+
+SVCCA P-Values
+
+22
+
+0.013
+
+0.014
+
+0.007
+
+18
+
+0.011
+
+0.011
+
+0.011
+
+0.016
+
+14
+
+0.019
+
+0.012
+
+0.010
+
+0.018
+
+10
+
+0.010
+
+0.011
+
+0.007
+
+0.015
+
+6
+
+0.010
+
+0.011
+
+0.011
+
+0.011
+
+2
+
+0.6
+
+0.015
+
+0.013
+
+0.011
+
+0.007
+
+10
+
+12
+
+0.6
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.010
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+17
+
+6
+
+10
+
+12
+
+17
+
+0.5
+
+Gemma-2-2B Layers
+
+0.5
+
+0.4
+
+0.4
+
+0.3
+
+0.3
+
+0.2
+
+0.2
+
+0.1
+
+0.1
+
+6
+
+Gemma-1-2B Layers
+
+Gemma-1-2B Layers
+
+(a)
+
+0.0
+
+(b)
+
+Figure 28: Mean Randomly Paired SVCCA scores and P-values of SAEs for layers in Gemma-1-2B
+vs layers in Gemma-2-2B. Compared to Paired Scores in Figure 22, these are all very low.
+
+Mean Rand RSA Scores
+
+RSA P-Values
+
+22
+
+0.000
+
+-0.000
+
+-0.000
+
+18
+
+-0.000
+
+-0.000
+
+0.000
+
+-0.000
+
+14
+
+0.000
+
+-0.000
+
+0.000
+
+0.000
+
+10
+
+-0.000
+
+0.000
+
+0.000
+
+0.000
+
+6
+
+-0.000
+
+0.000
+
+0.001
+
+0.000
+
+2
+
+0.6
+
+0.000
+
+0.000
+
+0.000
+
+-0.000
+
+0.000
+
+10
+
+12
+
+17
+
+0.6
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+10
+
+12
+
+17
+
+Gemma-2-2B Layers
+
+0.5
+
+0.5
+
+0.4
+
+0.4
+
+0.3
+
+0.3
+
+0.2
+
+0.2
+
+0.1
+
+6
+
+Gemma-1-2B Layers
+
+0.1
+
+0.0
+
+6
+
+(a)
+
+Gemma-1-2B Layers
+
+0.0
+
+(b)
+
+Figure 29: Mean Randomly Paired RSA scores and P-values of SAEs for layers in Gemma-1-2B vs
+layers in Gemma-2-2B. Compared to Paired Scores in Figure 22, these are all very low.
+
+35
+
+Table 9: RSA scores and random mean results for 1-1 semantic subspaces of L3 of Pythia-70m vs
+L5 of Pythia-160m. P-values are taken for 1000 samples in the null distribution.
+Concept Subspace
+
+Number of 1-1 Features
+
+Paired Mean
+
+Random Shuffling Mean
+
+p-value
+
+Time
+Calendar
+Nature
+MonthNames
+Countries
+People/Roles
+Emotions
+
+228
+126
+46
+32
+32
+31
+24
+
+0.10
+0.09
+0.22
+0.76
+0.10
+0.18
+0.46
+
+0.00
+0.00
+0.00
+0.00
+0.00
+0.00
+0.00
+
+0.00
+0.00
+0.00
+0.00
+0.03
+0.01
+0.00
+
+36
+
+0.127
+
+Paired SVCCA Scores: Calendar
+0.201
+
+11
+
+0.130
+
+0.107
+
+0.090
+
+0.029
+
+0.057
+
+0.218
+
+9
+
+0.045
+
+0.130
+
+0.176
+
+0.028
+
+0.232
+
+0.159
+
+7
+
+11
+
+Paired SVCCA Scores: Time
+0.047
+
+0.167
+
+0.404
+
+0.524
+
+0.057
+
+0.113
+
+0.6
+
+0.5
+
+0.155
+
+0.297
+
+0.135
+
+0.236
+
+0.032
+
+0.3
+
+0.022
+
+0.2
+
+5
+
+0.468
+
+0.565
+
+0.590
+
+0.008
+
+0.4
+
+Pythia-160m Layers
+
+0.099
+
+0.4
+
+0.3
+
+5
+
+0.184
+
+0.552
+
+0.618
+
+0.649
+
+0.090
+
+0.334
+
+3
+
+9
+
+0.360
+
+Pythia-160m Layers
+
+0.145
+
+7
+
+0.5
+
+0.122
+
+0.376
+
+0.298
+
+0.190
+
+0.022
+
+0.091
+
+2
+
+3
+
+4
+
+5
+
+0.290
+
+0.177
+
+0.017
+
+0.205
+
+0.089
+
+1
+
+2
+
+3
+
+4
+
+5
+
+1
+
+11
+
+0.148
+
+0.166
+
+0.139
+
+0.105
+
+0.361
+
+9
+
+0.369
+
+0.103
+
+0.438
+
+0.514
+
+0.266
+
+7
+
+0.396
+
+0.125
+
+0.355
+
+0.250
+
+0.250
+
+5
+
+0.311
+
+0.158
+
+0.500
+
+0.266
+
+0.288
+
+3
+
+3
+
+0.1
+
+0.024
+
+0.295
+
+0.455
+
+0.279
+
+0.264
+
+1
+
+2
+
+3
+
+4
+
+5
+
+Pythia-70m Layers
+
+Paired SVCCA Scores: People/Roles
+
+Pythia-70m Layers
+
+0.2
+
+0.1
+
+Paired SVCCA Scores: Nature
+
+11
+
+0.622
+
+0.474
+
+0.051
+
+0.411
+
+9
+
+0.351
+
+0.203
+
+0.401
+
+0.355
+
+0.527
+
+7
+
+0.290
+
+0.264
+
+0.697
+
+0.059
+
+0.377
+
+5
+
+0.251
+
+0.242
+
+0.471
+
+0.278
+
+0.093
+
+3
+
+0.5
+
+0.015
+
+0.064
+
+0.305
+
+0.514
+
+0.031
+
+0.595
+
+1
+
+2
+
+3
+
+4
+
+5
+
+0.6
+
+0.4
+
+0.3
+
+Pythia-70m Layers
+
+0.2
+
+0.1
+
+Pythia-160m Layers
+
+Pythia-160m Layers
+
+0.4
+0.5
+
+0.3
+
+0.2
+
+Paired SVCCA Scores: Emotions
+
+Pythia-70m Layers
+
+Paired SVCCA Scores: MonthNames
+0.7
+
+0.416
+
+0.322
+
+0.297
+
+0.211
+
+11
+
+11
+
+0.8
+
+0.310
+
+0.031
+
+0.080
+
+0.208
+
+0.106
+
+0.388
+
+7
+
+0.5
+
+0.536
+
+0.425
+
+0.630
+
+0.005
+
+0.554
+
+0.670
+
+0.526
+
+0.828
+
+0.165
+
+0.044
+
+0.4
+0.3
+
+9
+
+0.660
+
+0.130
+
+0.184
+
+0.130
+
+0.077
+
+0.061
+
+7
+
+0.372
+
+0.6
+
+0.152
+
+0.120
+
+0.228
+
+0.037
+
+0.027
+
+0.716
+
+0.418
+
+0.719
+
+0.217
+
+0.085
+
+Pythia-160m Layers
+
+0.399
+
+0.6
+
+5
+
+0.311
+
+5
+
+Pythia-160m Layers
+
+9
+
+0.7
+
+0.409
+
+0.017
+
+0.024
+
+0.081
+
+0.205
+
+1
+
+2
+
+3
+
+4
+
+5
+
+0.486
+
+0.489
+
+0.275
+
+0.148
+
+0.072
+
+1
+
+2
+
+3
+
+4
+
+5
+
+0.195
+
+0.446
+
+0.046
+
+0.290
+
+0.255
+
+0.042
+
+0.310
+
+0.449
+
+0.362
+
+0.4
+
+5
+
+0.210
+
+0.494
+
+0.575
+
+0.036
+
+0.151
+
+0.2
+
+3
+
+0.3
+
+0.535
+
+0.500
+
+0.293
+
+0.290
+
+0.036
+
+0.1
+
+1
+
+2
+
+3
+
+4
+
+5
+
+11
+
+9
+
+0.309
+
+0.5
+
+0.337
+
+0.363
+
+0.065
+
+0.105
+
+0.414
+
+9
+
+0.171
+
+0.154
+
+0.477
+
+0.605
+
+0.157
+
+0.239
+
+7
+
+0.338
+
+0.023
+
+0.010
+
+0.425
+
+0.184
+
+0.135
+
+Pythia-160m Layers
+
+0.118
+
+0.6
+
+0.5
+
+0.4
+
+0.3
+
+5
+
+0.058
+
+0.201
+
+0.105
+
+0.228
+
+0.149
+
+0.060
+
+3
+
+11
+
+0.412
+
+Pythia-160m Layers
+
+Pythia-70m Layers
+
+0.1
+
+Paired SVCCA Scores: Biology
+
+7
+
+Paired SVCCA Scores: Countries
+
+Pythia-70m Layers
+
+0.4
+
+0.2
+
+3
+
+3
+
+0.097
+
+0.1
+
+0.5
+
+0.3
+
+0.2
+
+Pythia-70m Layers
+
+0.1
+
+0.293
+
+0.165
+
+0.680
+
+0.175
+
+0.582
+
+1
+
+2
+
+3
+
+4
+
+5
+
+Pythia-70m Layers
+
+0.2
+
+0.1
+
+Figure 30: 1-1 Paired SVCCA scores of SAEs for layers in Pythia-70m vs layers in Pythia-160m for
+Concept Categories. Middle layers appear to be the most similar with one another.
+
+37
+
+0.480
+
+0.020
+
+0.010
+
+SVCCA P-values: Calendar
+0.000
+
+0.8
+
+11
+
+11
+
+SVCCA P-values: Time
+0.460
+
+0.310
+
+0.350
+
+0.700
+
+0.450
+
+0.7
+
+0.000
+0.6
+
+0.000
+
+0.000
+
+0.040
+
+0.000
+
+0.440
+
+0.000
+
+0.000
+
+0.000
+
+0.870
+
+0.720
+
+0.4
+0.3
+
+9
+
+0.5
+
+0.230
+
+0.000
+
+0.640
+
+0.000
+
+0.050
+
+7
+
+0.6
+
+0.040
+
+0.000
+
+0.000
+
+0.350
+
+0.120
+
+0.000
+
+0.000
+
+0.000
+
+0.300
+
+0.000
+
+0.000
+
+0.000
+
+0.050
+
+0.710
+
+0.394
+
+1
+
+2
+
+3
+
+4
+
+5
+
+0.423
+
+0.379
+
+0.398
+
+0.479
+
+0.015
+
+0.010
+
+0.509
+
+0.001
+
+0.000
+
+0.075
+
+0.005
+
+0.426
+
+0.007
+
+0.044
+
+0.047
+
+Pythia-160m Layers
+
+0.070
+
+5
+
+0.000
+
+3
+
+0.000
+
+11
+
+0.000
+
+9
+
+0.050
+
+7
+
+5
+
+7
+
+Pythia-160m Layers
+
+9
+
+0.7
+
+0.5
+
+0.4
+
+0.3
+
+0.2
+
+3
+
+0.2
+
+0.000
+
+0.000
+
+0.840
+
+0.000
+
+0.300
+
+0.1
+
+1
+
+2
+
+3
+
+4
+
+5
+
+0.0
+
+Pythia-70m Layers
+
+11
+
+SVCCA P-values: People/Roles
+0.954
+
+0.001
+
+0.010
+
+0.778
+
+Pythia-70m Layers
+
+0.1
+
+0.0
+
+SVCCA P-values: Nature
+0.030
+
+0.8
+
+0.8
+
+0.021
+
+0.015
+
+0.000
+0.6
+
+0.110
+
+0.172
+
+0.000
+
+0.684
+
+0.017
+0.4
+
+0.156
+
+0.284
+
+0.007
+
+0.173
+
+0.663
+
+Pythia-160m Layers
+
+0.347
+
+5
+
+5
+
+7
+
+Pythia-160m Layers
+
+9
+
+0.7
+
+0.060
+
+0.5
+0.4
+
+0.030
+
+0.338
+
+0.001
+
+0.144
+
+0.115
+
+2
+
+0.022
+
+0.883
+
+3
+
+Pythia-70m Layers
+
+4
+
+0.020
+5
+
+3
+
+3
+
+1
+
+0.232
+
+0.0
+
+0.895
+
+0.084
+
+0.014
+
+0.265
+
+0.302
+
+0.1
+
+1
+
+2
+
+3
+
+4
+
+5
+
+0.0
+
+0.8
+
+0.150
+
+0.272
+
+11
+
+0.124
+
+SVCCA P-values: MonthNames
+0.875
+
+0.696
+
+0.234
+
+0.564
+
+0.042
+
+9
+
+0.063
+
+Pythia-70m Layers
+
+0.376
+
+0.294
+
+0.409
+
+0.627
+
+0.736
+
+7
+
+11
+
+SVCCA P-values: Emotions
+0.129
+
+0.351
+
+0.536
+
+0.170
+
+0.856
+
+0.861
+
+0.001
+
+0.026
+
+0.000
+
+0.303
+
+0.760
+
+0.058
+
+0.041
+
+0.000
+0.6
+
+0.000
+
+0.024
+
+0.000
+
+0.983
+
+0.001
+0.4
+
+0.000
+
+0.016
+
+0.000
+
+0.517
+
+0.860
+
+0.7
+
+Pythia-160m Layers
+
+0.136
+
+5
+
+5
+
+7
+
+Pythia-160m Layers
+
+9
+
+0.8
+
+0.013
+
+0.962
+
+0.929
+
+0.781
+
+0.430
+
+1
+
+2
+
+3
+
+4
+
+5
+
+0.0
+
+0.015
+
+0.089
+
+0.450
+
+0.801
+
+0.1
+
+1
+
+2
+
+3
+
+4
+
+5
+
+0.0
+
+0.645
+
+0.307
+
+Pythia-70m Layers
+
+SVCCA P-values: Biology
+0.646
+
+0.8
+
+11
+
+11
+
+0.849
+
+0.3
+
+0.001
+
+SVCCA P-values: Countries
+0.094
+
+0.4
+
+0.2
+
+3
+
+3
+
+0.651
+
+0.6
+0.5
+
+0.2
+
+Pythia-70m Layers
+
+0.3
+0.2
+
+0.2
+
+0.769
+
+0.6
+
+0.293
+
+0.299
+
+0.807
+
+0.685
+
+0.106
+
+0.6
+
+0.118
+
+0.844
+
+0.044
+
+0.108
+
+0.235
+
+5
+
+0.4
+
+0.242
+
+0.013
+
+0.002
+
+0.907
+
+0.660
+
+0.015
+
+0.036
+
+0.249
+
+0.447
+
+0.927
+
+1
+
+2
+
+3
+
+4
+
+5
+
+9
+
+0.338
+
+0.587
+
+0.121
+
+0.038
+
+0.512
+
+0.463
+
+7
+
+0.851
+
+0.947
+
+0.979
+
+0.185
+
+0.458
+
+0.649
+
+0.455
+
+0.753
+
+0.429
+
+0.629
+
+0.846
+
+0.457
+
+0.745
+
+0.049
+
+0.719
+
+0.130
+
+1
+
+2
+
+3
+
+4
+
+5
+
+Pythia-160m Layers
+
+0.002
+
+5
+
+0.370
+
+3
+
+0.049
+
+3
+
+7
+
+Pythia-160m Layers
+
+9
+
+0.8
+
+0.6
+
+0.4
+
+0.2
+0.2
+
+Pythia-70m Layers
+
+Pythia-70m Layers
+
+Figure 31: 1-1 SVCCA p-values of SAEs for layers in Pythia-70m vs layers in Pythia-160m for
+Concept Categories. A lower p-value indicates more statistically meaningful similarity.
+
+38
+
+Paired RSA Scores: Calendar
+0.020
+
+11
+
+0.014
+
+0.011
+
+0.010
+
+0.019
+
+0.025
+
+0.026
+
+9
+
+0.032
+
+0.027
+
+0.022
+
+0.039
+
+0.029
+
+0.023
+
+7
+
+0.014
+
+0.037
+
+0.036
+
+0.086
+
+0.013
+
+-0.008
+
+5
+
+11
+
+Paired RSA Scores: Time
+0.013
+
+0.110
+
+0.064
+
+0.093
+
+0.024
+
+0.008
+
+0.10
+
+0.045
+
+0.016
+
+0.020
+
+7
+
+0.017
+
+0.021
+
+0.054
+
+0.008
+
+0.005
+
+0.082
+
+0.084
+
+0.097
+
+0.032
+
+0.027
+
+0.06
+
+0.04
+
+Pythia-160m Layers
+
+9
+
+0.021
+
+Pythia-160m Layers
+
+0.020
+
+5
+
+0.08
+0.08
+
+0.06
+
+0.04
+
+0.02
+
+0.066
+
+0.022
+
+0.030
+
+0.015
+
+0.013
+
+1
+
+2
+
+3
+
+4
+
+5
+
+Pythia-70m Layers
+
+3
+
+3
+
+0.02
+
+0.053
+
+0.020
+
+0.007
+
+0.004
+
+0.003
+
+1
+
+2
+
+3
+
+4
+
+5
+
+Paired RSA Scores: People/Roles
+
+Pythia-70m Layers
+
+0.00
+
+Paired RSA Scores: Nature
+0.095
+
+11
+
+0.048
+
+0.098
+
+-0.014
+
+0.021
+
+0.006
+
+0.109
+
+9
+
+0.120
+
+0.193
+
+0.077
+
+0.175
+
+0.089
+
+0.105
+
+7
+
+0.262
+
+0.237
+
+0.129
+
+0.094
+
+0.003
+
+0.037
+
+5
+
+11
+
+0.30
+
+0.062
+
+0.176
+
+0.056
+
+0.217
+
+0.121
+
+0.115
+
+0.25
+
+0.173
+
+0.006
+
+0.055
+
+7
+
+0.174
+
+0.199
+
+0.188
+
+0.046
+
+0.036
+
+0.173
+
+0.065
+
+0.182
+
+0.048
+
+0.006
+
+Pythia-160m Layers
+
+0.20
+
+0.15
+
+0.10
+
+Pythia-160m Layers
+
+0.123
+
+9
+
+0.132
+
+5
+
+0.25
+
+0.15
+
+0.10
+
+0.05
+
+0.290
+
+0.311
+
+-0.016
+
+0.109
+
+3
+
+3
+
+0.05
+
+0.112
+
+0.186
+
+0.151
+
+0.276
+
+0.076
+
+0.252
+
+1
+
+2
+
+3
+
+4
+
+5
+
+0.00
+
+0.00
+
+1
+
+2
+
+3
+
+Pythia-70m Layers
+
+4
+
+5
+
+0.4
+
+9
+
+0.058
+
+0.069
+
+0.111
+
+0.049
+
+0.130
+
+0.3
+
+0.147
+
+0.077
+
+0.231
+
+0.027
+
+0.157
+
+0.2
+
+0.103
+
+0.156
+
+0.080
+
+-0.005
+
+-0.025
+
+-0.002
+
+0.002
+
+0.059
+
+-0.016
+
+0.040
+
+-0.005
+
+0.058
+
+0.018
+
+0.045
+
+0.061
+
+0.042
+
+-0.059
+
+0.128
+
+0.036
+
+0.102
+
+0.076
+
+0.038
+
+5
+
+5
+
+0.464
+
+0.1
+
+11
+
+0.034
+
+9
+
+0.079
+
+7
+
+0.191
+
+Pythia-160m Layers
+
+11
+
+0.109
+
+Pythia-160m Layers
+
+0.157
+
+0.346
+
+Pythia-70m Layers
+
+Paired RSA Scores: MonthNames
+
+7
+
+Paired RSA Scores: Emotions
+
+0.460
+
+0.20
+
+0.15
+
+0.10
+
+0.05
+
+0.00
+
+-0.096
+
+-0.028
+
+0.190
+
+-0.026
+
+-0.000
+
+1
+
+2
+
+3
+
+4
+
+5
+
+3
+
+3
+
+0.0
+
+0.044
+
+0.178
+
+0.024
+
+-0.025
+
+-0.009
+
+1
+
+2
+
+3
+
+4
+
+5
+
+0.05
+
+Pythia-70m Layers
+
+0.204
+
+0.113
+
+0.238
+
+0.270
+
+Paired RSA Scores: Biology
+-0.007
+
+0.3
+
+11
+
+11
+
+Paired RSA Scores: Countries
+
+Pythia-70m Layers
+
+0.121
+
+0.248
+
+0.101
+
+0.049
+
+0.5
+
+-0.009
+0.4
+
+0.1
+
+0.026
+
+0.012
+
+0.186
+
+0.137
+
+-0.034
+
+5
+
+0.0
+
+0.090
+
+0.194
+
+0.336
+
+0.179
+
+0.176
+
+0.338
+
+0.289
+
+0.141
+
+-0.148
+
+-0.261
+
+1
+
+2
+
+3
+
+4
+
+5
+
+Pythia-70m Layers
+
+0.1
+
+0.2
+
+9
+
+0.110
+
+0.062
+
+0.251
+
+0.320
+
+0.085
+
+-0.149
+
+7
+
+0.045
+
+-0.047
+
+0.030
+
+0.140
+
+0.049
+
+-0.049
+
+0.153
+
+0.126
+
+0.206
+
+0.107
+
+0.149
+
+0.002
+
+0.513
+
+0.430
+
+0.043
+
+-0.197
+
+1
+
+2
+
+3
+
+4
+
+5
+
+Pythia-160m Layers
+
+0.190
+
+5
+
+0.102
+
+3
+
+0.071
+
+3
+
+7
+
+Pythia-160m Layers
+
+9
+
+0.2
+0.3
+
+0.2
+
+0.1
+
+Pythia-70m Layers
+
+0.0
+
+0.1
+
+Figure 32: 1-1 Paired RSA scores of SAEs for layers in Pythia-70m vs layers in Pythia-160m for
+Concept Categories. Middle layers appear to be the most similar with one another.
+
+39
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.08
+
+7
+
+0.010
+
+0.000
+
+0.000
+
+0.080
+
+0.110
+
+5
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.06
+
+0.04
+
+11
+
+0.000
+
+0.8
+
+0.180
+
+0.270
+
+0.040
+
+0.000
+
+0.000
+
+9
+
+0.10
+
+0.010
+
+0.020
+
+0.000
+
+0.000
+
+0.000
+
+0.7
+0.6
+0.5
+
+7
+
+0.000
+
+Pythia-160m Layers
+
+0.010
+
+0.000
+
+0.000
+
+0.000
+
+0.050
+
+0.800
+
+5
+
+0.000
+
+Pythia-160m Layers
+
+11
+
+RSA P-values: Calendar
+
+0.020
+
+9
+
+RSA P-values: Time
+0.010
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.290
+
+0.4
+0.3
+0.2
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.050
+
+1
+
+2
+
+3
+
+4
+
+5
+
+0.00
+
+0.040
+
+0.5
+
+0.104
+
+0.4
+
+Pythia-70m Layers
+
+3
+
+3
+
+0.02
+
+0.000
+
+0.010
+
+0.310
+
+0.330
+
+0.436
+
+0.1
+
+1
+
+2
+
+3
+
+4
+
+5
+
+0.0
+
+0.051
+
+0.597
+
+0.000
+
+0.063
+
+0.136
+
+RSA P-values: Nature
+11
+
+11
+
+RSA P-values: People/Roles
+0.178
+
+Pythia-70m Layers
+
+0.300
+
+0.443
+
+0.004
+
+0.059
+
+0.211
+
+0.009
+
+0.234
+
+0.016
+
+0.193
+
+0.473
+
+0.167
+
+0.004
+
+0.001
+
+0.547
+
+0.207
+
+1
+
+2
+
+3
+
+4
+
+5
+
+0.2
+
+9
+
+0.002
+
+0.001
+
+0.008
+
+0.012
+
+7
+
+0.027
+
+0.109
+
+0.000
+
+0.059
+
+0.024
+
+0.443
+
+0.119
+
+0.002
+
+0.253
+
+0.000
+
+0.028
+
+0.052
+
+0.031
+
+0.057
+
+0.007
+
+0.245
+
+0.011
+
+1
+
+2
+
+3
+
+4
+
+5
+
+Pythia-160m Layers
+
+0.006
+
+0.3
+
+0.001
+
+5
+
+0.430
+
+3
+
+0.004
+
+7
+
+0.090
+
+5
+
+0.024
+
+3
+
+Pythia-160m Layers
+
+9
+
+0.5
+
+0.1
+
+Pythia-70m Layers
+
+0.0
+
+0.004
+
+0.091
+
+Pythia-70m Layers
+
+0.248
+
+0.024
+
+0.519
+
+0.719
+
+0.504
+
+0.503
+
+0.030
+
+0.136
+
+0.001
+
+0.322
+
+0.000
+
+5
+
+0.5
+0.4
+0.3
+
+0.000
+
+0.126
+
+0.032
+
+9
+
+0.000
+
+0.034
+
+0.643
+
+0.138
+
+0.546
+
+0.093
+
+7
+
+0.210
+
+0.003
+
+0.346
+
+0.183
+
+0.098
+
+0.187
+
+0.841
+
+0.011
+
+0.233
+
+0.034
+
+0.112
+
+0.338
+
+0.584
+
+0.083
+
+0.601
+
+0.524
+
+1
+
+2
+
+3
+
+4
+
+5
+
+0.0
+
+0.150
+
+0.001
+
+0.296
+
+0.679
+
+0.535
+
+1
+
+2
+
+3
+
+4
+
+5
+
+0.008
+
+0.025
+
+RSA P-values: Biology
+0.511
+
+0.8
+
+0.199
+
+0.086
+
+0.162
+
+0.295
+
+0.550
+
+0.331
+
+0.077
+
+0.053
+
+0.232
+
+0.900
+
+0.613
+
+0.400
+
+0.232
+
+0.321
+
+0.657
+
+0.000
+
+0.312
+
+0.161
+
+0.6
+0.5
+
+0.407
+
+0.006
+
+0.128
+
+0.595
+
+7
+
+0.306
+
+0.4
+
+0.082
+
+0.022
+
+0.000
+
+0.083
+
+0.095
+
+0.3
+
+1
+
+0.030
+2
+
+0.199
+3
+
+0.812
+
+Pythia-70m Layers
+
+4
+
+0.896
+5
+
+0.0
+
+0.8
+
+0.6
+0.5
+
+0.053
+
+0.212
+
+0.054
+
+0.216
+
+0.077
+
+0.3
+0.2
+
+3
+
+3
+
+0.009
+
+0.1
+
+0.4
+
+0.2
+0.1
+
+0.3
+
+0.7
+
+Pythia-160m Layers
+
+0.124
+
+5
+
+5
+
+7
+
+Pythia-160m Layers
+
+9
+
+0.7
+
+0.060
+
+0.4
+
+0.9
+
+11
+
+0.166
+
+Pythia-70m Layers
+
+9
+
+11
+
+RSA P-values: Countries
+0.010
+
+0.6
+
+0.2
+
+3
+
+3
+
+0.837
+
+0.1
+
+0.8
+
+0.5
+
+0.2
+
+Pythia-70m Layers
+
+0.0
+
+0.7
+
+Pythia-160m Layers
+
+0.093
+
+0.6
+
+5
+
+9
+
+0.167
+
+Pythia-160m Layers
+
+0.170
+
+7
+
+0.7
+
+0.000
+
+0.2
+
+RSA P-values: MonthNames
+0.8
+
+11
+
+11
+
+0.100
+
+0.3
+
+0.1
+
+RSA P-values: Emotions
+0.031
+
+0.4
+
+0.434
+
+0.006
+
+0.078
+
+0.394
+
+0.878
+
+1
+
+2
+
+3
+
+4
+
+5
+
+Pythia-70m Layers
+
+0.1
+
+Figure 33: 1-1 RSA p-values of SAEs for layers in Pythia-70m vs layers in Pythia-160m for Concept
+Categories. A lower p-value indicates more statistically meaningful similarity.
+
+40
+
+Paired SVCCA Scores: Time
+
+Paired SVCCA Scores: Calendar
+
+0.334
+
+0.338
+
+0.369
+
+0.022
+
+0.40
+
+17
+
+17
+
+0.45
+
+0.107
+
+0.360
+
+0.393
+
+0.018
+
+0.397
+
+0.310
+
+0.541
+
+0.084
+
+0.5
+
+0.210
+
+0.30
+0.25
+
+0.373
+
+0.454
+
+0.469
+
+0.097
+
+0.20
+0.15
+
+0.358
+
+0.297
+
+0.127
+
+0.070
+
+14
+
+0.460
+
+0.348
+
+0.446
+
+0.594
+
+0.047
+
+0.591
+
+0.402
+
+0.480
+
+0.001
+
+10
+
+12
+
+17
+
+0.10
+
+0.4
+
+0.3
+
+10
+
+0.456
+
+Gemma-2-2B Layers
+
+0.454
+
+6
+
+6
+
+10
+
+14
+
+Gemma-2-2B Layers
+
+0.35
+
+0.2
+
+0.1
+
+0.05
+
+6
+
+10
+
+12
+
+17
+
+Gemma-1-2B Layers
+
+6
+
+Gemma-1-2B Layers
+
+0.609
+
+0.401
+
+0.664
+
+0.083
+
+0.6
+
+0.5
+
+14
+
+0.123
+
+10
+
+0.4
+
+0.356
+
+0.322
+
+0.350
+
+0.278
+
+0.510
+
+0.112
+
+0.695
+
+0.295
+
+10
+
+12
+
+17
+
+0.3
+
+0.089
+
+0.189
+
+0.273
+
+0.258
+
+0.005
+
+0.151
+
+0.298
+
+0.194
+
+0.5
+
+0.4
+
+0.3
+
+10
+
+0.184
+
+Gemma-2-2B Layers
+
+0.143
+
+0.418
+
+0.510
+
+0.574
+
+0.367
+
+6
+
+0.307
+
+17
+
+Paired SVCCA Scores: Nature
+
+6
+
+14
+
+Gemma-2-2B Layers
+
+17
+
+Paired SVCCA Scores: People/Roles
+
+0.323
+
+0.500
+
+0.567
+
+0.357
+
+10
+
+12
+
+17
+
+0.2
+
+0.2
+
+0.1
+
+0.1
+
+6
+
+Gemma-1-2B Layers
+
+6
+
+0.295
+
+0.322
+
+0.181
+
+Paired SVCCA Scores: MonthNames
+0.238
+
+0.5
+
+17
+
+17
+
+Paired SVCCA Scores: Emotions
+
+Gemma-1-2B Layers
+
+0.094
+
+0.156
+
+0.241
+
+0.104
+
+0.6
+
+0.195
+
+0.3
+
+0.340
+
+0.370
+
+0.081
+
+0.017
+0.2
+
+0.345
+6
+
+0.140
+
+0.497
+
+0.103
+
+10
+
+12
+
+17
+
+Gemma-1-2B Layers
+
+0.1
+
+14
+
+0.595
+
+0.175
+
+0.151
+
+0.007
+
+0.221
+
+10
+
+0.381
+
+Gemma-2-2B Layers
+
+0.192
+
+0.469
+
+0.593
+
+0.672
+
+0.504
+
+6
+
+6
+
+10
+
+14
+
+Gemma-2-2B Layers
+
+0.5
+0.4
+
+0.3
+
+0.2
+
+0.260
+6
+
+0.081
+
+0.292
+
+0.409
+
+0.100
+
+0.009
+
+10
+
+12
+
+17
+
+Gemma-1-2B Layers
+
+0.052
+
+0.35
+
+0.125
+
+0.012
+
+0.329
+
+0.406
+
+0.134
+
+0.25
+0.20
+
+0.020
+
+0.013
+
+0.154
+
+0.283
+
+0.15
+
+14
+
+0.393
+
+0.271
+
+0.348
+
+0.407
+
+0.076
+
+10
+
+0.276
+
+0.6
+
+0.5
+
+Gemma-2-2B Layers
+
+10
+
+14
+
+Gemma-2-2B Layers
+
+0.30
+
+0.101
+
+0.1
+
+Paired SVCCA Scores: Biology
+17
+
+17
+
+Paired SVCCA Scores: Countries
+0.005
+
+0.4
+
+0.545
+
+0.639
+
+0.233
+
+0.661
+
+0.4
+
+0.3
+
+0.2
+
+0.259
+6
+
+0.178
+
+0.244
+
+0.258
+
+10
+
+12
+
+17
+
+Gemma-1-2B Layers
+
+0.05
+
+6
+
+6
+
+0.10
+
+0.048
+6
+
+0.007
+
+0.165
+
+0.471
+
+10
+
+12
+
+17
+
+Gemma-1-2B Layers
+
+0.1
+
+Figure 34: 1-1 Paired SVCCA scores of SAEs for layers in Gemma-1-2b vs layers in Gemma-2-2b
+for Concept Categories. Middle layers appear to be the most similar with one another.
+
+41
+
+SVCCA P-values: Time
+
+SVCCA P-values: Calendar
+
+0.000
+
+0.000
+
+0.000
+
+0.740
+
+17
+
+17
+
+0.7
+
+0.421
+
+0.000
+
+0.000
+
+0.884
+
+0.000
+
+0.5
+
+0.4
+
+0.000
+
+0.000
+
+0.000
+
+0.180
+
+0.3
+
+14
+
+0.000
+
+0.003
+
+0.000
+
+0.000
+
+0.555
+
+10
+
+0.000
+
+Gemma-2-2B Layers
+
+0.000
+
+0.8
+
+0.003
+
+0.000
+
+0.000
+
+0.698
+
+6
+
+10
+
+14
+
+Gemma-2-2B Layers
+
+0.6
+
+0.000
+
+0.000
+
+0.000
+
+0.993
+
+10
+
+12
+
+17
+
+0.6
+
+0.4
+
+0.2
+
+6
+
+0.2
+
+0.000
+6
+
+0.000
+
+0.060
+
+0.400
+
+0.1
+
+10
+
+12
+
+17
+
+0.0
+
+Gemma-1-2B Layers
+
+6
+
+SVCCA P-values: People/Roles
+
+Gemma-1-2B Layers
+
+0.0
+
+SVCCA P-values: Nature
+
+0.172
+
+0.470
+
+0.286
+
+0.539
+
+17
+
+17
+
+0.7
+
+0.602
+
+0.189
+
+0.057
+
+0.092
+0.8
+
+0.735
+
+0.5
+
+0.4
+
+0.062
+
+0.036
+
+0.018
+
+0.131
+
+0.3
+
+14
+
+0.000
+
+0.974
+
+0.343
+
+0.037
+
+0.265
+
+10
+
+0.032
+
+Gemma-2-2B Layers
+
+0.001
+
+0.008
+
+0.000
+
+0.000
+
+0.028
+
+6
+
+10
+
+14
+
+Gemma-2-2B Layers
+
+0.6
+
+0.037
+
+0.000
+
+0.000
+
+0.046
+
+10
+
+12
+
+17
+
+0.6
+
+0.4
+
+0.2
+
+6
+
+0.2
+
+0.009
+6
+
+0.553
+
+0.000
+
+0.180
+
+0.1
+
+10
+
+12
+
+17
+
+0.0
+
+Gemma-1-2B Layers
+
+6
+
+0.000
+
+0.431
+
+0.023
+
+0.009
+
+0.520
+
+0.937
+
+0.034
+
+0.419
+
+0.002
+
+0.656
+
+10
+
+12
+
+17
+
+0.6
+
+0.4
+
+17
+
+0.438
+
+0.184
+
+0.676
+0.8
+
+14
+
+0.022
+
+0.652
+
+0.394
+
+0.385
+
+0.978
+
+0.370
+
+10
+
+0.260
+
+0.8
+
+Gemma-2-2B Layers
+
+0.313
+
+0.044
+
+0.001
+
+0.000
+
+0.034
+
+6
+
+0.238
+
+14
+
+0.040
+
+10
+
+0.104
+
+0.202
+
+0.035
+
+0.535
+
+0.969
+
+10
+
+12
+
+17
+
+0.2
+
+6
+
+Gemma-1-2B Layers
+
+0.0
+
+6
+
+0.217
+
+Gemma-1-2B Layers
+
+0.887
+
+0.700
+
+0.971
+
+0.190
+
+0.8
+
+0.959
+
+0.436
+
+0.267
+
+0.332
+
+0.462
+
+0.298
+
+0.363
+
+10
+
+12
+
+17
+
+0.4
+
+14
+
+0.946
+
+0.461
+
+0.249
+
+0.148
+
+0.875
+
+10
+
+10
+
+0.6
+
+Gemma-2-2B Layers
+
+0.665
+
+0.049
+
+0.006
+
+0.430
+
+0.030
+
+6
+
+0.086
+
+6
+
+14
+
+Gemma-2-2B Layers
+
+0.176
+
+0.0
+
+0.347
+
+0.8
+
+0.702
+
+0.4
+
+SVCCA P-values: Biology
+17
+
+17
+
+0.774
+
+0.6
+
+0.2
+
+SVCCA P-values: Countries
+0.993
+
+0.0
+
+SVCCA P-values: MonthNames
+
+6
+
+Gemma-2-2B Layers
+
+17
+
+SVCCA P-values: Emotions
+
+Gemma-1-2B Layers
+
+0.909
+
+0.988
+
+0.606
+
+0.309
+
+10
+
+12
+
+17
+
+0.6
+
+0.4
+
+0.2
+
+6
+
+Gemma-1-2B Layers
+
+0.2
+
+6
+
+Gemma-1-2B Layers
+
+Figure 35: 1-1 SVCCA p-values of SAEs for layers in Gemma-1-2b vs layers in Gemma-2-2b for
+Concept Categories. A lower p-value indicates more statistically meaningful similarity.
+
+42
+
+Paired RSA Scores: Time
+
+Paired RSA Scores: Calendar
+
+0.081
+
+0.086
+
+0.049
+
+17
+
+17
+
+0.175
+
+0.073
+
+0.10
+
+0.065
+
+0.103
+
+0.120
+
+-0.042
+
+0.182
+
+0.143
+
+0.154
+
+0.073
+
+0.106
+
+0.038
+
+0.08
+
+0.07
+
+0.052
+
+0.100
+
+0.101
+
+0.046
+
+0.06
+
+0.090
+
+0.034
+
+0.074
+
+0.135
+
+0.154
+
+0.070
+
+6
+
+10
+
+12
+
+17
+
+Gemma-1-2B Layers
+
+0.050
+0.025
+0.000
+
+6
+
+6
+
+0.083
+
+0.100
+0.075
+
+0.05
+
+0.081
+
+0.150
+0.125
+
+14
+
+0.105
+
+10
+
+0.094
+
+Gemma-2-2B Layers
+
+10
+
+14
+
+Gemma-2-2B Layers
+
+0.09
+
+0.04
+
+0.144
+
+0.152
+
+0.177
+
+0.009
+
+6
+
+10
+
+12
+
+17
+
+0.025
+
+Paired RSA Scores: People/Roles
+
+Gemma-1-2B Layers
+
+Paired RSA Scores: Nature
+
+0.122
+
+0.117
+
+0.210
+
+17
+
+17
+
+0.200
+
+0.012
+
+0.25
+
+-0.002
+
+0.062
+
+0.102
+
+0.071
+0.175
+
+10
+
+0.15
+
+0.168
+
+0.190
+
+0.206
+
+0.011
+
+0.137
+
+0.123
+
+0.284
+
+0.007
+
+0.10
+
+0.150
+
+14
+
+-0.017
+
+0.058
+
+0.094
+
+0.104
+
+0.147
+
+10
+
+0.105
+
+Gemma-2-2B Layers
+
+0.181
+
+0.143
+
+0.136
+
+0.161
+
+0.180
+
+6
+
+0.272
+
+6
+
+14
+
+Gemma-2-2B Layers
+
+0.20
+
+0.160
+
+0.214
+
+0.180
+
+0.169
+
+10
+
+12
+
+17
+
+0.125
+0.100
+0.075
+0.050
+
+0.05
+
+0.025
+
+0.00
+
+6
+
+10
+
+12
+
+Gemma-1-2B Layers
+
+17
+
+6
+
+Paired RSA Scores: Emotions
+
+Gemma-1-2B Layers
+
+Paired RSA Scores: MonthNames
+
+0.116
+
+0.142
+
+0.095
+
+17
+
+17
+
+0.20
+
+0.123
+
+0.000
+
+0.098
+
+0.075
+
+0.154
+
+0.078
+
+0.094
+
+0.144
+
+0.143
+
+0.006
+
+0.3
+
+0.15
+
+0.173
+
+0.185
+
+0.194
+
+-0.057
+
+0.10
+
+0.05
+
+14
+
+0.216
+
+10
+
+0.108
+
+0.104
+
+Gemma-2-2B Layers
+
+10
+
+14
+
+Gemma-2-2B Layers
+
+0.2
+
+0.184
+
+0.1
+
+0.340
+
+0.320
+
+0.328
+
+0.189
+0.0
+
+0.140
+6
+
+0.051
+
+0.123
+
+-0.074
+
+10
+
+12
+
+17
+
+Gemma-1-2B Layers
+
+6
+
+6
+
+0.00
+
+0.05
+
+0.211
+6
+
+0.169
+
+-0.148
+
+10
+
+12
+
+17
+
+Gemma-1-2B Layers
+
+0.1
+
+Paired RSA Scores: Biology
+
+-0.008
+
+0.195
+
+0.084
+
+0.032
+
+0.075
+
+0.118
+
+0.074
+
+-0.074
+
+0.15
+
+17
+
+17
+
+Paired RSA Scores: Countries
+
+0.317
+
+0.087
+
+0.182
+
+0.228
+
+-0.023
+
+0.116
+
+-0.106
+
+0.167
+
+-0.270
+
+0.3
+
+0.05
+
+0.142
+
+0.188
+
+0.079
+
+14
+10
+
+0.101
+
+Gemma-2-2B Layers
+
+10
+
+14
+
+Gemma-2-2B Layers
+
+0.2
+0.10
+
+0.1
+
+0.155
+
+0.264
+
+0.380
+
+0.232
+
+-0.018
+6
+
+0.097
+
+0.114
+
+0.046
+
+10
+
+12
+
+17
+
+Gemma-1-2B Layers
+
+0.1
+
+6
+
+6
+
+0.00
+
+0.0
+
+0.05
+
+0.356
+6
+
+0.214
+
+0.233
+
+0.046
+
+10
+
+12
+
+17
+
+Gemma-1-2B Layers
+
+0.2
+
+Figure 36: 1-1 Paired RSA scores of SAEs for layers in Gemma-1-2b vs layers in Gemma-2-2b for
+Concept Categories. Middle layers appear to be the most similar with one another.
+
+43
+
+0.000
+
+0.075
+
+0.031
+
+0.000
+
+0.000
+
+0.949
+
+0.000
+
+0.000
+
+0.000
+
+0.003
+
+0.006
+
+0.000
+
+0.000
+
+0.001
+
+0.000
+
+0.000
+
+0.000
+
+0.391
+
+10
+
+12
+
+17
+
+17
+
+0.000
+
+14
+
+0.000
+
+10
+
+0.000
+
+RSA P-values: Calendar
+
+0.100
+
+6
+
+17
+
+RSA P-values: Time
+
+0.8
+
+0.000
+
+0.000
+
+0.000
+
+10
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.000
+
+0.075
+
+10
+
+12
+
+17
+
+0.100
+
+0.025
+0.000
+0.025
+
+Gemma-2-2B Layers
+
+14
+
+0.000
+
+6
+
+Gemma-2-2B Layers
+
+0.050
+
+0.050
+
+6
+
+Gemma-1-2B Layers
+
+0.6
+
+0.4
+
+0.2
+
+6
+
+RSA P-values: People/Roles
+
+Gemma-1-2B Layers
+
+0.0
+
+RSA P-values: Nature
+
+0.027
+
+0.048
+
+0.000
+
+17
+
+17
+
+0.5
+
+0.417
+
+0.5
+
+0.520
+
+0.073
+
+0.007
+
+0.076
+
+14
+
+0.563
+
+10
+
+0.3
+
+0.001
+
+0.000
+
+0.001
+
+0.422
+
+0.008
+
+0.036
+
+0.000
+
+0.466
+
+10
+
+12
+
+17
+
+6
+
+Gemma-1-2B Layers
+
+0.2
+
+0.114
+
+0.000
+
+0.005
+
+0.006
+
+0.000
+
+0.000
+
+0.000
+
+0.003
+
+0.001
+
+0.002
+
+0.002
+
+10
+
+12
+
+17
+
+0.2
+
+0.1
+
+0.1
+
+0.0
+
+6
+
+Gemma-1-2B Layers
+
+0.0
+
+RSA P-values: MonthNames
+0.136
+
+0.8
+
+17
+
+17
+
+0.012
+
+0.007
+
+0.3
+
+RSA P-values: Emotions
+0.025
+
+0.049
+
+10
+
+0.029
+
+Gemma-2-2B Layers
+
+0.000
+
+6
+
+0.000
+
+6
+
+14
+
+Gemma-2-2B Layers
+
+0.4
+0.4
+
+0.071
+
+0.116
+
+0.000
+
+0.161
+
+10
+
+0.016
+
+0.000
+
+0.000
+
+0.827
+
+0.005
+
+0.202
+
+0.009
+
+0.906
+
+10
+
+12
+
+17
+
+0.6
+
+0.4
+
+14
+
+0.012
+
+0.077
+
+0.001
+
+0.000
+
+0.481
+
+10
+
+0.000
+
+Gemma-2-2B Layers
+
+0.059
+
+0.002
+
+0.000
+
+0.000
+
+0.011
+
+6
+
+14
+
+0.003
+
+6
+
+Gemma-2-2B Layers
+
+0.8
+
+0.000
+
+0.000
+
+0.000
+
+0.967
+
+10
+
+12
+
+17
+
+0.0
+
+0.8
+
+0.2
+
+6
+
+Gemma-1-2B Layers
+
+0.6
+
+0.4
+
+0.2
+
+0.0
+
+6
+
+RSA P-values: Countries
+
+Gemma-1-2B Layers
+
+RSA P-values: Biology
+0.439
+
+0.282
+
+0.097
+
+0.005
+
+0.550
+
+0.225
+
+0.815
+
+0.089
+
+0.902
+
+0.123
+
+0.008
+
+0.000
+
+0.060
+
+0.003
+
+0.060
+
+0.107
+
+0.410
+
+10
+
+12
+
+17
+
+17
+
+0.193
+
+14
+
+0.053
+
+10
+
+0.547
+
+6
+
+17
+
+0.7
+
+0.192
+
+0.125
+
+0.202
+
+0.744
+
+0.5
+
+0.4
+
+0.134
+
+0.084
+
+0.006
+
+0.162
+
+0.3
+
+Gemma-2-2B Layers
+
+10
+
+14
+
+Gemma-2-2B Layers
+
+0.6
+
+0.4
+
+6
+
+0.2
+
+0.550
+6
+
+0.181
+
+0.095
+
+0.325
+
+10
+
+12
+
+17
+
+Gemma-1-2B Layers
+
+0.1
+
+0.6
+
+0.2
+
+6
+
+Gemma-1-2B Layers
+
+0.0
+
+Figure 37: 1-1 RSA p-values of SAEs for layers in Gemma-1-2b vs layers in Gemma-2-2b for
+Concept Categories. A lower p-value indicates more statistically meaningful similarity.
+
+44
+
+

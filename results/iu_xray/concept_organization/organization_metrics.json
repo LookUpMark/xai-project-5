@@ -1,0 +1,13 @@
+{
+  "n_concepts_active": 14,
+  "n_clusters": 4,
+  "mean_cluster_size": 3.5,
+  "silhouette_cosine": 0.28415247797966003,
+  "redundancy_reduction": 1.0264150943396226,
+  "mean_raw_concepts_per_image": 0.17953795379537954,
+  "mean_families_per_image": 0.17491749174917492,
+  "radlex_coverage_pct": 100.0,
+  "n_empty_images": 1260,
+  "unresolved_terms": [],
+  "n_unresolved_terms": 0
+}

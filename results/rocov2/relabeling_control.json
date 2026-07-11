@@ -1,0 +1,21 @@
+{
+  "dataset": "rocov2",
+  "seed_model": 42,
+  "perm_seed": 12345,
+  "dict_size": 2048,
+  "n_test_samples": 15958,
+  "reconstruction_cosine_orig": 0.9672959446907043,
+  "reconstruction_cosine_relabeled": 0.9672959446907043,
+  "slot_wise_jaccard": {
+    "mean": 0.007683580741286278,
+    "note": "Floor-by-construction if H1 holds: a relabeled copy of ONE SAE scores ~chance floor."
+  },
+  "matched": {
+    "mean_best_match_cosine": 1.0,
+    "mean_frac_matched_0.9": 1.0,
+    "mean_frac_mutual_1to1": 1.0,
+    "mean_erank": 354.0,
+    "ratio_subspace": 5.501971265630585,
+    "note": "Should be ~1.0 (frac\u22650.9 \u2248 1.0): the SAME SAE, correctly identified as identical."
+  }
+}

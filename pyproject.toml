@@ -1,0 +1,27 @@
+[project]
+name = "xai-project-5"
+version = "0.1.0"
+description = "Unsupervised Concept Discovery and Evaluation for Medical Vision-Language Models"
+requires-python = ">=3.10"
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["config", "utils", "evaluate_llm_judge"]
+packages = ["xai_datasets", "vocabulary_building", "embedding_extraction", "augmentation", "autoencoder"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+"xai_datasets" = "xai_datasets"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint.per-file-ignores]
+# sys.path.insert() pattern: bare sibling imports after path setup are
+# intentional (see CLAUDE.md import convention) — not a style violation.
+"src/sae_hidden/extract_hidden.py" = ["E402"]
+"tests/**/*.py" = ["E402"]
+"scripts/**/*.py" = ["E402"]

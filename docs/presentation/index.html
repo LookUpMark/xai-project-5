@@ -1032,7 +1032,7 @@
   <section class="slide hero light center" data-screen-label="01 Cover">
     <div class="part-tag"><b>Part 1 of 3</b> · Nicolò Colle</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <div class="eyebrow">Explainable &amp; Trustworthy AI · Project · Politecnico di Torino</div>
+    <div class="eyebrow">1 · Introduction · Explainable &amp; Trustworthy AI · Project · Politecnico di Torino</div>
     <h1 class="h-hero">Characterization of MedConcept Limits to a 2D BiomedCLIP Adaptation.</h1>
     <p class="meta" style="margin-top:26px;">Marc'Antonio Lopez · Nicolò Colle · Carmine Francesco Benvenuto</p>
     <aside class="aside" data-notes="01">
@@ -1049,7 +1049,7 @@
   <section class="slide light" data-screen-label="02 Problem">
     <div class="part-tag"><b>Part 1 of 3</b> · Nicolò Colle</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">The problem</p>
+    <p class="eyebrow">1 · Introduction · The problem</p>
     <h2 class="h-xl">Medical VLMs are accurate but opaque.</h2>
     <p class="lead">The internal representations are high-dimensional, polysemic and unreadable. A serious concern in
       safety-critical clinical use.</p>
@@ -1065,7 +1065,7 @@
   <section class="slide dark" data-screen-label="03 Approach">
     <div class="part-tag"><b>Part 1 of 3</b> · Nicolò Colle</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">Approach</p>
+    <p class="eyebrow">2 · Related work · Approach</p>
     <h2 class="h-md">Concept-based XAI: from supervised to unsupervised discovery.</h2>
     <div class="pt-grid">
       <div class="pt">
@@ -1112,7 +1112,7 @@
   <section class="slide light" data-screen-label="04 Research gaps">
     <div class="part-tag"><b>Part 1 of 3</b> · Nicolò Colle</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">Research gaps · in the paper's order</p>
+    <p class="eyebrow">3 · Research gaps · Research gaps · in the paper's order</p>
     <h2 class="h-md">Six gaps this work addresses.</h2>
     <div class="gap-grid">
       <div class="gap"><span class="gn">GAP 1</span>
@@ -1154,7 +1154,7 @@
   <section class="slide light" data-screen-label="05 Setup">
     <div class="part-tag"><b>Part 1 of 3</b> · Nicolò Colle</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">Backbone &amp; vocabulary</p>
+    <p class="eyebrow">4 · Methodology · Backbone &amp; vocabulary</p>
     <h2 class="h-xl">Our Adapted Architecture.</h2>
     <p class="lead">Instead of 3D Merlin, we use the 2D BiomedCLIP as backbone. Its image encoder exposes a <b>768-d
         hidden state</b> that a frozen projection compresses into the <b>512-d</b> contrastive space. Features are named
@@ -1183,7 +1183,7 @@
   <section class="slide dark" data-screen-label="06 Data">
     <div class="part-tag"><b>Part 1 of 3</b> · Nicolò Colle</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">Data</p>
+    <p class="eyebrow">4 · Methodology · Data</p>
     <h2 class="h-md">Two scales: IU X-Ray and ROCOv2 (10×).</h2>
     <div class="ba-grid">
       <div class="ba-col">
@@ -1222,9 +1222,9 @@
   ══════════════════════════════════════════════════════════════════-->
 
   <section class="slide light" data-screen-label="07 Method">
-    <div class="part-tag"><b>Part 2 of 3</b> · Nicolò Colle</div>
+    <div class="part-tag"><b>Part 1 of 3</b> · Nicolò Colle</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">Method · three paths</p>
+    <p class="eyebrow">4 · Methodology · Method · three paths</p>
     <h2 class="h-md">Three decompositions, one SAE config.</h2>
     <div class="pipeline" style="grid-template-columns: repeat(3, 1fr);">
       <div class="step"><span class="nb">01 · BASELINE</span>
@@ -1272,7 +1272,7 @@
   <section class="slide dark" data-screen-label="08 Evaluation · matched metric">
     <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">Evaluation · Gap 6 (1/2)</p>
+    <p class="eyebrow">4 · Methodology · Evaluation · Gap 6 (1/2)</p>
     <h2 class="h-md">A permutation-invariant matched metric.</h2>
     <p class="lead">For each decoder row of seed A, take its <b>best cosine match</b> across <i>all</i> rows of seed B,
       then average. Feature order does not matter — that is what makes it a real stability measure.</p>
@@ -1314,7 +1314,7 @@
   <section class="slide light" data-screen-label="09 Evaluation · subspace null">
     <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">Evaluation · Gap 6 (2/2)</p>
+    <p class="eyebrow">4 · Methodology · Evaluation · Gap 6 (2/2)</p>
     <h2 class="h-md">A null conditioned on effective rank.</h2>
     <p class="lead">Real decoder directions live in a <b>subspace</b> of effective rank ~357 — not the ambient 512. We
       draw null vectors <i>inside</i> that subspace, so the comparison is honest. An isotropic full-512 null would
@@ -1356,7 +1356,7 @@
   <section class="slide hero dark center" data-screen-label="10 Headline result">
     <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">The headline result · Gap 1</p>
+    <p class="eyebrow">5 · Experiments and analysis · The headline result · Gap 1</p>
     <div class="stat-num">1.81<span class="unit">×</span><span class="sub">1.67× IU X-Ray · 1.81× ROCOv2</span></div>
     <p class="stat-caption">The baseline SAE reconstructs its inputs well — but cross-seed <b>feature identity is
         absent</b>: best-match barely above the conditioned null. Genuine non-identifiability, not a training bug.</p>
@@ -1369,7 +1369,7 @@
   <section class="slide light" data-screen-label="11 Baseline results">
     <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">Baseline · Tab.1 · Gap 1</p>
+    <p class="eyebrow">5 · Experiments and analysis · Baseline · Tab.1 · Gap 1</p>
     <h2 class="h-md">Good reconstruction, absent identity.</h2>
     <table class="tbl">
       <caption>Cross-seed stability, baseline Top-K SAE</caption>
@@ -1418,7 +1418,7 @@
   <section class="slide dark" data-screen-label="12 Relabeling control">
     <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">Relabeling control · Gap 6</p>
+    <p class="eyebrow">5 · Experiments and analysis · Relabeling control · Gap 6</p>
     <h2 class="h-xl">Slot-wise is floor-by-construction.</h2>
     <div class="fig-grid">
       <div>
@@ -1446,7 +1446,7 @@
   <section class="slide light" data-screen-label="13 Path A · concept">
     <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">Path A (768-d) vs baseline · Gap 3</p>
+    <p class="eyebrow">5 · Experiments and analysis · Path A (768-d) vs baseline · Gap 3</p>
     <h2 class="h-md">A healthier decomposition — same verdict.</h2>
     <div class="fig-grid">
       <div>
@@ -1476,7 +1476,7 @@
   <section class="slide dark" data-screen-label="14 Path A · ablation">
     <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">Path A · ablation · Tab.3</p>
+    <p class="eyebrow">5 · Experiments and analysis · Path A · ablation · Tab.3</p>
     <h2 class="h-md">No overcompleteness escapes weak universality.</h2>
     <table class="tbl">
       <caption>Matched obs / null vs dictionary overcompleteness</caption>
@@ -1517,7 +1517,7 @@
   <section class="slide hero dark center" data-screen-label="15 Scale refuted">
     <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">The scale hypothesis · Gap 4</p>
+    <p class="eyebrow">5 · Experiments and analysis · The scale hypothesis · Gap 4</p>
     <div class="stat-num">10<span class="unit">×</span><span class="sub">ROCOv2 ~80k vs IU X-Ray ~7k</span></div>
     <p class="stat-caption">Ten times more data improves <b>training health</b> (dead 16%→0.6%) but <b>not
         identifiability</b> — matched 0.299→0.327, ratio 1.67×→1.81×. Binding constraint = <b>representation site</b>,
@@ -1531,7 +1531,7 @@
   <section class="slide light" data-screen-label="16 SPLiCE · concept">
     <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">Path B · SPLiCE · Gap 1+4</p>
+    <p class="eyebrow">5 · Experiments and analysis · Path B · SPLiCE · Gap 1+4</p>
     <h2 class="h-xl">Deterministic. Judge-ready.</h2>
     <p class="lead">Decompose each embedding into a sparse, non-negative combination over a <b>fixed domain-matched
         dictionary</b> (RadLex / MeSH). Never estimated → <b>deterministic by construction</b>, zero cross-seed
@@ -1556,7 +1556,7 @@
   <section class="slide dark" data-screen-label="17 SPLiCE · coverage">
     <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">SPLiCE · scale + gap correction</p>
+    <p class="eyebrow">5 · Experiments and analysis · SPLiCE · scale + gap correction</p>
     <h2 class="h-md">Scales to both corpora. Gap is the fix.</h2>
     <table class="tbl">
       <caption>SPLiCE coverage and modality-gap correction</caption>
@@ -1605,7 +1605,7 @@
   <section class="slide light" data-screen-label="18 Organisation">
     <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">Concept organisation · Gap 5</p>
+    <p class="eyebrow">5 · Experiments and analysis · Concept organisation · Gap 5</p>
     <h2 class="h-md">Dense, but weakly separated.</h2>
     <p class="lead">Cluster the active vocabulary into <b>concept families</b> via ontology ancestors (RadLex / MeSH) +
       two degeneracy guards: leaf-root rejection and a subtree canopy that rejects overly generic ancestors. SPLiCE cuts
@@ -1658,7 +1658,7 @@
   <section class="slide dark" data-screen-label="14 Judge Models">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">Judge Models</p>
+    <p class="eyebrow">5 · Experiments and analysis · Judge Models</p>
     <h2 class="h-md">Three judges, three different biases.</h2>
     <div class="pt-grid">
       <div class="pt">
@@ -1693,7 +1693,7 @@
   <section class="slide light" data-screen-label="15 Results Matrix">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">Results Matrix</p>
+    <p class="eyebrow">5 · Experiments and analysis · Results Matrix</p>
     <h2 class="h-xl">MedGemma vs. Llama 3.1: Aligned Rates.</h2>
     <p class="lead" style="margin-bottom: 24px;">Extracting from the exhaustive evaluation on IU X-Ray (1,508 pairs).
       MedGemma rates nearly everything as "Aligned", even random assignments, failing the null control. Llama 3.1 is
@@ -1742,7 +1742,7 @@
   <section class="slide dark" data-screen-label="16 Judge Limitations">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">Judge Models · Limitations</p>
+    <p class="eyebrow">5 · Experiments and analysis · Judge Models · Limitations</p>
     <h2 class="h-xl">Why the judges fail.</h2>
     <p class="lead">Both models lack the discriminative power required for a reliable evaluation on medical domains, but
       for entirely different reasons.</p>
@@ -1773,7 +1773,7 @@
   <section class="slide dark" data-screen-label="16b Gemma 4 26B">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">Judge Models · Gemma 4 26B</p>
+    <p class="eyebrow">5 · Experiments and analysis · Judge Models · Gemma 4 26B</p>
     <h2 class="h-xl">High computational cost and strong rejection bias.</h2>
     <p class="lead">Running the <b>26B parameter model</b> locally via LM Studio proved computationally prohibitive,
       limiting its evaluation to a single run on the IU X-Ray baseline. However, its results provide crucial insights
@@ -1827,7 +1827,7 @@
 <section class="slide light" data-screen-label="23 Judge Scale Effects">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">Evaluation · Dataset Scale Effects</p>
+    <p class="eyebrow">5 · Experiments and analysis · Evaluation · Dataset Scale Effects</p>
     <h2 class="h-md">Judge behavior across data scales.</h2>
     <p class="lead">How does the 10× scale of ROCOv2 affect the LLM-Judge? MedGemma remains positively biased, but Llama
       3.1 becomes significantly more decisive as explanation quality improves.</p>
@@ -1877,7 +1877,7 @@
   <section class="slide light" data-screen-label="17 Organisation">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">Concept organisation · Gap 5</p>
+    <p class="eyebrow">5 · Experiments and analysis · Concept organisation · Gap 5</p>
     <h2 class="h-md">Dense, but weakly separated.</h2>
     <p class="lead">We cluster the active vocabulary into <b>concept families</b> with ontology ancestors (RadLex for IU
       X-Ray, MeSH for ROCOv2) and two degeneracy guards — leaf-root rejection, and a subtree canopy that rejects overly
@@ -1901,7 +1901,7 @@
   <section class="slide light" data-screen-label="19 Faithfulness">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">Faithfulness · Gap 2</p>
+    <p class="eyebrow">5 · Experiments and analysis · Faithfulness · Gap 2</p>
     <h2 class="h-xl">A small upper tail is genuinely faithful.</h2>
     <p class="lead">Do <b>any</b> features track real pathology? Correlating activations against the ground-truth labels
       (with a shuffle null), a <b>small upper tail</b> is genuinely faithful — the strongest looks like a <i>mass</i>,
@@ -1919,7 +1919,7 @@
   <section class="slide hero dark center" data-screen-label="20 LLM judge">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <div class="eyebrow">LLM-as-judge · local plausibility</div>
+    <div class="eyebrow">5 · Experiments and analysis · LLM-as-judge · local plausibility</div>
     <div class="stat-num">81.6<span class="unit">%</span><span class="sub">SPLiCE MedGemma · 79.6% null-k</span></div>
     <p class="stat-caption">SPLiCE scores <b>high local plausibility</b> under a medical-tuned judge — but <b>almost
         nothing</b> under a general one. <b>Random-k null explanations score comparably</b> (79.6%), indicating weak
@@ -1944,7 +1944,7 @@
   <section class="slide light" data-screen-label="21 Conclusions">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <p class="eyebrow">Conclusions</p>
+    <p class="eyebrow">5 · Experiments and analysis · Conclusions</p>
     <h2 class="h-md">Three lessons that generalise.</h2>
     <div class="pt-grid">
       <div class="pt">
@@ -1976,7 +1976,7 @@
   <section class="slide hero dark center" data-screen-label="22 Future work">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
-    <div class="eyebrow">Limitations &amp; future work</div>
+    <div class="eyebrow">5 · Experiments and analysis · Limitations &amp; future work</div>
     <h2 class="h-hero">Future work</h2>
     <ul class="bl" style="margin-top: 24px;">
       <li><b>(i) The LLM-Judge is model dependant.</b> The %Aligned rate is a property of the judging model as much as

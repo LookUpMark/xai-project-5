@@ -1,287 +1,896 @@
 <!doctype html>
 <!--
   Unsupervised Concept Discovery for Medical VLMs — project deck.
-  18 slides = 3 parts × 6 (one member per part). English, real numbers from
+  19 slides = 3 parts (one member per part). English, real numbers from
   docs/latex/main_extended.tex + implementations in src/. Design system: Cohere.
   Gaps follow the paper's §3 order (1→6). Skill: simple-deck (seed nav script intact).
 -->
 <html lang="en">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Concept Discovery in Medical VLMs — XAI Project</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
   <style>
     /* ─── Cohere design tokens (active bind) ──────────────────── */
     :root {
-      --bg:        #ffffff;
-      --surface:   #fafafa;
-      --fg:        #000000;
-      --fg-2:      #17171c;
-      --muted:     #93939f;
-      --border:    #e5e7eb;
-      --border-2:  #d9d9dd;
-      --accent:    #1863dc;
+      --bg: #ffffff;
+      --surface: #fafafa;
+      --fg: #000000;
+      --fg-2: #17171c;
+      --muted: #93939f;
+      --border: #e5e7eb;
+      --border-2: #d9d9dd;
+      --accent: #1863dc;
       --accent-soft: color-mix(in oklch, var(--accent) 12%, transparent);
       --radius: 22px;
       --font-display: "CohereText", "Space Grotesk", Inter, ui-sans-serif, sans-serif;
-      --font-body:    "Unica77 Cohere Web", Inter, Arial, ui-sans-serif, sans-serif;
-      --font-mono:    "CohereMono", "JetBrains Mono", ui-monospace, monospace;
+      --font-body: "Unica77 Cohere Web", Inter, Arial, ui-sans-serif, sans-serif;
+      --font-mono: "CohereMono", "JetBrains Mono", ui-monospace, monospace;
     }
 
-    *, *::before, *::after { box-sizing: border-box; }
-    html, body { margin: 0; height: 100%; }
-    body {
-      background: var(--bg); color: var(--fg);
-      font-family: var(--font-body); font-size: 18px; line-height: 1.5;
-      -webkit-font-smoothing: antialiased;
-      display: flex; overflow-x: auto; overflow-y: hidden;
-      scroll-snap-type: x mandatory; scroll-behavior: smooth;
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
     }
-    body::-webkit-scrollbar { display: none; }
-    p { text-wrap: pretty; }
-    h1, h2, h3 { text-wrap: balance; }
+
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font-body);
+      font-size: 18px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scroll-snap-type: x mandatory;
+      scroll-behavior: smooth;
+    }
+
+    body::-webkit-scrollbar {
+      display: none;
+    }
+
+    p {
+      text-wrap: pretty;
+    }
+
+    h1,
+    h2,
+    h3 {
+      text-wrap: balance;
+    }
 
     .slide {
-      flex: 0 0 100vw; width: 100vw; height: 100vh;
+      flex: 0 0 100vw;
+      width: 100vw;
+      height: 100vh;
       scroll-snap-align: start;
       padding: clamp(48px, 7vw, 96px) clamp(48px, 8vw, 112px);
-      display: flex; flex-direction: column; justify-content: safe center;
-      position: relative; overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: safe center;
+      position: relative;
+      overflow: hidden;
     }
-    .slide.light { background: var(--bg); color: var(--fg); }
-    .slide.dark  { background: var(--fg-2); color: var(--bg); }
-    .slide.dark .muted { color: rgba(250,250,247,0.7); }
-    .slide.hero { padding-block: clamp(64px, 9vw, 128px); }
-    .slide.center { align-items: center; text-align: center; justify-content: center; }
-    .slide.center .body { margin-inline: auto; }
+
+    .slide.light {
+      background: var(--bg);
+      color: var(--fg);
+    }
+
+    .slide.dark {
+      background: var(--fg-2);
+      color: var(--bg);
+    }
+
+    .slide.dark .muted {
+      color: rgba(250, 250, 247, 0.7);
+    }
+
+    .slide.hero {
+      padding-block: clamp(64px, 9vw, 128px);
+    }
+
+    .slide.center {
+      align-items: center;
+      text-align: center;
+      justify-content: center;
+    }
+
+    .slide.center .body {
+      margin-inline: auto;
+    }
 
     .eyebrow {
-      font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.14em;
-      text-transform: uppercase; color: var(--muted); margin: 0 0 24px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 24px;
     }
 
     .h-hero {
-      font-family: var(--font-display); font-size: clamp(46px, 6.2vw, 84px);
-      line-height: 1.03; letter-spacing: -0.025em; margin: 0 0 20px;
-      max-width: 18ch; font-weight: 500;
+      font-family: var(--font-display);
+      font-size: clamp(46px, 6.2vw, 84px);
+      line-height: 1.03;
+      letter-spacing: -0.025em;
+      margin: 0 0 20px;
+      max-width: 18ch;
+      font-weight: 500;
     }
+
     .h-xl {
-      font-family: var(--font-display); font-size: clamp(32px, 4vw, 50px);
-      line-height: 1.1; letter-spacing: -0.02em; margin: 0 0 18px;
-      max-width: 22ch; font-weight: 500;
+      font-family: var(--font-display);
+      font-size: clamp(32px, 4vw, 50px);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      margin: 0 0 18px;
+      max-width: 22ch;
+      font-weight: 500;
     }
+
     .h-md {
-      font-family: var(--font-display); font-size: clamp(24px, 2.6vw, 32px);
-      line-height: 1.2; letter-spacing: -0.015em; margin: 0 0 16px; font-weight: 500;
+      font-family: var(--font-display);
+      font-size: clamp(24px, 2.6vw, 32px);
+      line-height: 1.2;
+      letter-spacing: -0.015em;
+      margin: 0 0 16px;
+      font-weight: 500;
     }
+
     .lead {
-      font-size: clamp(17px, 1.4vw, 21px); line-height: 1.55; color: var(--muted);
-      max-width: 58ch; margin: 0;
+      font-size: clamp(17px, 1.4vw, 21px);
+      line-height: 1.55;
+      color: var(--muted);
+      max-width: 58ch;
+      margin: 0;
     }
-    .slide.dark .lead { color: rgba(250,250,247,0.8); }
-    .meta { font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+
+    .slide.dark .lead {
+      color: rgba(250, 250, 247, 0.8);
+    }
+
+    .meta {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--muted);
+    }
 
     .stat-num {
-      font-family: var(--font-display); font-size: clamp(100px, 16vw, 200px);
-      line-height: 0.88; letter-spacing: -0.035em; color: var(--accent);
-      font-weight: 600; margin: 0 0 clamp(12px, 1.5vw, 16px);
+      font-family: var(--font-display);
+      font-size: clamp(100px, 16vw, 200px);
+      line-height: 0.88;
+      letter-spacing: -0.035em;
+      color: var(--accent);
+      font-weight: 600;
+      margin: 0 0 clamp(12px, 1.5vw, 16px);
     }
-    .stat-num .unit { font-size: 0.40em; opacity: 0.92; margin-left: 3px; }
-    .stat-num .sub  { font-size: 0.28em; color: var(--muted); display:block; margin-top: clamp(6px, 0.8vw, 8px); font-weight: 400; }
+
+    .stat-num .unit {
+      font-size: 0.40em;
+      opacity: 0.92;
+      margin-left: 3px;
+    }
+
+    .stat-num .sub {
+      font-size: 0.28em;
+      color: var(--muted);
+      display: block;
+      margin-top: clamp(6px, 0.8vw, 8px);
+      font-weight: 400;
+    }
+
     .stat-caption {
-      font-size: clamp(17px, 1.4vw, 21px); color: var(--muted);
-      max-width: 46ch; margin: 0; line-height: 1.5;
+      font-size: clamp(17px, 1.4vw, 21px);
+      color: var(--muted);
+      max-width: 46ch;
+      margin: 0;
+      line-height: 1.5;
     }
-    .slide.dark .stat-caption { color: rgba(250,250,247,0.74); }
 
-    .pt-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(20px, 2.5vw, 32px); margin-top: clamp(28px, 3vw, 36px); }
-    .pt { border-top: 2px solid var(--accent); padding-top: clamp(12px, 1.4vw, 16px); }
-    .pt h3 { font-weight: 500; margin: 0 0 clamp(6px, 0.8vw, 8px); letter-spacing: -0.006em; }
-    .pt p  { color: var(--muted); margin: 0; line-height: 1.55; }
-    .slide.dark .pt p { color: rgba(250,250,247,0.72); }
+    .slide.dark .stat-caption {
+      color: rgba(250, 250, 247, 0.74);
+    }
 
-    .pipeline { display: grid; grid-template-columns: repeat(4, 1fr); gap: clamp(16px, 2vw, 24px); margin-top: clamp(28px, 3vw, 36px); }
-    .step .nb { font-family: var(--font-mono); font-size: clamp(11px, 1.2vw, 12px); color: var(--accent); letter-spacing: 0.07em; font-weight: 500; }
-    .step h3 { font-family: var(--font-display); font-size: clamp(16px, 1.8vw, 19px); font-weight: 500; margin: clamp(4px, 0.5vw, 6px) 0 clamp(4px, 0.5vw, 6px); line-height: 1.25; }
-    .step p  { color: var(--muted); margin: 0; line-height: 1.55; }
-    .slide.dark .step p { color: rgba(250,250,247,0.72); }
+    .pt-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: clamp(20px, 2.5vw, 32px);
+      margin-top: clamp(28px, 3vw, 36px);
+    }
 
-    .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(36px, 4vw, 56px); margin-top: clamp(24px, 2.8vw, 32px); }
-    .ba-col .ba-label { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
-    .ba-col h3 { font-family: var(--font-display); font-size: 26px; line-height: 1.15; margin: 0 0 12px; max-width: 18ch; font-weight: 500; }
-    .ba-col p  { color: var(--muted); font-size: 15.5px; line-height: 1.5; margin: 0; }
-    .slide.dark .ba-col p { color: rgba(250,250,247,0.72); }
+    .pt {
+      border-top: 2px solid var(--accent);
+      padding-top: clamp(12px, 1.4vw, 16px);
+    }
 
-    .bl { margin: clamp(12px, 1.5vw, 16px) 0 0; padding: 0; list-style: none; max-width: 64ch; }
-    .bl li { position: relative; padding: 0 0 clamp(9px, 1.1vw, 11px) 22px; color: var(--muted); line-height: 1.55; }
-    .bl li::before { content: ""; position: absolute; left: 0; top: 0.65em; width: 8px; height: 1.5px; background: var(--accent); }
-    .bl li b { color: var(--fg); font-weight: 500; }
-    .slide.dark .bl li { color: rgba(250,250,247,0.78); }
-    .slide.dark .bl li b { color: var(--bg); }
+    .pt h3 {
+      font-weight: 500;
+      margin: 0 0 clamp(6px, 0.8vw, 8px);
+      letter-spacing: -0.006em;
+    }
+
+    .pt p {
+      color: var(--muted);
+      margin: 0;
+      line-height: 1.55;
+    }
+
+    .slide.dark .pt p {
+      color: rgba(250, 250, 247, 0.72);
+    }
+
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: clamp(16px, 2vw, 24px);
+      margin-top: clamp(28px, 3vw, 36px);
+    }
+
+    .step .nb {
+      font-family: var(--font-mono);
+      font-size: clamp(11px, 1.2vw, 12px);
+      color: var(--accent);
+      letter-spacing: 0.07em;
+      font-weight: 500;
+    }
+
+    .step h3 {
+      font-family: var(--font-display);
+      font-size: clamp(16px, 1.8vw, 19px);
+      font-weight: 500;
+      margin: clamp(4px, 0.5vw, 6px) 0 clamp(4px, 0.5vw, 6px);
+      line-height: 1.25;
+    }
+
+    .step p {
+      color: var(--muted);
+      margin: 0;
+      line-height: 1.55;
+    }
+
+    .slide.dark .step p {
+      color: rgba(250, 250, 247, 0.72);
+    }
+
+    .ba-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: clamp(36px, 4vw, 56px);
+      margin-top: clamp(24px, 2.8vw, 32px);
+    }
+
+    .ba-col .ba-label {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 12px;
+    }
+
+    .ba-col h3 {
+      font-family: var(--font-display);
+      font-size: 26px;
+      line-height: 1.15;
+      margin: 0 0 12px;
+      max-width: 18ch;
+      font-weight: 500;
+    }
+
+    .ba-col p {
+      color: var(--muted);
+      font-size: 15.5px;
+      line-height: 1.5;
+      margin: 0;
+    }
+
+    .slide.dark .ba-col p {
+      color: rgba(250, 250, 247, 0.72);
+    }
+
+    .bl {
+      margin: clamp(12px, 1.5vw, 16px) 0 0;
+      padding: 0;
+      list-style: none;
+      max-width: 64ch;
+    }
+
+    .bl li {
+      position: relative;
+      padding: 0 0 clamp(9px, 1.1vw, 11px) 22px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .bl li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.65em;
+      width: 8px;
+      height: 1.5px;
+      background: var(--accent);
+    }
+
+    .bl li b {
+      color: var(--fg);
+      font-weight: 500;
+    }
+
+    .slide.dark .bl li {
+      color: rgba(250, 250, 247, 0.78);
+    }
+
+    .slide.dark .bl li b {
+      color: var(--bg);
+    }
 
     /* ─── research gaps grid (paper §3 order) ──────────────────── */
-    .gap-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(16px, 2vw, 22px) clamp(24px, 3vw, 36px); margin-top: clamp(24px, 2.8vw, 30px); }
-    .gap { border-top: 1px solid var(--border-2); padding-top: clamp(10px, 1.2vw, 12px); }
-    .gap .gn { font-family: var(--font-mono); font-size: clamp(10px, 1.1vw, 12px); color: var(--accent); letter-spacing: 0.09em; font-weight: 500; }
-    .gap h3 { font-weight: 500; margin: clamp(3px, 0.4vw, 4px) 0 clamp(4px, 0.6vw, 6px); }
-    .gap p  { color: var(--muted); margin: 0; line-height: 1.5; }
-    .slide.dark .gap p { color: rgba(250,250,247,0.72); }
+    .gap-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: clamp(16px, 2vw, 22px) clamp(24px, 3vw, 36px);
+      margin-top: clamp(24px, 2.8vw, 30px);
+    }
+
+    .gap {
+      border-top: 1px solid var(--border-2);
+      padding-top: clamp(10px, 1.2vw, 12px);
+    }
+
+    .gap .gn {
+      font-family: var(--font-mono);
+      font-size: clamp(10px, 1.1vw, 12px);
+      color: var(--accent);
+      letter-spacing: 0.09em;
+      font-weight: 500;
+    }
+
+    .gap h3 {
+      font-weight: 500;
+      margin: clamp(3px, 0.4vw, 4px) 0 clamp(4px, 0.6vw, 6px);
+    }
+
+    .gap p {
+      color: var(--muted);
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    .slide.dark .gap p {
+      color: rgba(250, 250, 247, 0.72);
+    }
 
     /* ─── figure split ─────────────────────────────────────────── */
-    .fig-grid { display: grid; grid-template-columns: 1.02fr 0.98fr; gap: clamp(32px, 4vw, 48px); align-items: center; margin-top: clamp(24px, 2.8vw, 32px); }
-    .fig { border: 1px solid var(--border-2); border-radius: var(--radius); background: var(--surface); padding: clamp(12px, 1.5vw, 16px); box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: box-shadow 0.2s ease; }
-    .fig:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
-    .fig img { display: block; max-width: 100%; max-height: clamp(35vh, 45vh, 50vh); width: auto; height: auto; margin: 0 auto; border-radius: calc(var(--radius) - 8px); object-fit: contain; }
-    .fig .fcap { font-family: var(--font-mono); font-size: clamp(10px, 1.0vw, 11px); color: var(--muted); margin: clamp(8px, 1vw, 12px) 2px 2px; line-height: 1.5; text-align: center; }
-    .slide.dark .fig { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.14); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
-    .slide.dark .fig:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
-    .slide.dark .fig .fcap { color: rgba(250,250,247,0.65); }
+    .fig-grid {
+      display: grid;
+      grid-template-columns: 1.02fr 0.98fr;
+      gap: clamp(32px, 4vw, 48px);
+      align-items: center;
+      margin-top: clamp(24px, 2.8vw, 32px);
+    }
+
+    .fig {
+      border: 1px solid var(--border-2);
+      border-radius: var(--radius);
+      background: var(--surface);
+      padding: clamp(12px, 1.5vw, 16px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      transition: box-shadow 0.2s ease;
+    }
+
+    .fig:hover {
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    .fig img {
+      display: block;
+      max-width: 100%;
+      max-height: clamp(35vh, 45vh, 50vh);
+      width: auto;
+      height: auto;
+      margin: 0 auto;
+      border-radius: calc(var(--radius) - 8px);
+      object-fit: contain;
+    }
+
+    .fig .fcap {
+      font-family: var(--font-mono);
+      font-size: clamp(10px, 1.0vw, 11px);
+      color: var(--muted);
+      margin: clamp(8px, 1vw, 12px) 2px 2px;
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    .slide.dark .fig {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 255, 255, 0.14);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .slide.dark .fig:hover {
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+
+    .slide.dark .fig .fcap {
+      color: rgba(250, 250, 247, 0.65);
+    }
 
     /* ─── accessibility (focus, skip, reduced motion) ─────────────────── */
-    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
-    .deck-counter:focus, .deck-hint:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
-    .notes-panel:focus { outline: none; }
-    .notes-panel.open:focus { box-shadow: inset 0 2px 0 var(--accent); }
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
-      .slide { scroll-behavior: auto !important; }
-      .deck-progress { transition: none !important; }
-      .fig { transition: none !important; }
-      .notes-panel { transition: none !important; }
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-radius: 4px;
     }
+
+    .deck-counter:focus,
+    .deck-hint:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .notes-panel:focus {
+      outline: none;
+    }
+
+    .notes-panel.open:focus {
+      box-shadow: inset 0 2px 0 var(--accent);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+
+      .slide {
+        scroll-behavior: auto !important;
+      }
+
+      .deck-progress {
+        transition: none !important;
+      }
+
+      .fig {
+        transition: none !important;
+      }
+
+      .notes-panel {
+        transition: none !important;
+      }
+    }
+
     @media (prefers-contrast: high) {
-      .slide.light { background: #ffffff; color: #000000; }
-      .slide.dark { background: #000000; color: #ffffff; }
-      .fig { border-width: 2px; }
-      .pt, .gap { border-top-width: 2px; }
+      .slide.light {
+        background: #ffffff;
+        color: #000000;
+      }
+
+      .slide.dark {
+        background: #000000;
+        color: #ffffff;
+      }
+
+      .fig {
+        border-width: 2px;
+      }
+
+      .pt,
+      .gap {
+        border-top-width: 2px;
+      }
     }
 
     /* ─── literature citations ────────────────────────────────────────── */
-    .citations { margin-top: clamp(20px, 2.5vw, 28px); padding-top: 16px; border-top: 1px solid var(--border-2); }
-    .citation { display: inline-flex; align-items: baseline; gap: 6px; margin: 0 12px 8px 0; font-size: clamp(11px, 1.0vw, 12px); color: var(--muted); }
-    .citation .author { font-family: var(--font-mono); font-weight: 500; color: var(--fg); }
-    .citation .year { font-family: var(--font-mono); color: var(--muted); }
-    .citation .title { color: var(--muted); font-style: italic; }
-    .slide.dark .citation { color: rgba(250,250,247,0.7); }
-    .slide.dark .citation .author { color: var(--bg); }
-    .slide.dark .citation .year { color: rgba(250,250,247,0.6); }
-    .slide.dark .citation .title { color: rgba(250,250,247,0.65); }
+    .citations {
+      margin-top: clamp(20px, 2.5vw, 28px);
+      padding-top: 16px;
+      border-top: 1px solid var(--border-2);
+    }
 
-    .impl { font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin-top: 22px; letter-spacing: 0.01em; }
-    .impl code { color: var(--fg-2); }
-    .slide.dark .impl { color: rgba(250,250,247,0.6); }
-    .slide.dark .impl code { color: var(--bg); }
+    .citation {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 6px;
+      margin: 0 12px 8px 0;
+      font-size: clamp(11px, 1.0vw, 12px);
+      color: var(--muted);
+    }
+
+    .citation .author {
+      font-family: var(--font-mono);
+      font-weight: 500;
+      color: var(--fg);
+    }
+
+    .citation .year {
+      font-family: var(--font-mono);
+      color: var(--muted);
+    }
+
+    .citation .title {
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .slide.dark .citation {
+      color: rgba(250, 250, 247, 0.7);
+    }
+
+    .slide.dark .citation .author {
+      color: var(--bg);
+    }
+
+    .slide.dark .citation .year {
+      color: rgba(250, 250, 247, 0.6);
+    }
+
+    .slide.dark .citation .title {
+      color: rgba(250, 250, 247, 0.65);
+    }
+
+    .impl {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 22px;
+      letter-spacing: 0.01em;
+    }
+
+    .impl code {
+      color: var(--fg-2);
+    }
+
+    .slide.dark .impl {
+      color: rgba(250, 250, 247, 0.6);
+    }
+
+    .slide.dark .impl code {
+      color: var(--bg);
+    }
 
     .part-tag {
-      position: absolute; top: 28px; left: clamp(48px, 8vw, 112px);
-      font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em;
-      text-transform: uppercase; color: var(--muted);
+      position: absolute;
+      top: 28px;
+      left: clamp(48px, 8vw, 112px);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
     }
-    .slide.dark .part-tag { color: rgba(250,250,247,0.5); }
-    .part-tag b { color: var(--accent); font-weight: 500; }
+
+    .slide.dark .part-tag {
+      color: rgba(250, 250, 247, 0.5);
+    }
+
+    .part-tag b {
+      color: var(--accent);
+      font-weight: 500;
+    }
 
     .brand-logo {
-      position: absolute; top: 20px; right: clamp(48px, 8vw, 112px);
-      height: 72px; width: auto; opacity: 0.92; z-index: 5;
+      position: absolute;
+      top: 20px;
+      right: clamp(48px, 8vw, 112px);
+      height: 72px;
+      width: auto;
+      opacity: 0.92;
+      z-index: 5;
     }
-    .slide.dark .brand-logo { filter: brightness(0) invert(1); opacity: 0.85; }
+
+    .slide.dark .brand-logo {
+      filter: brightness(0) invert(1);
+      opacity: 0.85;
+    }
 
     .deck-counter {
-      position: fixed; bottom: 24px; right: 32px;
-      font-family: var(--font-mono); font-size: 12px; color: var(--fg);
-      background: var(--surface); padding: 6px 12px; border-radius: 999px;
-      border: 1px solid var(--border-2); letter-spacing: 0.04em; z-index: 10;
+      position: fixed;
+      bottom: 24px;
+      right: 32px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--fg);
+      background: var(--surface);
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border-2);
+      letter-spacing: 0.04em;
+      z-index: 10;
     }
+
     .deck-hint {
-      position: fixed; bottom: 24px; left: 32px;
-      font-family: var(--font-mono); font-size: 11px; color: var(--muted);
-      letter-spacing: 0.04em; z-index: 10;
+      position: fixed;
+      bottom: 24px;
+      left: 32px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      z-index: 10;
     }
+
     .deck-progress {
-      position: fixed; top: 0; left: 0; height: 3px;
-      background: var(--accent); width: 0; z-index: 10; transition: width 0.18s ease;
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 3px;
+      background: var(--accent);
+      width: 0;
+      z-index: 10;
+      transition: width 0.18s ease;
     }
 
     .notes-panel {
-      position: fixed; inset: auto 0 0 0; max-height: 42vh; overflow: auto;
-      background: var(--fg-2); color: var(--bg); padding: 22px clamp(48px, 8vw, 96px) 28px;
-      font-size: 15px; line-height: 1.55; z-index: 20; transform: translateY(100%);
-      transition: transform 0.22s cubic-bezier(0.2,0,0,1); border-top: 1px solid rgba(255,255,255,0.12);
+      position: fixed;
+      inset: auto 0 0 0;
+      max-height: 42vh;
+      overflow: auto;
+      background: var(--fg-2);
+      color: var(--bg);
+      padding: 22px clamp(48px, 8vw, 96px) 28px;
+      font-size: 15px;
+      line-height: 1.55;
+      z-index: 20;
+      transform: translateY(100%);
+      transition: transform 0.22s cubic-bezier(0.2, 0, 0, 1);
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
     }
-    .notes-panel.open { transform: translateY(0); }
-    .notes-panel .np-head { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); margin: 0 0 10px; }
-    .notes-panel .np-body { max-width: 90ch; color: rgba(250,250,247,0.9); }
-    .notes-panel .np-body p { margin: 0 0 8px; }
-    .aside { display: none; }
+
+    .notes-panel.open {
+      transform: translateY(0);
+    }
+
+    .notes-panel .np-head {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin: 0 0 10px;
+    }
+
+    .notes-panel .np-body {
+      max-width: 90ch;
+      color: rgba(250, 250, 247, 0.9);
+    }
+
+    .notes-panel .np-body p {
+      margin: 0 0 8px;
+    }
+
+    .aside {
+      display: none;
+    }
 
     /* ─── body text refinement (consistent hierarchy + improved readability) ─ */
-    .lead, .stat-caption { font-size: clamp(18px, 1.5vw, 23px); }
-    .bl li { font-size: clamp(15px, 1.3vw, 17px); padding: 0 0 10px 22px; }
-    .ba-col p { font-size: clamp(15px, 1.3vw, 17px); }
-    .pt p { font-size: clamp(14px, 1.2vw, 16px); }
-    .pt h3 { font-size: clamp(17px, 1.8vw, 20px); }
-    .step h3 { font-size: clamp(17px, 1.8vw, 20px); }
-    .step p { font-size: clamp(12px, 1.1vw, 14px); }
-    .ba-col h3 { font-size: clamp(24px, 2.8vw, 29px); }
-    .gap h3 { font-size: clamp(15px, 1.6vw, 17px); }
-    .gap p { font-size: clamp(13px, 1.2vw, 15px); }
-    .eyebrow { font-size: clamp(11px, 0.9vw, 13px); }
-    .meta { font-size: clamp(15px, 1.3vw, 17px); }
-    .impl { font-size: clamp(12px, 1.1vw, 13.5px); }
-    .fig .fcap { font-size: clamp(11px, 1.0vw, 12px); }
-    .part-tag { font-size: clamp(12px, 1.1vw, 14px); }
+    .lead,
+    .stat-caption {
+      font-size: clamp(18px, 1.5vw, 23px);
+    }
+
+    .bl li {
+      font-size: clamp(15px, 1.3vw, 17px);
+      padding: 0 0 10px 22px;
+    }
+
+    .ba-col p {
+      font-size: clamp(15px, 1.3vw, 17px);
+    }
+
+    .pt p {
+      font-size: clamp(14px, 1.2vw, 16px);
+    }
+
+    .pt h3 {
+      font-size: clamp(17px, 1.8vw, 20px);
+    }
+
+    .step h3 {
+      font-size: clamp(17px, 1.8vw, 20px);
+    }
+
+    .step p {
+      font-size: clamp(12px, 1.1vw, 14px);
+    }
+
+    .ba-col h3 {
+      font-size: clamp(24px, 2.8vw, 29px);
+    }
+
+    .gap h3 {
+      font-size: clamp(15px, 1.6vw, 17px);
+    }
+
+    .gap p {
+      font-size: clamp(13px, 1.2vw, 15px);
+    }
+
+    .eyebrow {
+      font-size: clamp(11px, 0.9vw, 13px);
+    }
+
+    .meta {
+      font-size: clamp(15px, 1.3vw, 17px);
+    }
+
+    .impl {
+      font-size: clamp(12px, 1.1vw, 13.5px);
+    }
+
+    .fig .fcap {
+      font-size: clamp(11px, 1.0vw, 12px);
+    }
+
+    .part-tag {
+      font-size: clamp(12px, 1.1vw, 14px);
+    }
 
     /* ─── responsive grids (tablet/mobile) ──────────────────────────── */
     @media (max-width: 1024px) {
-      .pt-grid { grid-template-columns: repeat(2, 1fr); }
-      .pipeline { grid-template-columns: repeat(2, 1fr); }
-      .gap-grid { grid-template-columns: repeat(2, 1fr); }
-      .ba-grid { grid-template-columns: 1fr; gap: clamp(24px, 3vw, 36px); }
-      .fig-grid { grid-template-columns: 1fr; gap: clamp(24px, 3vw, 32px); }
+      .pt-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .pipeline {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .gap-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .ba-grid {
+        grid-template-columns: 1fr;
+        gap: clamp(24px, 3vw, 36px);
+      }
+
+      .fig-grid {
+        grid-template-columns: 1fr;
+        gap: clamp(24px, 3vw, 32px);
+      }
     }
+
     @media (max-width: 640px) {
-      .pt-grid { grid-template-columns: 1fr; }
-      .pipeline { grid-template-columns: 1fr; }
-      .gap-grid { grid-template-columns: 1fr; }
-      .slide { padding: clamp(32px, 5vw, 48px) clamp(24px, 4vw, 40px); }
+      .pt-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .pipeline {
+        grid-template-columns: 1fr;
+      }
+
+      .gap-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .slide {
+        padding: clamp(32px, 5vw, 48px) clamp(24px, 4vw, 40px);
+      }
     }
 
     /* ─── print → PDF (one 16:9 page per slide, style intact) ───── */
     @media print {
-      @page { size: 1920px 1080px; margin: 0; }
-      html, body {
-        width: 1920px; height: auto; overflow: visible;
-        display: block; background: var(--bg);
-        scroll-snap-type: none; scroll-behavior: auto;
+      @page {
+        size: 1920px 1080px;
+        margin: 0;
       }
+
+      html,
+      body {
+        width: 1920px;
+        height: auto;
+        overflow: visible;
+        display: block;
+        background: var(--bg);
+        scroll-snap-type: none;
+        scroll-behavior: auto;
+      }
+
       .slide {
-        width: 1920px; height: 1080px; flex: none; overflow: hidden;
-        page-break-after: always; break-after: page;
+        width: 1920px;
+        height: 1080px;
+        flex: none;
+        overflow: hidden;
+        page-break-after: always;
+        break-after: page;
       }
-      .deck-counter, .deck-hint, .deck-progress, .notes-panel { display: none !important; }
+
+      .deck-counter,
+      .deck-hint,
+      .deck-progress,
+      .notes-panel {
+        display: none !important;
+      }
+
       /* body text enlarged for print/PDF readability */
-      .eyebrow { font-size: 15px; }
-      .lead { font-size: 28px; }
-      .bl li { font-size: 20px; }
-      .impl { font-size: 15.5px; }
-      .step h3 { font-size: 24px; }
-      .step p { font-size: 18px; }
-      .ba-col h3 { font-size: 33px; }
-      .ba-col p { font-size: 20px; }
-      .pt h3 { font-size: 22px; }
-      .pt p { font-size: 19px; }
-      .gap h3 { font-size: 19px; }
-      .gap p { font-size: 18px; }
-      .stat-caption { font-size: 28px; }
-      .fig .fcap { font-size: 15px; }
-      .part-tag { font-size: 17px; }
-      .meta { font-size: 20px; }
+      .eyebrow {
+        font-size: 15px;
+      }
+
+      .lead {
+        font-size: 28px;
+      }
+
+      .bl li {
+        font-size: 20px;
+      }
+
+      .impl {
+        font-size: 15.5px;
+      }
+
+      .step h3 {
+        font-size: 24px;
+      }
+
+      .step p {
+        font-size: 18px;
+      }
+
+      .ba-col h3 {
+        font-size: 33px;
+      }
+
+      .ba-col p {
+        font-size: 20px;
+      }
+
+      .pt h3 {
+        font-size: 22px;
+      }
+
+      .pt p {
+        font-size: 19px;
+      }
+
+      .gap h3 {
+        font-size: 19px;
+      }
+
+      .gap p {
+        font-size: 18px;
+      }
+
+      .stat-caption {
+        font-size: 28px;
+      }
+
+      .fig .fcap {
+        font-size: 15px;
+      }
+
+      .part-tag {
+        font-size: 17px;
+      }
+
+      .meta {
+        font-size: 20px;
+      }
     }
   </style>
 </head>
+
 <body>
 
   <!--═══════════════════════════════════════════════════════════════
@@ -295,9 +904,12 @@
     <h1 class="h-hero">Characterization of MedConcept Limits to a 2D BiomedCLIP Adaptation.</h1>
     <p class="meta" style="margin-top:26px;">Marc'Antonio Lopez · Nicolò Colle · Carmine Francesco Benvenuto</p>
     <aside class="aside" data-notes="01">
-      <p><b>Cover.</b> Paper: <i>Unsupervised Concept Discovery for Medical VLMs: A Rigorous Characterization of SAE Failure and Deterministic Alternatives</i> (docs/latex/main_extended.tex).</p>
-      <p>Three contributors = three equal parts (6 slides each, ~13.5 min total). Part 1: problem + setup. Part 2: method + non-identifiability. Part 3: alternatives + evaluation + conclusions.</p>
-      <p>Takeaway: we rigorously characterised the limits of SAE concept discovery against analytical nulls — where and why identifiability breaks down.</p>
+      <p><b>Cover.</b> Paper: <i>Unsupervised Concept Discovery for Medical VLMs: A Rigorous Characterization of SAE
+          Failure and Deterministic Alternatives</i> (docs/latex/main_extended.tex).</p>
+      <p>Three contributors = three equal parts (6 slides each, ~13.5 min total). Part 1: problem + setup. Part 2:
+        method + non-identifiability. Part 3: alternatives + evaluation + conclusions.</p>
+      <p>Takeaway: we rigorously characterised the limits of SAE concept discovery against analytical nulls — where and
+        why identifiability breaks down.</p>
     </aside>
   </section>
 
@@ -306,11 +918,14 @@
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <p class="eyebrow">The problem</p>
     <h2 class="h-xl">Medical VLMs are accurate but opaque.</h2>
-    <p class="lead">The internal representations are high-dimensional, polysemic and unreadable. A serious concern in safety-critical clinical use.</p>
+    <p class="lead">The internal representations are high-dimensional, polysemic and unreadable. A serious concern in
+      safety-critical clinical use.</p>
     <p class="impl">§1 Introduction</p>
     <aside class="aside" data-notes="02">
-      <p>Accuracy ≠ understanding. In radiology, a model right-for-the-wrong-reasons is as dangerous as one that is simply wrong.</p>
-      <p>Saliency/attention show <i>where</i> the model looks, not <i>what</i> it knows in human-readable form. That gap motivates concepts.</p>
+      <p>Accuracy ≠ understanding. In radiology, a model right-for-the-wrong-reasons is as dangerous as one that is
+        simply wrong.</p>
+      <p>Saliency/attention show <i>where</i> the model looks, not <i>what</i> it knows in human-readable form. That gap
+        motivates concepts.</p>
     </aside>
   </section>
 
@@ -322,31 +937,40 @@
     <div class="pt-grid">
       <div class="pt">
         <h3>Supervised</h3>
-        <p>Concept Bottleneck Models (Koh 2020) and TCAV (Kim 2018) need a pre-defined, labelled concept set — exactly the limitation unsupervised discovery targets.</p>
+        <p>Concept Bottleneck Models (Koh 2020) and TCAV (Kim 2018) need a pre-defined, labelled concept set — exactly
+          the limitation unsupervised discovery targets.</p>
       </div>
       <div class="pt">
         <h3>Sparse Autoencoders</h3>
-        <p>Bricken et al. (2023): dictionary-learning on activations yields monosemantic latents. The Top-K SAE (Gao 2024) sets L₀ exactly via top-k gating. We adopt it.</p>
+        <p>Bricken et al. (2023): dictionary-learning on activations yields monosemantic latents. The Top-K SAE (Gao
+          2024) sets L₀ exactly via top-k gating. We adopt it.</p>
       </div>
       <div class="pt">
         <h3>MedConcept (Haque 2026)</h3>
-        <p>SAE extraction → alignment to a radiology vocabulary → an LLM-judge with Aligned/Unaligned/Uncertain metrics.</p>
+        <p>SAE extraction → alignment to a radiology vocabulary → an LLM-judge with Aligned/Unaligned/Uncertain metrics.
+        </p>
       </div>
     </div>
-    <p class="impl">Impl: <code>src/autoencoder/</code>, <code>src/vocabulary_building/</code>, <code>src/evaluate_llm_judge.py</code></p>
+    <p class="impl">Impl: <code>src/autoencoder/</code>, <code>src/vocabulary_building/</code>,
+      <code>src/evaluate_llm_judge.py</code></p>
 
     <div class="citations">
-      <div class="citation"><span class="author">Koh et al.</span> <span class="year">2020</span> — Concept Bottleneck Models</div>
+      <div class="citation"><span class="author">Koh et al.</span> <span class="year">2020</span> — Concept Bottleneck
+        Models</div>
       <div class="citation"><span class="author">Kim et al.</span> <span class="year">2018</span> — TCAV</div>
-      <div class="citation"><span class="author">Bricken et al.</span> <span class="year">2023</span> — Towards Monosemanticity with Dictionary Learning</div>
-      <div class="citation"><span class="author">Gao et al.</span> <span class="year">2024</span> — Scaling and Evaluating Sparse Autoencoders</div>
+      <div class="citation"><span class="author">Bricken et al.</span> <span class="year">2023</span> — Towards
+        Monosemanticity with Dictionary Learning</div>
+      <div class="citation"><span class="author">Gao et al.</span> <span class="year">2024</span> — Scaling and
+        Evaluating Sparse Autoencoders</div>
       <div class="citation"><span class="author">Haque et al.</span> <span class="year">2026</span> — MedConcept</div>
-      <div class="citation"><span class="author">Blankemeier et al.</span> <span class="year">2024</span> — Merlin 3D CT Foundation Model</div>
+      <div class="citation"><span class="author">Blankemeier et al.</span> <span class="year">2024</span> — Merlin 3D CT
+        Foundation Model</div>
     </div>
 
     <aside class="aside" data-notes="03">
       <p>Two families: supervised concepts (limited by labelled sets) vs unsupervised discovery (decompose + name).</p>
-      <p>We inherit the MedConcept paradigm (3 stages) but evaluate rigorously: null-calibrated metrics, permutation-invariant statistics.</p>
+      <p>We inherit the MedConcept paradigm (3 stages) but evaluate rigorously: null-calibrated metrics,
+        permutation-invariant statistics.</p>
       <p>SPLiCE (Bhalla 2024) — a deterministic third way — detailed in Part 3.</p>
     </aside>
   </section>
@@ -357,17 +981,39 @@
     <p class="eyebrow">Research gaps · in the paper's order</p>
     <h2 class="h-md">Six gaps this work addresses.</h2>
     <div class="gap-grid">
-      <div class="gap"><span class="gn">GAP 1</span><h3>Instability / non-identifiability</h3><p>Sparse factorisations are not reproducible across seeds; no prior medical-VLM work reports seed-stability against a null.</p></div>
-      <div class="gap"><span class="gn">GAP 2</span><h3>Clinical validity</h3><p>A cosine-assigned name is cosmetic unless it tracks real pathology.</p></div>
-      <div class="gap"><span class="gn">GAP 3</span><h3>Representation-location mismatch</h3><p>SAE literature uses raw hidden states; reference pipelines fit on the already-projected, gap-bearing CLIP space.</p></div>
-      <div class="gap"><span class="gn">GAP 4</span><h3>Small-data robustness</h3><p>SAEs need 10⁵–10⁶ activations; licence-free medical corpora are 2–3 orders smaller.</p></div>
-      <div class="gap"><span class="gn">GAP 5</span><h3>Flat concepts</h3><p>Explanations are top-k lists that ignore anatomical / hierarchical structure.</p></div>
-      <div class="gap"><span class="gn">GAP 6</span><h3>Non-reproducible evaluation</h3><p>Claims rest on single metrics whose chance floor is never reported; slot-wise overlap is degenerate under per-seed permutation.</p></div>
+      <div class="gap"><span class="gn">GAP 1</span>
+        <h3>Instability / non-identifiability</h3>
+        <p>Sparse factorisations are not reproducible across seeds; no prior medical-VLM work reports seed-stability
+          against a null.</p>
+      </div>
+      <div class="gap"><span class="gn">GAP 2</span>
+        <h3>Clinical validity</h3>
+        <p>A cosine-assigned name is cosmetic unless it tracks real pathology.</p>
+      </div>
+      <div class="gap"><span class="gn">GAP 3</span>
+        <h3>Representation-location mismatch</h3>
+        <p>SAE literature uses raw hidden states; reference pipelines fit on the already-projected, gap-bearing CLIP
+          space.</p>
+      </div>
+      <div class="gap"><span class="gn">GAP 4</span>
+        <h3>Small-data robustness</h3>
+        <p>SAEs need 10⁵–10⁶ activations; licence-free medical corpora are 2–3 orders smaller.</p>
+      </div>
+      <div class="gap"><span class="gn">GAP 5</span>
+        <h3>Flat concepts</h3>
+        <p>Explanations are top-k lists that ignore anatomical / hierarchical structure.</p>
+      </div>
+      <div class="gap"><span class="gn">GAP 6</span>
+        <h3>Non-reproducible evaluation</h3>
+        <p>Claims rest on single metrics whose chance floor is never reported; slot-wise overlap is degenerate under
+          per-seed permutation.</p>
+      </div>
     </div>
     <p class="impl">§3 Research gaps</p>
     <aside class="aside" data-notes="04">
       <p>Roadmap: every later experiment answers ≥1 of these gaps, tagged on each slide's eyebrow.</p>
-      <p>Gap order is exactly the paper's §3. Results follow the paper's experiment sequence (§5), not strict 1→6 — the paper itself proves the metric (Gap 6) before using it.</p>
+      <p>Gap order is exactly the paper's §3. Results follow the paper's experiment sequence (§5), not strict 1→6 — the
+        paper itself proves the metric (Gap 6) before using it.</p>
     </aside>
   </section>
 
@@ -376,19 +1022,26 @@
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <p class="eyebrow">Backbone &amp; vocabulary</p>
     <h2 class="h-xl">Our Adapted Architecture.</h2>
-    <p class="lead">Instead of 3D Merlin, we use the 2D BiomedCLIP as backbone. Its image encoder exposes a <b>768-d hidden state</b> that a frozen projection compresses into the <b>512-d</b> contrastive space. Features are named against <b>domain-matched</b> vocabularies: <b>RadLex</b> for IU X-Ray (chest-specific), <b>MeSH</b> for ROCOv2 (multimodal). Before of this, we correct the <b>modality gap</b>.</p>
-    <p class="impl">Impl: <code>src/embedding_extraction/extract_embeddings.py</code>, <code>src/vocabulary_building/build_vocabulary.py</code></p>
+    <p class="lead">Instead of 3D Merlin, we use the 2D BiomedCLIP as backbone. Its image encoder exposes a <b>768-d
+        hidden state</b> that a frozen projection compresses into the <b>512-d</b> contrastive space. Features are named
+      against <b>domain-matched</b> vocabularies: <b>RadLex</b> for IU X-Ray (chest-specific), <b>MeSH</b> for ROCOv2
+      (multimodal). Before of this, we correct the <b>modality gap</b>.</p>
+    <p class="impl">Impl: <code>src/embedding_extraction/extract_embeddings.py</code>,
+      <code>src/vocabulary_building/build_vocabulary.py</code></p>
 
     <div class="citations">
       <div class="citation"><span class="author">Zhang et al.</span> <span class="year">2025</span> — BiomedCLIP</div>
       <div class="citation"><span class="author">Langlotz et al.</span> <span class="year">2006</span> — RadLex</div>
       <div class="citation"><span class="author">NLM</span> <span class="year">2026</span> — MeSH</div>
-      <div class="citation"><span class="author">Liang et al.</span> <span class="year">2022</span> — Mind the Gap (Modality Gap)</div>
+      <div class="citation"><span class="author">Liang et al.</span> <span class="year">2022</span> — Mind the Gap
+        (Modality Gap)</div>
     </div>
 
     <aside class="aside" data-notes="05">
-      <p>Key point: 768-d (hidden) → 512-d (contrastive). Baseline operates on 512-d; Path A goes back to 768-d pre-projection.</p>
-      <p>The modality gap is not a detail — correcting it lifts max atom–image cosine 0.49→0.85 (Part 3). It was the binding issue, not the solver.</p>
+      <p>Key point: 768-d (hidden) → 512-d (contrastive). Baseline operates on 512-d; Path A goes back to 768-d
+        pre-projection.</p>
+      <p>The modality gap is not a detail — correcting it lifts max atom–image cosine 0.49→0.85 (Part 3). It was the
+        binding issue, not the solver.</p>
     </aside>
   </section>
 
@@ -401,7 +1054,8 @@
       <div class="ba-col">
         <p class="ba-label">IU X-Ray · 1× · primary</p>
         <h3>The small-scale setting.</h3>
-        <p>Split <b>by radiographic study</b>, so no study appears in both train and test — verified <b>zero</b> overlap, recomputed deterministically every run.</p>
+        <p>Split <b>by radiographic study</b>, so no study appears in both train and test — verified <b>zero</b>
+          overlap, recomputed deterministically every run.</p>
       </div>
       <div class="ba-col">
         <p class="ba-label" style="color: var(--accent);">ROCOv2 · 10× · replication</p>
@@ -409,15 +1063,19 @@
         <p>Split by image. It exists to test one hypothesis head-on: <b>does more data cure non-identifiability?</b></p>
       </div>
     </div>
-    <p class="impl">Impl: <code>src/utils.py</code> (<code>split_embeddings</code>) · anti-leakage test: <code>tests/unit/test_split.py</code></p>
+    <p class="impl">Impl: <code>src/utils.py</code> (<code>split_embeddings</code>) · anti-leakage test:
+      <code>tests/unit/test_split.py</code></p>
 
     <div class="citations">
-      <div class="citation"><span class="author">Demner-Fushman et al.</span> <span class="year">2016</span> — IU X-Ray Dataset</div>
-      <div class="citation"><span class="author">Rückert et al.</span> <span class="year">2024</span> — ROCOv2 Dataset</div>
+      <div class="citation"><span class="author">Demner-Fushman et al.</span> <span class="year">2016</span> — IU X-Ray
+        Dataset</div>
+      <div class="citation"><span class="author">Rückert et al.</span> <span class="year">2024</span> — ROCOv2 Dataset
+      </div>
     </div>
 
     <aside class="aside" data-notes="06">
-      <p>IU split by study (no patient leakage), ROCOv2 by image (no shared structure). Deterministic, recomputed each run.</p>
+      <p>IU split by study (no patient leakage), ROCOv2 by image (no shared structure). Deterministic, recomputed each
+        run.</p>
       <p>The 10× is the test bed for the scale hypothesis — spoiler: it does not help.</p>
       <p>End of Part 1. Hand off to Marc'Antonio Lopez: method + the core result.</p>
     </aside>
@@ -436,22 +1094,27 @@
       <div class="step">
         <span class="nb">01 · BASELINE</span>
         <h3>Top-K SAE 512-d</h3>
-        <p>Faithful MedConcept re-implementation on the projected space. Trained across <b>multiple seeds</b> — that is what makes a stability metric possible. (Gap 1)</p>
+        <p>Faithful MedConcept re-implementation on the projected space. Trained across <b>multiple seeds</b> — that is
+          what makes a stability metric possible. (Gap 1)</p>
       </div>
       <div class="step">
         <span class="nb">02 · PATH A</span>
         <h3>Top-K SAE 768-d</h3>
-        <p>CLS hidden state <i>before</i> projection; bridge with frozen W_proj. Tests the representation site. (Gap 3)</p>
+        <p>CLS hidden state <i>before</i> projection; bridge with frozen W_proj. Tests the representation site. (Gap 3)
+        </p>
       </div>
       <div class="step">
         <span class="nb">03 · PATH B</span>
         <h3>SPLiCE</h3>
-        <p>Decomposition over a fixed dictionary matched to each corpus (RadLex for IU X-Ray, MeSH for ROCOv2) — no learning, so deterministic. (Gap 1+4)</p>
+        <p>Decomposition over a fixed dictionary matched to each corpus (RadLex for IU X-Ray, MeSH for ROCOv2) — no
+          learning, so deterministic. (Gap 1+4)</p>
       </div>
     </div>
-    <p class="impl">Impl: <code>src/autoencoder/sae_module.py</code> (<code>SAEManager</code>), <code>src/sae_hidden/</code>, <code>src/concept_discovery/spliece.py</code></p>
+    <p class="impl">Impl: <code>src/autoencoder/sae_module.py</code> (<code>SAEManager</code>),
+      <code>src/sae_hidden/</code>, <code>src/concept_discovery/spliece.py</code></p>
     <aside class="aside" data-notes="07">
-      <p>One SAE config for clean comparisons: D=2048, k=32, 8k steps, 5 seeds (0,42,123,456,789). Multi-seed enables stability.</p>
+      <p>One SAE config for clean comparisons: D=2048, k=32, 8k steps, 5 seeds (0,42,123,456,789). Multi-seed enables
+        stability.</p>
       <p>Each path targets explicit gaps (tagged). Path B changes paradigm: fixed dictionary, not learned.</p>
     </aside>
   </section>
@@ -461,11 +1124,17 @@
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <p class="eyebrow">Evaluation · Gap 6</p>
     <h2 class="h-md">A matched metric, against a subspace null.</h2>
-    <p class="lead">Stability must be <b>permutation-invariant</b>: for each decoder row of one seed, take the best cosine match across the other seed. The null is conditioned on the decoder's <b>effective rank</b> (~357, not the ambient 512) — that controls for how concentrated the data manifold is. The old slot-wise Jaccard is not permutation-invariant, so it is degenerate (proved next).</p>
-    <p class="impl">Impl: <code>src/autoencoder/stability_analysis.py</code>, <code>src/sae_hidden/naming_hidden.py</code> (<code>compute_random_baseline</code>)</p>
+    <p class="lead">Stability must be <b>permutation-invariant</b>: for each decoder row of one seed, take the best
+      cosine match across the other seed. The null is conditioned on the decoder's <b>effective rank</b> (~357, not the
+      ambient 512) — that controls for how concentrated the data manifold is. The old slot-wise Jaccard is not
+      permutation-invariant, so it is degenerate (proved next).</p>
+    <p class="impl">Impl: <code>src/autoencoder/stability_analysis.py</code>,
+      <code>src/sae_hidden/naming_hidden.py</code> (<code>compute_random_baseline</code>)</p>
     <aside class="aside" data-notes="08">
-      <p>The metric is the contribution. Slot-wise seems reasonable but is degenerate under feature permutation — we prove it on the next slide.</p>
-      <p>The subspace-conditioned null is the honest part: real decoder directions live in ~357-d, not 512-d. An isotropic null would inflate the ratio.</p>
+      <p>The metric is the contribution. Slot-wise seems reasonable but is degenerate under feature permutation — we
+        prove it on the next slide.</p>
+      <p>The subspace-conditioned null is the honest part: real decoder directions live in ~357-d, not 512-d. An
+        isotropic null would inflate the ratio.</p>
     </aside>
   </section>
 
@@ -473,12 +1142,17 @@
     <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <div class="eyebrow">The headline result · Gap 1</div>
-    <div class="stat-num">1.81<span class="unit">×</span><span class="sub">1.67× on IU X-Ray · 1.81× on ROCOv2</span></div>
-    <p class="stat-caption">The baseline SAE reconstructs its inputs well — but cross-seed <b>feature identity is absent</b>: best-match barely above the conditioned null, almost nothing matches strongly, naming stays low. Genuine non-identifiability, not a training bug.</p>
+    <div class="stat-num">1.81<span class="unit">×</span><span class="sub">1.67× on IU X-Ray · 1.81× on ROCOv2</span>
+    </div>
+    <p class="stat-caption">The baseline SAE reconstructs its inputs well — but cross-seed <b>feature identity is
+        absent</b>: best-match barely above the conditioned null, almost nothing matches strongly, naming stays low.
+      Genuine non-identifiability, not a training bug.</p>
     <aside class="aside" data-notes="09">
       <p>Pivot slide. Good reconstruction ≠ canonical features.</p>
-      <p>Not a bug: decoders full-rank, inits distinct, no collapse. Intrinsic to the representation site (pooled CLS, compressed, contrastive-shaped).</p>
-      <p>Numbers (Tab.1): matched obs 0.299 (IU) / 0.327 (ROCOv2); subspace null ratio 1.67× / 1.81×; frac ≥0.9 0.0% / 0.3%; naming 0.40 / 0.48.</p>
+      <p>Not a bug: decoders full-rank, inits distinct, no collapse. Intrinsic to the representation site (pooled CLS,
+        compressed, contrastive-shaped).</p>
+      <p>Numbers (Tab.1): matched obs 0.299 (IU) / 0.327 (ROCOv2); subspace null ratio 1.67× / 1.81×; frac ≥0.9 0.0% /
+        0.3%; naming 0.40 / 0.48.</p>
     </aside>
   </section>
 
@@ -489,11 +1163,15 @@
     <h2 class="h-xl">The slot-wise metric is floor-by-construction.</h2>
     <div class="fig-grid">
       <div>
-        <p class="lead" style="margin-bottom:16px;">Rename one SAE's features with a random permutation — same network, same reconstruction — and the slot-wise Jaccard collapses to the <b>0.0077</b> floor, indistinguishable from two genuinely different SAEs. The matched metric correctly sees identity. Slot-wise is permutation noise, not a stability measure.</p>
+        <p class="lead" style="margin-bottom:16px;">Rename one SAE's features with a random permutation — same network,
+          same reconstruction — and the slot-wise Jaccard collapses to the <b>0.0077</b> floor, indistinguishable from
+          two genuinely different SAEs. The matched metric correctly sees identity. Slot-wise is permutation noise, not
+          a stability measure.</p>
         <p class="impl">Impl: <code>scripts/relabeling_control.py</code> — <code>relabel_state_dict(sd, perm)</code></p>
       </div>
       <div class="fig">
-        <img src="assets/cross-seed-jaccard.png" alt="Cross-seed Jaccard matrix — every seed pair near the ~0.0077 floor" />
+        <img src="assets/cross-seed-jaccard.png"
+          alt="Cross-seed Jaccard matrix — every seed pair near the ~0.0077 floor" />
         <p class="fcap">Cross-seed Jaccard matrix (IU X-Ray baseline). Mean ≈0.0077 — the analytical floor.</p>
       </div>
     </div>
@@ -503,7 +1181,8 @@
     </div>
 
     <aside class="aside" data-notes="10">
-      <p>Trap experiment: a relabelled SAE is mathematically identical to itself, yet slot-wise Jaccard does not recognise it. So slot-wise is permutation noise.</p>
+      <p>Trap experiment: a relabelled SAE is mathematically identical to itself, yet slot-wise Jaccard does not
+        recognise it. So slot-wise is permutation noise.</p>
       <p>Contribution (1) of the paper. From here, every stability claim uses the matched metric.</p>
     </aside>
   </section>
@@ -515,24 +1194,33 @@
     <h2 class="h-md">Moving the representation site is not enough.</h2>
     <div class="fig-grid">
       <div>
-        <p class="lead">Path A trains the SAE on the hidden state <b>before</b> the projection. It is genuinely healthier — far fewer dead features, better naming — but the permutation-invariant verdict does <b>not</b> change: still almost no features match strongly. This is <b>weak universality</b>: a shared subspace, not identical features. It still operates on the pooled CLS token, not patch tokens.</p>
-        <p class="impl" style="margin-top:16px;">Impl: <code>src/sae_hidden/</code>, <code>scripts/run_path_a.py</code></p>
+        <p class="lead">Path A trains the SAE on the hidden state <b>before</b> the projection. It is genuinely
+          healthier — far fewer dead features, better naming — but the permutation-invariant verdict does <b>not</b>
+          change: still almost no features match strongly. This is <b>weak universality</b>: a shared subspace, not
+          identical features. It still operates on the pooled CLS token, not patch tokens.</p>
+        <p class="impl" style="margin-top:16px;">Impl: <code>src/sae_hidden/</code>, <code>scripts/run_path_a.py</code>
+        </p>
       </div>
       <div class="fig">
         <img src="assets/naming-scores.png" alt="Naming score distribution — most features' top-1 cosine below 0.5" />
-        <p class="fcap">Naming scores — top-1 feature↔vocab cosine. Most features sit well below 0.5: a cosine-assigned name is cosmetic.</p>
+        <p class="fcap">Naming scores — top-1 feature↔vocab cosine. Most features sit well below 0.5: a cosine-assigned
+          name is cosmetic.</p>
       </div>
     </div>
 
     <div class="citations">
-      <div class="citation"><span class="author">Lan et al.</span> <span class="year">2024</span> — Quantifying Feature Space Universality via SAEs</div>
-      <div class="citation"><span class="author">Leask et al.</span> <span class="year">2025</span> — SAEs Do Not Find Canonical Units</div>
+      <div class="citation"><span class="author">Lan et al.</span> <span class="year">2024</span> — Quantifying Feature
+        Space Universality via SAEs</div>
+      <div class="citation"><span class="author">Leask et al.</span> <span class="year">2025</span> — SAEs Do Not Find
+        Canonical Units</div>
     </div>
 
     <aside class="aside" data-notes="11">
-      <p>Path A = local improvement (fewer dead, better naming) but global verdict unchanged — weak universality (Lan 2024, Leask 2025).</p>
+      <p>Path A = local improvement (fewer dead, better naming) but global verdict unchanged — weak universality (Lan
+        2024, Leask 2025).</p>
       <p>Still pooled CLS, not patch tokens. Naming figure titled "Naming scores — 99.7% below 0.5" (max 0.513).</p>
-      <p>Ablation (Tab.3): D=1024,k=16 → 2.78× obs/null; D=2048,k=32 → 2.63×; D=4096,k=64 → 2.00×. No setting escapes weak universality.</p>
+      <p>Ablation (Tab.3): D=1024,k=16 → 2.78× obs/null; D=2048,k=32 → 2.63×; D=4096,k=64 → 2.00×. No setting escapes
+        weak universality.</p>
     </aside>
   </section>
 
@@ -541,16 +1229,18 @@
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <div class="eyebrow">The scale hypothesis · Gap 4</div>
     <div class="stat-num">10<span class="unit">×</span><span class="sub">ROCOv2 ~80k vs IU X-Ray ~7k</span></div>
-    <p class="stat-caption">Ten times more data improves <b>training health</b> but <b>not identifiability</b> — every stability indicator stays flat. The binding constraint is the <b>representation site</b>, not data volume.</p>
+    <p class="stat-caption">Ten times more data improves <b>training health</b> but <b>not identifiability</b> — every
+      stability indicator stays flat. The binding constraint is the <b>representation site</b>, not data volume.</p>
     <aside class="aside" data-notes="12">
       <p>Contribution (3): direct refutation of "more data = identifiable features".</p>
-      <p>10× moves training-health, not identity. erank ≈357–363 ≪ 2048-way dictionary → no canonical feature on a compressed global vector.</p>
+      <p>10× moves training-health, not identity. erank ≈357–363 ≪ 2048-way dictionary → no canonical feature on a
+        compressed global vector.</p>
       <p>End of Part 2. Hand off to Carmine Francesco Benvenuto: alternatives + evaluation.</p>
     </aside>
   </section>
 
   <!--═══════════════════════════════════════════════════════════════
-    PART 3 — Carmine Francesco Benvenuto · Alternatives, evaluation, conclusions (13–18)
+    PART 3 — Carmine Francesco Benvenuto · Alternatives, evaluation, conclusions (13–19)
   ════════════════════════════════════════════════════════════════-->
 
   <section class="slide light" data-screen-label="13 SPLiCE">
@@ -558,7 +1248,10 @@
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <p class="eyebrow">Path B · SPLiCE · Gap 1+4</p>
     <h2 class="h-xl">Deterministic. Judge-ready.</h2>
-    <p class="lead">SPLiCE decomposes each embedding into a sparse, non-negative combination over a <b>fixed domain-matched dictionary</b> (RadLex for IU X-Ray, MeSH for ROCOv2). The dictionary is never estimated, so the result is <b>deterministic by construction</b> — zero cross-seed instability. It scales to both corpora, and correcting the modality gap is the decisive fix, not the solver.</p>
+    <p class="lead">SPLiCE decomposes each embedding into a sparse, non-negative combination over a <b>fixed
+        domain-matched dictionary</b> (RadLex for IU X-Ray, MeSH for ROCOv2). The dictionary is never estimated, so the
+      result is <b>deterministic by construction</b> — zero cross-seed instability. It scales to both corpora, and
+      correcting the modality gap is the decisive fix, not the solver.</p>
     <ul class="bl">
       <li><b>Fixed dictionary</b> — no estimation, no seeds, no instability.</li>
       <li><b>Same output schema as the SAE</b> — the same judge can score it.</li>
@@ -567,60 +1260,110 @@
     <p class="impl">Impl: <code>src/concept_discovery/spliece.py</code> — <code>decompose_image()</code></p>
 
     <div class="citations">
-      <div class="citation"><span class="author">Bhalla et al.</span> <span class="year">2024</span> — Interpreting CLIP with Sparse Linear Concept Embeddings (SpLiCE)</div>
+      <div class="citation"><span class="author">Bhalla et al.</span> <span class="year">2024</span> — Interpreting CLIP
+        with Sparse Linear Concept Embeddings (SpLiCE)</div>
     </div>
 
     <aside class="aside" data-notes="13">
-      <p>SPLiCE trades estimation for a given dictionary. No seed, no non-identifiability. SAE-compatible schema → same judge scores it (slide 16).</p>
-      <p>Caveat: frequent terms "mixed" (ROCOv2 imaging modalities; IU bilingual/off-topic) — a dictionary property, not SPLiCE's.</p>
+      <p>SPLiCE trades estimation for a given dictionary. No seed, no non-identifiability. SAE-compatible schema → same
+        judge scores it (slide 17).</p>
+      <p>Caveat: frequent terms "mixed" (ROCOv2 imaging modalities; IU bilingual/off-topic) — a dictionary property, not
+        SPLiCE's.</p>
     </aside>
   </section>
 
-  <section class="slide dark" data-screen-label="14 Organisation">
+  <section class="slide dark" data-screen-label="14 Judge Models">
+    <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
+    <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
+    <p class="eyebrow">Judge Models</p>
+    <h2 class="h-md">Three judges, three different biases.</h2>
+    <div class="pt-grid">
+      <div class="pt">
+        <h3>MedGemma 4B</h3>
+        <p>Domain-specialised medical LLM. Exhibits a <b>systematic positive bias</b>, rating all methods (including the
+          random null control) at ~80% Aligned.</p>
+      </div>
+      <div class="pt">
+        <h3>Llama 3.1 8B</h3>
+        <p>General-purpose instruction-tuned LLM. Defaults to <b>Uncertain</b> (~96% on IU X-Ray), showing low
+          discriminative power on small datasets.</p>
+      </div>
+      <div class="pt">
+        <h3>Gemma 4 26B</h3>
+        <p>Large general-purpose LLM (4-bit). Shows a <b>strong rejection bias</b>, rejecting 87% of all baseline pairs
+          as Unaligned.</p>
+      </div>
+    </div>
+    <p class="impl">Ref: <code>llm_judge_analysis_report.md</code></p>
+    <aside class="aside" data-notes="14">
+      <p>None of the three judge models is suitable as a standalone evaluation metric.</p>
+      <p>MedGemma approves random noise at 80%. Llama is extremely uncertain. Gemma 4 rejects almost everything.</p>
+    </aside>
+  </section>
+
+  <section class="slide dark" data-screen-label="15 Organisation">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <p class="eyebrow">Concept organisation · Gap 5</p>
     <h2 class="h-md">Dense, but weakly separated.</h2>
-    <p class="lead">We cluster the active vocabulary into <b>concept families</b> with ontology ancestors (RadLex for IU X-Ray, MeSH for ROCOv2) and two degeneracy guards — leaf-root rejection, and a subtree canopy that rejects overly generic ancestors (e.g. "anatomical entity"). SPLiCE, the densest, cuts concepts-per-image <b>~1.75×</b> — but silhouette is weak (~0.02): the noisy vocabulary makes every cluster inherit a noisy ancestor.</p>
-    <p class="impl">Impl: <code>src/concept_discovery/organize.py</code> — <code>cluster_concepts()</code>, <code>annotate_radlex()</code></p>
-    <aside class="aside" data-notes="14">
-      <p>Organisation does its job (1.75× redundancy reduction) but separation is weak because the IU vocabulary is noisy.</p>
-      <p>Tab.4: SPLiCE 997 concepts → 32 families (silhouette 0.020); SAE baseline 80 concepts → 9 families (silhouette 0.094); Path A hidden 14 concepts → 4 families (silhouette 0.284).</p>
+    <p class="lead">We cluster the active vocabulary into <b>concept families</b> with ontology ancestors (RadLex for IU
+      X-Ray, MeSH for ROCOv2) and two degeneracy guards — leaf-root rejection, and a subtree canopy that rejects overly
+      generic ancestors (e.g. "anatomical entity"). SPLiCE, the densest, cuts concepts-per-image <b>~1.75×</b> — but
+      silhouette is weak (~0.02): the noisy vocabulary makes every cluster inherit a noisy ancestor.</p>
+    <p class="impl">Impl: <code>src/concept_discovery/organize.py</code> — <code>cluster_concepts()</code>,
+      <code>annotate_radlex()</code></p>
+    <aside class="aside" data-notes="15">
+      <p>Organisation does its job (1.75× redundancy reduction) but separation is weak because the IU vocabulary is
+        noisy.</p>
+      <p>Tab.4: SPLiCE 997 concepts → 32 families (silhouette 0.020); SAE baseline 80 concepts → 9 families (silhouette
+        0.094); Path A hidden 14 concepts → 4 families (silhouette 0.284).</p>
     </aside>
   </section>
 
-  <section class="slide light" data-screen-label="15 Faithfulness">
+  <section class="slide light" data-screen-label="16 Faithfulness">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <p class="eyebrow">Faithfulness · Gap 2</p>
     <h2 class="h-xl">A small upper tail is genuinely faithful.</h2>
-    <p class="lead">Do <b>any</b> features track real pathology? Correlating activations against the ground-truth labels (with a shuffle null), a <b>small upper tail</b> is genuinely faithful — the strongest looks like a <i>mass</i>, clinically plausible. But those same features stay <b>unstable across seeds</b>: partially faithful, entirely non-reproducible.</p>
+    <p class="lead">Do <b>any</b> features track real pathology? Correlating activations against the ground-truth labels
+      (with a shuffle null), a <b>small upper tail</b> is genuinely faithful — the strongest looks like a <i>mass</i>,
+      clinically plausible. But those same features stay <b>unstable across seeds</b>: partially faithful, entirely
+      non-reproducible.</p>
     <p class="impl">Impl: <code>scripts/run_faithfulness.py</code> · <code>main_extended.tex</code> §5.6</p>
-    <aside class="aside" data-notes="15">
-      <p>Real signal exists but small: <b>17.8% ± 0.9</b> of live features exceed 95th percentile of shuffle null. Strongest feature |r| = 0.459 ± 0.057 (on a "mass" feature).</p>
-      <p>Only <b>1.1%</b> at |r| > 0.30. Weak but non-zero. Yet cross-seed, zero features cluster at ≥0.90 (not above seed-tag shuffle-null, p=0.17).</p>
+    <aside class="aside" data-notes="16">
+      <p>Real signal exists but small: <b>17.8% ± 0.9</b> of live features exceed 95th percentile of shuffle null.
+        Strongest feature |r| = 0.459 ± 0.057 (on a "mass" feature).</p>
+      <p>Only <b>1.1%</b> at |r| > 0.30. Weak but non-zero. Yet cross-seed, zero features cluster at ≥0.90 (not above
+        seed-tag shuffle-null, p=0.17).</p>
     </aside>
   </section>
 
-  <section class="slide hero dark center" data-screen-label="16 LLM judge">
+  <section class="slide hero dark center" data-screen-label="17 LLM judge">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <div class="eyebrow">LLM-as-judge · local plausibility</div>
     <div class="stat-num">81.6<span class="unit">%</span><span class="sub">SPLiCE MedGemma · 79.6% null-k</span></div>
-    <p class="stat-caption">SPLiCE scores <b>high local plausibility</b> under a medical-tuned judge — but <b>almost nothing</b> under a general one. <b>Random-k null explanations score comparably</b> (79.6%), indicating weak discriminability. The Aligned rate is a property of the <b>judging model</b> as much as of the explanation. And this local plausibility is <b>orthogonal</b> to global identifiability.</p>
+    <p class="stat-caption">SPLiCE scores <b>high local plausibility</b> under a medical-tuned judge — but <b>almost
+        nothing</b> under a general one. <b>Random-k null explanations score comparably</b> (79.6%), indicating weak
+      discriminability. The Aligned rate is a property of the <b>judging model</b> as much as of the explanation. And
+      this local plausibility is <b>orthogonal</b> to global identifiability.</p>
 
     <div class="citations">
-      <div class="citation"><span class="author">Sellergren et al.</span> <span class="year">2025</span> — MedGemma-4B</div>
+      <div class="citation"><span class="author">Sellergren et al.</span> <span class="year">2025</span> — MedGemma-4B
+      </div>
     </div>
 
-    <aside class="aside" data-notes="16">
-      <p>Cross-LLM spread (81.6% vs 3.3%) shows %Aligned is judge-dependent. Random-k null explanations score similarly: 79.6% MedGemma, 2.9% Llama.</p>
-      <p>Path A hidden source: 76.3% vs 0.5%. SAE baseline ROCOv2: 88.3% vs 23.1%. Orthogonal to non-identifiability.</p>
-      <p>Verified on JSON: iu_xray/spliece 0.8156 / 0.0325 (n=1508); iu_xray/null_k5 0.7958 / 0.0292 (n=1508); rocov2/baseline 0.8833 / 0.2314 (n=15957).</p>
+    <aside class="aside" data-notes="17">
+      <p>Cross-LLM spread (81.6% vs 3.3%) shows %Aligned is judge-dependent. Random-k null explanations score similarly:
+        79.6% MedGemma, 2.9% Llama.</p>
+      <p>Path A hidden source: 76.3% vs 0.5%. SAE baseline ROCOv2: 88.3% vs 23.1%. Orthogonal to non-identifiability.
+      </p>
+      <p>Verified on JSON: iu_xray/spliece 0.8156 / 0.0325 (n=1508); iu_xray/null_k5 0.7958 / 0.0292 (n=1508);
+        rocov2/baseline 0.8833 / 0.2314 (n=15957).</p>
     </aside>
   </section>
 
-  <section class="slide light" data-screen-label="17 Conclusions">
+  <section class="slide light" data-screen-label="18 Conclusions">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <p class="eyebrow">Conclusions</p>
@@ -628,43 +1371,55 @@
     <div class="pt-grid">
       <div class="pt">
         <h3>Null + permutation-invariant</h3>
-        <p>Interpretability claims about discovered concepts must be calibrated against analytical nulls <b>and</b> a permutation-invariant statistic. Slot-wise overlap is degenerate.</p>
+        <p>Interpretability claims about discovered concepts must be calibrated against analytical nulls <b>and</b> a
+          permutation-invariant statistic. Slot-wise overlap is degenerate.</p>
       </div>
       <div class="pt">
         <h3>Scale is the last suspect</h3>
-        <p>For a factorisation with limited identifiability, data scale is the least likely culprit: 10× changed training health, not identifiability.</p>
+        <p>For a factorisation with limited identifiability, data scale is the least likely culprit: 10× changed
+          training health, not identifiability.</p>
       </div>
       <div class="pt">
         <h3>Partially-negative evaluation</h3>
-        <p>An honest, partially-negative evaluation is more useful than a curated one. The defect is localised (representation site), not global.</p>
+        <p>An honest, partially-negative evaluation is more useful than a curated one. The defect is localised
+          (representation site), not global.</p>
       </div>
     </div>
-    <p class="impl">Ref: <code>main_extended.tex</code> §6 — 4 contributions: relabeling control · matched metric + null · scale refutation · partially-negative eval</p>
-    <aside class="aside" data-notes="17">
-      <p>Synthesis: we did not "break" the pipeline — we showed where and why SAE concepts are not identifiable, localised in the representation site.</p>
-      <p>SPLiCE = only deterministic, judge-ready alternative; ~18% upper tail faithful; organisation weakly separated.</p>
+    <p class="impl">Ref: <code>main_extended.tex</code> §6 — 4 contributions: relabeling control · matched metric + null
+      · scale refutation · partially-negative eval</p>
+    <aside class="aside" data-notes="18">
+      <p>Synthesis: we did not "break" the pipeline — we showed where and why SAE concepts are not identifiable,
+        localised in the representation site.</p>
+      <p>SPLiCE = only deterministic, judge-ready alternative; ~18% upper tail faithful; organisation weakly separated.
+      </p>
     </aside>
   </section>
 
-  <section class="slide hero dark center" data-screen-label="18 Future work">
+  <section class="slide hero dark center" data-screen-label="19 Future work">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <div class="eyebrow">Limitations &amp; future work</div>
     <h2 class="h-hero">SAE on the patch-token residual stream.</h2>
-    <p class="lead">The diagnosis is predictive: decomposing BiomedCLIP <b>patch-token</b> residual stream (a mid layer, not the pooled CLS) should restore identifiability — the experiment our characterisation points to as the next step.</p>
+    <p class="lead">The diagnosis is predictive: decomposing BiomedCLIP <b>patch-token</b> residual stream (a mid layer,
+      not the pooled CLS) should restore identifiability — the experiment our characterisation points to as the next
+      step.</p>
     <ul class="bl" style="margin-top: 24px;">
       <li><b>Limitation (i)</b>: LLM-judge is model-dependent; random-k nulls score comparably.</li>
       <li><b>Limitation (ii)</b>: predicted mitigation is SAE on patch-token residual stream.</li>
-      <li><b>Limitation (iii)</b>: ROCOv2 confounds scale with domain; PadChest (~160k chest X-rays) is the clean test.</li>
+      <li><b>Limitation (iii)</b>: ROCOv2 confounds scale with domain; PadChest (~160k chest X-rays) is the clean test.
+      </li>
     </ul>
-    <p class="meta" style="margin-top:30px;">Thank you · questions — Marc'Antonio Lopez · Nicolò Colle · Carmine Francesco Benvenuto</p>
+    <p class="meta" style="margin-top:30px;">Thank you · questions — Marc'Antonio Lopez · Nicolò Colle · Carmine
+      Francesco Benvenuto</p>
 
     <div class="citations">
-      <div class="citation"><span class="author">Bricken et al.</span> <span class="year">2023</span> — SAEs on Residual Streams</div>
+      <div class="citation"><span class="author">Bricken et al.</span> <span class="year">2023</span> — SAEs on Residual
+        Streams</div>
     </div>
 
-    <aside class="aside" data-notes="18">
-      <p>Three limitations from main_extended.tex §6: (i) judge model-dependent + weak discriminability, (ii) predicted mitigation (patch-token SAE), (iii) PadChest clean scale test (begun but unfinished).</p>
+    <aside class="aside" data-notes="19">
+      <p>Three limitations from main_extended.tex §6: (i) judge model-dependent + weak discriminability, (ii) predicted
+        mitigation (patch-token SAE), (iii) PadChest clean scale test (begun but unfinished).</p>
       <p>Decisive close: one concrete future-work direction derived from the diagnosis, not generic "more data".</p>
       <p>Recap: Part 1 setup, Part 2 non-identifiability, Part 3 alternatives + evaluation. Thanks and Q&amp;A.</p>
     </aside>
@@ -672,7 +1427,7 @@
 
   <!-- chrome -->
   <div class="deck-progress" id="deck-progress" aria-hidden></div>
-  <div class="deck-counter"  id="deck-counter">1 / 18</div>
+  <div class="deck-counter" id="deck-counter">1 / 19</div>
   <div class="deck-hint">← / → · space · N = notes</div>
 
   <!-- speaker notes overlay -->
@@ -691,11 +1446,11 @@
       5. Never use Element.scrollIntoView — it can yank the host page.
     */
     (function () {
-      var slides   = document.querySelectorAll('.slide');
-      var counter  = document.getElementById('deck-counter');
+      var slides = document.querySelectorAll('.slide');
+      var counter = document.getElementById('deck-counter');
       var progress = document.getElementById('deck-progress');
-      var KEY      = 'od-deck-pos';
-      var active   = 0;
+      var KEY = 'od-deck-pos';
+      var active = 0;
 
       function scrollContainers() {
         return [document.scrollingElement, document.documentElement, document.body]
@@ -736,15 +1491,15 @@
       function scrollToLeft(left, behavior) {
         var candidates = scrollContainers();
         for (var i = 0; i < candidates.length; i++) {
-          try { candidates[i].scrollLeft = left; } catch (_) {}
-          try { candidates[i].scrollTo({ left: left, behavior: behavior || 'smooth' }); } catch (_) {}
+          try { candidates[i].scrollLeft = left; } catch (_) { }
+          try { candidates[i].scrollTo({ left: left, behavior: behavior || 'smooth' }); } catch (_) { }
         }
       }
       function setActive(i) {
         active = i;
-        if (counter)  counter.textContent  = (i + 1) + ' / ' + slides.length;
+        if (counter) counter.textContent = (i + 1) + ' / ' + slides.length;
         if (progress) progress.style.width = (((i + 1) / slides.length) * 100) + '%';
-        try { localStorage.setItem(KEY, String(i)); } catch (_) {}
+        try { localStorage.setItem(KEY, String(i)); } catch (_) { }
         syncNotes(i);
       }
       function go(i) {
@@ -758,7 +1513,7 @@
       }
 
       /* ── speaker notes overlay ───────────────────────────────── */
-      var panel  = document.getElementById('notes-panel');
+      var panel = document.getElementById('notes-panel');
       var npHead = document.getElementById('np-head');
       var npBody = document.getElementById('np-body');
       var notesOpen = false;
@@ -781,20 +1536,20 @@
         var t = e.target;
         if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
         if (e.key === 'n' || e.key === 'N') { e.preventDefault(); toggleNotes(); return; }
-        if      (e.key === 'ArrowRight' || e.key === ' '       || e.key === 'PageDown') { e.preventDefault(); go(active + 1); }
-        else if (e.key === 'ArrowLeft'  || e.key === 'PageUp')                            { e.preventDefault(); go(active - 1); }
-        else if (e.key === 'Home')                                                        { e.preventDefault(); go(0); }
-        else if (e.key === 'End')                                                         { e.preventDefault(); go(slides.length - 1); }
+        if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); go(active + 1); }
+        else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); go(active - 1); }
+        else if (e.key === 'Home') { e.preventDefault(); go(0); }
+        else if (e.key === 'End') { e.preventDefault(); go(slides.length - 1); }
       }
 
       window.addEventListener('keydown', onKey, true);
       document.addEventListener('keydown', onKey, true);
       document.addEventListener('scroll', syncFromScroll, { passive: true, capture: true });
-      window.addEventListener('scroll', syncFromScroll,   { passive: true });
+      window.addEventListener('scroll', syncFromScroll, { passive: true });
 
       document.body.setAttribute('tabindex', '-1');
       document.body.style.outline = 'none';
-      function focusDeck() { try { window.focus(); document.body.focus({ preventScroll: true }); } catch (_) {} }
+      function focusDeck() { try { window.focus(); document.body.focus({ preventScroll: true }); } catch (_) { } }
       document.addEventListener('mousedown', focusDeck);
       window.addEventListener('load', focusDeck);
       focusDeck();
@@ -811,4 +1566,5 @@
     })();
   </script>
 </body>
+
 </html>

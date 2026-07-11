@@ -62,22 +62,21 @@ We probe three mitigations---a \textbf{baseline} 512-d SAE (a faithful MedConcep
 
 \textbf{Sparse concept decomposition.} SPLiCE~\cite{bhalla2024spliece} bypasses a learned dictionary and decomposes a frozen CLIP embedding directly into a sparse, non-negative combination over a fixed, interpretable concept dictionary. Because the dictionary is fixed and the method deterministic, it sidesteps the non-identifiability of learned factorisation---a property we exploit as a data-frugal baseline.
 
-\textbf{Medical VLMs and the reference framework.} BiomedCLIP~\cite{zhang2023biomedclip} is a domain-specific contrastive VLM (ViT-B/16 image encoder + PubMedBERT text encoder, pretrained on PMC-15M) whose image encoder exposes a 768-d pre-projection hidden state; its released checkpoint projects this into the 512-d shared contrastive space our pipeline decomposes. MedConcept~\cite{haque2026medconcept} provides the methodological template---sparse extraction, vocabulary alignment, and LLM-judge evaluation with the Aligned/Unaligned/Uncertain metrics---which we re-implement and stress-test. RadLex~\cite{langlotz2006radlex} provides the curated radiology lexicon used for naming and organisation.
+\textbf{Medical VLMs and the reference framework.} BiomedCLIP~\cite{zhang2023biomedclip} is a domain-specific contrastive VLM (ViT-B/16 + PubMedBERT, PMC-15M) whose image encoder exposes a 768-d pre-projection hidden state; its checkpoint projects this to the 512-d shared space we decompose. MedConcept~\cite{haque2026medconcept} provides the template (sparse extraction, vocabulary alignment, LLM-judge) we re-implement; RadLex~\cite{langlotz2006radlex} the radiology lexicon for naming.
 
 \section{Research gaps}
-From the literature and the project brief we identify six gaps that this work addresses:
+From the literature and the project brief we identify five gaps that this work addresses:
 \begin{enumerate}
   \item \textbf{Instability / non-identifiability:} sparse factorisations are not reproducible across seeds and provably non-identifiable in the small-data regime; no prior medical-VLM work reports seed-stability against a null.
   \item \textbf{Clinical validity:} a cosine-assigned name is cosmetic unless it tracks real pathology, yet concepts are rarely validated against ground truth.
   \item \textbf{Representation-location mismatch:} the SAE literature operates on raw hidden states, but reference pipelines fit the SAE on the already-projected, gap-bearing CLIP space.
   \item \textbf{Small-data robustness:} learned SAEs need $10^5$--$10^6$ activations; medical corpora are 2--3 orders smaller, yielding dead features.
-  \item \textbf{Flat concepts:} explanations are top-$k$ lists ignoring anatomical/hierarchical structure.
   \item \textbf{Non-reproducible evaluation:} claims rest on single metrics whose chance floor is never reported (slot-wise index overlap is degenerate under per-seed permutation); a metric must be null-calibrated and permutation-invariant.
 \end{enumerate}
 
 \section{Methodology}
 \subsection{Backbone, vocabulary, and split}
-We use BiomedCLIP (ViT-B/16, 768-d hidden state projected by a frozen $\mathrm{visual\_projection}: \mathbb{R}^{768}\!\to\!\mathbb{R}^{512}$ into a shared contrastive space; images at $224{\times}224$, embeddings L2-normalised). The RadLex vocabulary is built by encoding terms with the text encoder and ranking by cosine to a multi-centroid relevance score (39 anchor queries across 13 sub-domains), keeping the top terms plus 14 NIH ChestX-ray14 seeds (${\sim}1{,}030$ terms, 512-d).
+We use BiomedCLIP (ViT-B/16, 768-d hidden state projected by frozen $\mathrm{visual\_projection}: \mathbb{R}^{768}\!\to\!\mathbb{R}^{512}$ into shared contrastive space; images $224{\times}224$, L2-normalised). RadLex vocabulary: text-encoded terms ranked by cosine to multi-centroid relevance (39 anchors, 13 sub-domains), top terms + 14 NIH ChestX-ray14 seeds (${\sim}1{,}030$ terms, 512-d).
 
 The shared 512-d space exhibits a \emph{modality gap}~\cite{liang2022mindthegap}: a systematic offset between the image and text cones (cross-modal image--text cosine ${\approx}0.27$, centroid L2 distance ${\approx}0.94$). Following prior work we estimate it as the difference of the mean image and vocabulary embeddings and subtract it before cosine naming/decomposition.
 
@@ -207,7 +206,7 @@ We set out to discover interpretable concepts in a medical VLM without supervisi
 
 Three lessons generalise: interpretability claims about discovered concepts must be calibrated against analytical nulls \emph{and} a permutation-invariant statistic; data scale is the suspect of last resort for a failing factorisation ($10{\times}$ changed training health, not identifiability); and a partially-negative evaluation is more useful than a curated one.
 
-\textbf{Limitations and future work.} The LLM-judge (Sec.~\ref{sec:judge}) scores high but model-dependent local plausibility, orthogonal to identifiability. The decisive mitigation is an SAE on the BiomedCLIP \emph{patch-token residual stream} (mid layer, not pooled CLS)~\cite{bricken2023monosemanticity}---the experiment our diagnosis predicts would restore identifiability.
+\textbf{Limitations and future work.} The LLM-judge (Sec.~\ref{sec:judge}) scores high but model-dependent local plausibility, orthogonal to identifiability; random-k null explanations score comparably ($79.6\%$ MedGemma, $2.9\%$ Llama), indicating weak discriminability. The decisive mitigation is an SAE on the BiomedCLIP \emph{patch-token residual stream} (mid layer, not pooled CLS)~\cite{bricken2023monosemanticity}---the experiment our diagnosis predicts would restore identifiability.
 
 %%
 %% The next two lines define the bibliography style to be used, and

@@ -1,7 +1,7 @@
 # Presentation — Unsupervised Concept Discovery for Medical VLMs
 
 Project deck for **Explainable & Trustworthy AI** (Politecnico di Torino).
-Based on the paper `docs/latex/main.tex` and the implementations in `src/`. All slides in **English**.
+Based on the paper `docs/latex/main_extended.tex` (extended version) and the implementations in `src/`. All slides in **English**.
 
 > Paper: *Unsupervised Concept Discovery for Medical Vision–Language Models:
 > A Rigorous Characterization of Sparse-Autoencoder Failure and Deterministic Alternatives*
@@ -15,7 +15,7 @@ Based on the paper `docs/latex/main.tex` and the implementations in `src/`. All 
 |---|---|
 | `index.html` | Single-file deck, **18 slides**, horizontal swipe. Open in a browser. |
 | `SCRIPT.md` | **Spoken script** — what each member says per slide (~14 min total) + paper-coverage map. |
-| `deck.pdf` | 18-page 16:9 PDF render of the deck. |
+| `deck.pdf` | 18-page 16:9 PDF render of the deck (print-optimized with enlarged body text). |
 | `logo-poli-blu.png` | Politecnico di Torino logo (top-right; white on dark slides). |
 | `assets/cross-seed-jaccard.png` | Cross-seed Jaccard matrix (IU X-Ray) — slide 10. |
 | `assets/naming-scores.png` | Naming-score distribution (IU X-Ray) — slide 11. |
@@ -38,7 +38,7 @@ Open: `docs/presentation/index.html` (double-click, or `python3 -m http.server` 
 
 ### Slide → paper → implementation
 
-| # | Slide | Paper (`main.tex`) | Impl (`src/`) | Figure |
+| # | Slide | Paper (`main_extended.tex`) | Impl (`src/`) | Figure |
 |---|---|---|---|---|
 | 01 | Cover | abstract + §1 | — | — |
 | 02 | Problem | §1 | — | — |
@@ -53,14 +53,13 @@ Open: `docs/presentation/index.html` (double-click, or `python3 -m http.server` 
 | 11 | Path A vs baseline | §5.3 + Tab.2/3 | `sae_hidden/`, `scripts/run_path_a.py` | `naming-scores.png` |
 | 12 | Scale refuted | §5.3 + Tab.1 | `scripts/run_baseline.py` | — |
 | 13 | SPLiCE | §4.4 + §5.4 | `concept_discovery/spliece.py` (`decompose_image`) | — |
-| 14 | Organisation | §4.5 + §5.5 | `concept_discovery/organize.py` | — |
+| 14 | Organisation | §4.5 + §5.5 + Tab.4 | `concept_discovery/organize.py` | — |
 | 15 | Faithfulness | §5.6 | `scripts/run_faithfulness.py` | — |
 | 16 | LLM judge | §5.7 | `evaluate_llm_judge.py` (`build_judge_graph`) | — |
 | 17 | Conclusions | §6 | — | — |
-| 18 | Future work | §6 (future) | — | — |
+| 18 | Future work | §6 (limitations) | — | — |
 
-Every section of the paper is covered (full map in `SCRIPT.md`). The only sub-result not on a
-dedicated slide — the Path-A dictionary/k ablation sweep (Tab.3) — is in the spoken script for slide 11.
+Every section of the extended paper is covered (full map in `SCRIPT.md`). The Path-A dictionary/k ablation sweep (Tab.3) is in the spoken script for slide 11.
 
 ---
 
@@ -93,15 +92,32 @@ Position is persisted in `localStorage` — a refresh keeps your place.
 
 ---
 
-## Numbers — grounding
+## Numbers — grounding (all from main_extended.tex)
 
-All numbers come from `docs/latex/main.tex` and were cross-checked against `results/*.json`:
+All numbers come from `docs/latex/main_extended.tex` and were cross-checked against `results/*.json`:
 
-- **LLM-judge** (slide 16): `results/iu_xray/spliece/judge_scores_*.json` → MedGemma-4B `aligned_rate = 0.8156` (81.6%, 1230/1508), Llama-3.1-8B `0.0325` (3.3%); `results/rocov2/baseline/judge_scores_*.json` → MedGemma `0.8833` (88.3%, 14095/15957), Llama `0.2314` (23.1%).
-- **Non-identifiability** (slides 09, 11, 12): Tab.1–2 — matched cosine 0.299–0.327, subspace null ratio 1.67×–1.81×, naming 0.40–0.48, erank 357–363.
-- **Relabeling control** (slide 10): slot-wise Jaccard ≈0.0077, matched = 1.0.
-- **Faithfulness** (slide 15): ~18% above shuffle-null 95th pct, 1.1% at |r|>0.30, strongest |r|=0.459 (mass).
-- **Organisation** (slide 14): ~1.75× redundancy reduction, silhouette ~0.02.
+### LLM-judge (slide 16)
+- SPLiCE IU X-Ray: `results/iu_xray/spliece/judge_scores_*.json` → MedGemma-4B `0.8156` (81.6%, 1230/1508), Llama-3.1-8B `0.0325` (3.3%)
+- SAE baseline ROCOv2: `results/rocov2/baseline/judge_scores_*.json` → MedGemma `0.8833` (88.3%, 14095/15957), Llama `0.2314` (23.1%)
+- Path A hidden (IU): MedGemma `76.3%`, Llama `0.5%`
+- Random-k null: MedGemma `79.6%`, Llama `2.9%`
+
+### Non-identifiability (slides 09, 11, 12)
+- Tab.1: matched cosine 0.299–0.327, subspace null ratio 1.67×–1.81×, naming 0.40–0.48, erank 357–363
+- Tab.3 ablation: D=1024,k=16 → 2.78× obs/null; D=2048,k=32 → 2.63×; D=4096,k=64 → 2.00×
+
+### Relabeling control (slide 10)
+- Slot-wise Jaccard ≈0.0077 floor, matched = 1.0
+
+### Faithfulness (slide 15)
+- 17.8% ± 0.9% above shuffle-null 95th percentile
+- 1.1% at |r| > 0.30
+- Strongest |r| = 0.459 ± 0.057 ("mass" feature)
+
+### Organisation (slide 14, Tab.4)
+- SPLiCE: 997 concepts → 32 families (sil 0.020)
+- SAE baseline: 80 concepts → 9 families (sil 0.094)
+- Path A hidden: 14 concepts → 4 families (sil 0.284)
 
 No invented metrics.
 
@@ -119,8 +135,8 @@ Seed: `simple-deck` skill (5-rule iframe nav script intact).
 
 ## PDF
 
-`deck.pdf` is a 18-page 16:9 render (one slide per page, styles + white-on-dark logo preserved),
-generated headless from `index.html` (the `@media print` block in the CSS drives pagination).
+`deck.pdf` is an 18-page 16:9 render (one slide per page, styles + white-on-dark logo preserved),
+generated headless from `index.html` (the `@media print` block in the CSS drives pagination with enlarged body text).
 To regenerate: open `index.html` in a browser → Ctrl+P → Save as PDF (the print CSS handles it).
 
 ---
@@ -130,4 +146,18 @@ To regenerate: open `index.html` in a browser → Ctrl+P → Save as PDF (the pr
 - Project to a 16:9 screen (1920×1080 or 1440×900). Slides are fluid (`clamp()`); on a very small
   projector, if a dense slide (04 gaps, 13 SPLiCE) clips, shorten its lead.
 - Speaker notes (key `N`) repeat the key numbers; the full spoken text is in `SCRIPT.md`.
-- Rebuild the reference paper PDF: `cd docs/latex && pdflatex main && bibtex main && pdflatex main && pdflatex main`.
+- Rebuild the reference paper PDF: `cd docs/latex && pdflatex main_extended && bibtex main_extended && pdflatex main_extended && pdflatex main_extended`.
+
+---
+
+## Changes from main.tex to main_extended.tex (reflected in deck)
+
+1. **Slide 15 (Faithfulness)** — Added precise numbers: 17.8% ± 0.9%, 1.1%, |r| = 0.459 ± 0.057
+2. **Slide 16 (LLM judge)** — Added Path A hidden scores (76.3% vs 0.5%) + random-k null (79.6% MedGemma, 2.9% Llama)
+3. **Slide 18 (Future work)** — Expanded with 3 limitations + PadChest clean test
+4. **Slide 11 (Path A)** — Added ablation Tab.3 (D/k sweep) in speaker notes
+5. **Slide 14 (Organisation)** — Added Tab.4 numbers (997→32, 80→9, 14→4 families)
+6. **SCRIPT.md** — Updated with all new numbers and details from `main_extended.tex`
+7. **README.md** — Updated to reflect `main_extended.tex` as source, added all new metrics
+
+All slides now perfectly aligned with the extended paper version.

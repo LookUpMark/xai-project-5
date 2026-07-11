@@ -2,7 +2,7 @@
 <!--
   Unsupervised Concept Discovery for Medical VLMs — project deck.
   18 slides = 3 parts × 6 (one member per part). English, real numbers from
-  docs/latex/main.tex + implementations in src/. Design system: Cohere.
+  docs/latex/main_extended.tex + implementations in src/. Design system: Cohere.
   Gaps follow the paper's §3 order (1→6). Skill: simple-deck (seed nav script intact).
 -->
 <html lang="en">
@@ -245,13 +245,13 @@
     <div class="part-tag"><b>Part 1 of 3</b> · Nicolò Colle</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <div class="eyebrow">Explainable &amp; Trustworthy AI · Project · Politecnico di Torino</div>
-    <h1 class="h-hero">Concept discovery in medical VLMs: a rigorous failure.</h1>
+    <h1 class="h-hero">Concept discovery in medical VLMs: a rigorous characterization.</h1>
     <p class="lead">A faithful re-implementation of the MedConcept pipeline on BiomedCLIP — IU X-Ray (~7k) and ROCOv2 (~80k, 10×). We characterise why SAE concept discovery is non-identifiable, and what a deterministic alternative can do.</p>
     <p class="meta" style="margin-top:26px;">Marc'Antonio Lopez · Nicolò Colle · Carmine Francesco Benvenuto</p>
     <aside class="aside" data-notes="01">
-      <p><b>Cover.</b> Paper: <i>Unsupervised Concept Discovery for Medical VLMs: A Rigorous Characterization of SAE Failure and Deterministic Alternatives</i> (docs/latex/main.tex).</p>
+      <p><b>Cover.</b> Paper: <i>Unsupervised Concept Discovery for Medical VLMs: A Rigorous Characterization of SAE Failure and Deterministic Alternatives</i> (docs/latex/main_extended.tex).</p>
       <p>Three contributors = three equal parts (6 slides each, ~13.5 min total). Part 1: problem + setup. Part 2: method + non-identifiability. Part 3: alternatives + evaluation + conclusions.</p>
-      <p>Takeaway: we did not find interpretable concepts — we rigorously characterised <i>why</i> SAE discovery fails, against analytical nulls.</p>
+      <p>Takeaway: we rigorously characterised the limits of SAE concept discovery against analytical nulls — where and why identifiability breaks down.</p>
     </aside>
   </section>
 
@@ -261,7 +261,7 @@
     <p class="eyebrow">The problem</p>
     <h2 class="h-xl">Medical VLMs are accurate but opaque.</h2>
     <p class="lead">Strong performance on pathology classification, segmentation and report generation — but the internal representations are high-dimensional, polysemic and unreadable. A serious concern in safety-critical clinical use, where classic post-hoc tools (saliency, attention) rarely resolve into semantic structure.</p>
-    <p class="impl">Ref: <code>main.tex</code> §1 Introduction</p>
+    <p class="impl">Ref: <code>main_extended.tex</code> §1 Introduction</p>
     <aside class="aside" data-notes="02">
       <p>Accuracy ≠ understanding. In radiology, a model right-for-the-wrong-reasons is as dangerous as one that is simply wrong.</p>
       <p>Saliency/attention show <i>where</i> the model looks, not <i>what</i> it knows in human-readable form. That gap motivates concepts.</p>
@@ -308,7 +308,7 @@
       <div class="gap"><span class="gn">GAP 5</span><h3>Flat concepts</h3><p>Explanations are top-k lists that ignore anatomical / hierarchical structure.</p></div>
       <div class="gap"><span class="gn">GAP 6</span><h3>Non-reproducible evaluation</h3><p>Claims rest on single metrics whose chance floor is never reported; slot-wise overlap is degenerate under per-seed permutation.</p></div>
     </div>
-    <p class="impl">Ref: <code>main.tex</code> §3 Research gaps</p>
+    <p class="impl">Ref: <code>main_extended.tex</code> §3 Research gaps</p>
     <aside class="aside" data-notes="04">
       <p>Roadmap: every later experiment answers ≥1 of these gaps, tagged on each slide's eyebrow.</p>
       <p>Gap order is exactly the paper's §3. Results follow the paper's experiment sequence (§5), not strict 1→6 — the paper itself proves the metric (Gap 6) before using it.</p>
@@ -451,6 +451,7 @@
     <aside class="aside" data-notes="11">
       <p>Path A = local improvement (fewer dead, better naming) but global verdict unchanged — weak universality (Lan 2024, Leask 2025).</p>
       <p>Still pooled CLS, not patch tokens. Naming figure titled "Naming scores — 99.7% below 0.5" (max 0.513).</p>
+      <p>Ablation (Tab.3): D=1024,k=16 → 2.78× obs/null; D=2048,k=32 → 2.63×; D=4096,k=64 → 2.00×. No setting escapes weak universality.</p>
     </aside>
   </section>
 
@@ -498,7 +499,7 @@
     <p class="impl">Impl: <code>src/concept_discovery/organize.py</code> — <code>cluster_concepts()</code>, <code>annotate_radlex()</code></p>
     <aside class="aside" data-notes="14">
       <p>Organisation does its job (1.75× redundancy reduction) but separation is weak because the IU vocabulary is noisy.</p>
-      <p>Standalone stage — does not feed the judge.</p>
+      <p>Tab.4: SPLiCE 997 concepts → 32 families (silhouette 0.020); SAE baseline 80 concepts → 9 families (silhouette 0.094); Path A hidden 14 concepts → 4 families (silhouette 0.284).</p>
     </aside>
   </section>
 
@@ -508,9 +509,10 @@
     <p class="eyebrow">Faithfulness · Gap 2</p>
     <h2 class="h-xl">A small upper tail is genuinely faithful.</h2>
     <p class="lead">Do <b>any</b> features track real pathology? Correlating activations against the ground-truth labels (with a shuffle null), a <b>small upper tail</b> is genuinely faithful — the strongest looks like a <i>mass</i>, clinically plausible. But those same features stay <b>unstable across seeds</b>: partially faithful, entirely non-reproducible.</p>
-    <p class="impl">Impl: <code>scripts/run_faithfulness.py</code> · <code>main.tex</code> §5.6</p>
+    <p class="impl">Impl: <code>scripts/run_faithfulness.py</code> · <code>main_extended.tex</code> §5.6</p>
     <aside class="aside" data-notes="15">
-      <p>Real signal exists (~18% upper tail; "mass" feature |r|=0.459), but small and unstable. Not "concepts work" — a weak, non-reproducible tail.</p>
+      <p>Real signal exists but small: <b>17.8% ± 0.9</b> of live features exceed 95th percentile of shuffle null. Strongest feature |r| = 0.459 ± 0.057 (on a "mass" feature).</p>
+      <p>Only <b>1.1%</b> at |r| > 0.30. Weak but non-zero. Yet cross-seed, zero features cluster at ≥0.90 (not above seed-tag shuffle-null, p=0.17).</p>
     </aside>
   </section>
 
@@ -521,8 +523,9 @@
     <div class="stat-num">81.6<span class="unit">%</span><span class="sub">vs 3.3% with Llama-3.1-8B</span></div>
     <p class="stat-caption">SPLiCE scores <b>high local plausibility</b> under a medical-tuned judge — but <b>almost nothing</b> under a general one. The Aligned rate is a property of the <b>judging model</b> as much as of the explanation. And this local plausibility is <b>orthogonal</b> to global identifiability.</p>
     <aside class="aside" data-notes="16">
-      <p>Cross-LLM spread (81.6% vs 3.3%) shows %Aligned is a property of the judge. MedGemma medical-tuned, Llama general.</p>
-      <p>Verified on JSON: iu_xray/spliece 0.8156 / 0.0325 (n=1508); rocov2/baseline 0.8833 / 0.2314 (n=15957). Orthogonal to non-identifiability.</p>
+      <p>Cross-LLM spread (81.6% vs 3.3%) shows %Aligned is judge-dependent. Random-k null explanations score similarly: 79.6% MedGemma, 2.9% Llama.</p>
+      <p>Path A hidden source: 76.3% vs 0.5%. SAE baseline ROCOv2: 88.3% vs 23.1%. Orthogonal to non-identifiability.</p>
+      <p>Verified on JSON: iu_xray/spliece 0.8156 / 0.0325 (n=1508); rocov2/baseline 0.8833 / 0.2314 (n=15957).</p>
     </aside>
   </section>
 
@@ -538,14 +541,14 @@
       </div>
       <div class="pt">
         <h3>Scale is the last suspect</h3>
-        <p>For a failing factorisation, data scale is the least likely culprit: 10× changed training health, not identifiability.</p>
+        <p>For a factorisation with limited identifiability, data scale is the least likely culprit: 10× changed training health, not identifiability.</p>
       </div>
       <div class="pt">
         <h3>Partially-negative evaluation</h3>
         <p>An honest, partially-negative evaluation is more useful than a curated one. The defect is localised (representation site), not global.</p>
       </div>
     </div>
-    <p class="impl">Ref: <code>main.tex</code> §6 — 4 contributions: relabeling control · matched metric + null · scale refutation · partially-negative eval</p>
+    <p class="impl">Ref: <code>main_extended.tex</code> §6 — 4 contributions: relabeling control · matched metric + null · scale refutation · partially-negative eval</p>
     <aside class="aside" data-notes="17">
       <p>Synthesis: we did not "break" the pipeline — we showed where and why SAE concepts are not identifiable, localised in the representation site.</p>
       <p>SPLiCE = only deterministic, judge-ready alternative; ~18% upper tail faithful; organisation weakly separated.</p>
@@ -558,8 +561,14 @@
     <div class="eyebrow">Limitations &amp; future work</div>
     <h2 class="h-hero">SAE on the patch-token residual stream.</h2>
     <p class="lead">The diagnosis is predictive: decomposing BiomedCLIP <b>patch-token</b> residual stream (a mid layer, not the pooled CLS) should restore identifiability — the experiment our characterisation points to as the next step.</p>
+    <ul class="bl" style="margin-top: 24px;">
+      <li><b>Limitation (i)</b>: LLM-judge is model-dependent; random-k nulls score comparably.</li>
+      <li><b>Limitation (ii)</b>: predicted mitigation is SAE on patch-token residual stream.</li>
+      <li><b>Limitation (iii)</b>: ROCOv2 confounds scale with domain; PadChest (~160k chest X-rays) is the clean test.</li>
+    </ul>
     <p class="meta" style="margin-top:30px;">Thank you · questions — Marc'Antonio Lopez · Nicolò Colle · Carmine Francesco Benvenuto</p>
     <aside class="aside" data-notes="18">
+      <p>Three limitations from main_extended.tex §6: (i) judge model-dependent + weak discriminability, (ii) predicted mitigation (patch-token SAE), (iii) PadChest clean scale test (begun but unfinished).</p>
       <p>Decisive close: one concrete future-work direction derived from the diagnosis, not generic "more data".</p>
       <p>Recap: Part 1 setup, Part 2 non-identifiability, Part 3 alternatives + evaluation. Thanks and Q&amp;A.</p>
     </aside>

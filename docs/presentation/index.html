@@ -1,7 +1,7 @@
 <!doctype html>
 <!--
   Unsupervised Concept Discovery for Medical VLMs — project deck.
-  20 slides = 3 parts (one member per part). English, real numbers from
+  21 slides = 3 parts (one member per part). English, real numbers from
   docs/latex/main_extended.tex + implementations in src/. Design system: Cohere.
   Gaps follow the paper's §3 order (1→6). Skill: simple-deck (seed nav script intact).
 -->
@@ -1246,7 +1246,7 @@
   </section>
 
   <!--═══════════════════════════════════════════════════════════════
-    PART 3 — Carmine Francesco Benvenuto · Alternatives, evaluation, conclusions (13–20)
+    PART 3 — Carmine Francesco Benvenuto · Alternatives, evaluation, conclusions (13–21)
   ════════════════════════════════════════════════════════════════-->
 
   <section class="slide light" data-screen-label="13 SPLiCE">
@@ -1272,7 +1272,7 @@
 
     <aside class="aside" data-notes="13">
       <p>SPLiCE trades estimation for a given dictionary. No seed, no non-identifiability. SAE-compatible schema → same
-        judge scores it (slide 18).</p>
+        judge scores it (slide 19).</p>
       <p>Caveat: frequent terms "mixed" (ROCOv2 imaging modalities; IU bilingual/off-topic) — a dictionary property, not
         SPLiCE's.</p>
     </aside>
@@ -1356,7 +1356,31 @@
     </aside>
   </section>
 
-  <section class="slide dark" data-screen-label="16 Organisation">
+  <section class="slide dark" data-screen-label="16 Judge Limitations">
+    <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
+    <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
+    <p class="eyebrow">Judge Models · Limitations</p>
+    <h2 class="h-xl">Why the judges fail.</h2>
+    <p class="lead">Both models lack the discriminative power required for a reliable evaluation on medical domains, but for entirely different reasons.</p>
+    
+    <div class="pt-grid" style="grid-template-columns: repeat(2, 1fr);">
+      <div class="pt">
+        <h3>MedGemma 4B: Catastrophic Positive Bias</h3>
+        <p>It defaults to "Aligned" regardless of semantic content. It approves random noise at ~80% (failing the null control). It is fundamentally incapable of distinguishing true signal from noise in this specific setup.</p>
+      </div>
+      <div class="pt">
+        <h3>Llama 3.1 8B: Extreme Uncertainty Bias</h3>
+        <p>Defaults to "Uncertain" (~96% on IU X-Ray). This suggests it either cannot reliably parse the structured verdict format, or it genuinely finds the generated pseudo-reports too ambiguous. Scale helps (better on ROCO v2), but it remains highly conservative.</p>
+      </div>
+    </div>
+    <p class="impl">Ref: <code>llm_judge_analysis_report.md</code> §3 &amp; §11.1</p>
+    <aside class="aside" data-notes="16">
+      <p>MedGemma is basically a "yes" man for medical text, approving even random mappings. It completely fails our null control test.</p>
+      <p>Llama 3.1 on the other hand is overly cautious. It outputs "Uncertain" 96% of the time on the small IU X-Ray dataset. It gets a bit better on the 10x larger ROCO v2, meaning scale helps, but it's still not a robust metric.</p>
+    </aside>
+  </section>
+
+  <section class="slide light" data-screen-label="17 Organisation">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <p class="eyebrow">Concept organisation · Gap 5</p>
@@ -1368,7 +1392,7 @@
     <p class="impl">Impl: <code>src/concept_discovery/organize.py</code> — <code>cluster_concepts()</code>,
       <code>annotate_radlex()</code>
     </p>
-    <aside class="aside" data-notes="16">
+    <aside class="aside" data-notes="17">
       <p>Organisation does its job (1.75× redundancy reduction) but separation is weak because the IU vocabulary is
         noisy.</p>
       <p>Tab.4: SPLiCE 997 concepts → 32 families (silhouette 0.020); SAE baseline 80 concepts → 9 families (silhouette
@@ -1376,7 +1400,7 @@
     </aside>
   </section>
 
-  <section class="slide light" data-screen-label="17 Faithfulness">
+  <section class="slide dark" data-screen-label="18 Faithfulness">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <p class="eyebrow">Faithfulness · Gap 2</p>
@@ -1386,7 +1410,7 @@
       clinically plausible. But those same features stay <b>unstable across seeds</b>: partially faithful, entirely
       non-reproducible.</p>
     <p class="impl">Impl: <code>scripts/run_faithfulness.py</code> · <code>main_extended.tex</code> §5.6</p>
-    <aside class="aside" data-notes="17">
+    <aside class="aside" data-notes="18">
       <p>Real signal exists but small: <b>17.8% ± 0.9</b> of live features exceed 95th percentile of shuffle null.
         Strongest feature |r| = 0.459 ± 0.057 (on a "mass" feature).</p>
       <p>Only <b>1.1%</b> at |r| > 0.30. Weak but non-zero. Yet cross-seed, zero features cluster at ≥0.90 (not above
@@ -1394,7 +1418,7 @@
     </aside>
   </section>
 
-  <section class="slide hero dark center" data-screen-label="18 LLM judge">
+  <section class="slide hero dark center" data-screen-label="19 LLM judge">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <div class="eyebrow">LLM-as-judge · local plausibility</div>
@@ -1409,7 +1433,7 @@
       </div>
     </div>
 
-    <aside class="aside" data-notes="18">
+    <aside class="aside" data-notes="19">
       <p>Cross-LLM spread (81.6% vs 3.3%) shows %Aligned is judge-dependent. Random-k null explanations score similarly:
         79.6% MedGemma, 2.9% Llama.</p>
       <p>Path A hidden source: 76.3% vs 0.5%. SAE baseline ROCOv2: 88.3% vs 23.1%. Orthogonal to non-identifiability.
@@ -1419,7 +1443,7 @@
     </aside>
   </section>
 
-  <section class="slide light" data-screen-label="19 Conclusions">
+  <section class="slide light" data-screen-label="20 Conclusions">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <p class="eyebrow">Conclusions</p>
@@ -1443,7 +1467,7 @@
     </div>
     <p class="impl">Ref: <code>main_extended.tex</code> §6 — 4 contributions: relabeling control · matched metric + null
       · scale refutation · partially-negative eval</p>
-    <aside class="aside" data-notes="19">
+    <aside class="aside" data-notes="20">
       <p>Synthesis: we did not "break" the pipeline — we showed where and why SAE concepts are not identifiable,
         localised in the representation site.</p>
       <p>SPLiCE = only deterministic, judge-ready alternative; ~18% upper tail faithful; organisation weakly separated.
@@ -1451,7 +1475,7 @@
     </aside>
   </section>
 
-  <section class="slide hero dark center" data-screen-label="20 Future work">
+  <section class="slide hero dark center" data-screen-label="21 Future work">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <div class="eyebrow">Limitations &amp; future work</div>
@@ -1473,7 +1497,7 @@
         Streams</div>
     </div>
 
-    <aside class="aside" data-notes="20">
+    <aside class="aside" data-notes="21">
       <p>Three limitations from main_extended.tex §6: (i) judge model-dependent + weak discriminability, (ii) predicted
         mitigation (patch-token SAE), (iii) PadChest clean scale test (begun but unfinished).</p>
       <p>Decisive close: one concrete future-work direction derived from the diagnosis, not generic "more data".</p>
@@ -1483,7 +1507,7 @@
 
   <!-- chrome -->
   <div class="deck-progress" id="deck-progress" aria-hidden></div>
-  <div class="deck-counter" id="deck-counter">1 / 20</div>
+  <div class="deck-counter" id="deck-counter">1 / 21</div>
   <div class="deck-hint">← / → · space · N = notes</div>
 
   <!-- speaker notes overlay -->

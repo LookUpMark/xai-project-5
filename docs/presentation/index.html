@@ -1070,8 +1070,7 @@
     <div class="pt-grid">
       <div class="pt">
         <h3>Supervised</h3>
-        <p>Concept Bottleneck Models (Koh 2020) and TCAV (Kim 2018) need a pre-defined, labelled concept set — exactly
-          the limitation unsupervised discovery targets.</p>
+        <p>Concept Bottleneck Models (Koh 2020) and TCAV (Kim 2018) need a pre-defined, labelled concept set.</p>
       </div>
       <div class="pt">
         <h3>Sparse Autoencoders</h3>
@@ -1156,10 +1155,13 @@
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <p class="eyebrow">4 · Methodology · Backbone &amp; vocabulary</p>
     <h2 class="h-xl">Our Adapted Architecture.</h2>
-    <p class="lead">Instead of 3D Merlin, we use the 2D BiomedCLIP as backbone. Its image encoder exposes a <b>768-d
-        hidden state</b> that a frozen projection compresses into the <b>512-d</b> contrastive space. Features are named
-      against <b>domain-matched</b> vocabularies: <b>RadLex</b> for IU X-Ray (chest-specific), <b>MeSH</b> for ROCOv2
-      (multimodal). Before of this, we correct the <b>modality gap</b>.</p>
+    <p class="lead">We adapt MedConcept to an accessible and licence-free 2D setting.</p>
+    <ul class="bl" style="margin-top: 18px;">
+      <li><b>Backbone</b> — 2D BiomedCLIP (not 3D Merlin): cheaper, GPU-accessible.</li>
+      <li><b>Representation</b> — the <b>768-d</b> hidden state compressed into the <b>512-d</b> contrastive space by frozen projection.</li>
+      <li><b>Vocabulary domain-matched</b>: <b>RadLex</b> for IU X-Ray (chest), <b>MeSH</b> for ROCOv2 (multimodal).</li>
+      <li><b>Modality gap</b> — corrected before naming.</li>
+    </ul>
     <p class="impl">Impl: <code>src/embedding_extraction/extract_embeddings.py</code>,
       <code>src/vocabulary_building/build_vocabulary.py</code>
     </p>
@@ -1198,6 +1200,10 @@
         <p>Split by image. It exists to test one hypothesis head-on: <b>does more data cure non-identifiability?</b></p>
       </div>
     </div>
+    <p class="impl" style="opacity:.72; border-left:2px dashed var(--muted); padding-left:12px; margin-top:16px;">
+      <b>PadChest</b> · ~160k chest X-rays (same domain as IU X-Ray) —
+      <span style="color:var(--accent);">attempted, licence obtained late → not completed</span> (see Future Work).
+    </p>
     <p class="impl">Impl: <code>src/utils.py</code> (<code>split_embeddings</code>) · anti-leakage test:
       <code>tests/unit/test_split.py</code>
     </p>
@@ -1216,10 +1222,6 @@
       <p>End of Part 1. Hand off to Marc'Antonio Lopez: method + the core result.</p>
     </aside>
   </section>
-
-  <!--══════════════════════════════════════════════════════════════════
-    PART 2 — Marc'Antonio Lopez · Method + non-identifiability + deterministic alternatives  (slides 7–18)
-  ══════════════════════════════════════════════════════════════════-->
 
   <section class="slide light" data-screen-label="07 Method">
     <div class="part-tag"><b>Part 1 of 3</b> · Nicolò Colle</div>
@@ -1268,6 +1270,10 @@
       <p>Each path targets explicit gaps (tagged). Path B changes paradigm: fixed dictionary, not learned.</p>
     </aside>
   </section>
+
+    <!--══════════════════════════════════════════════════════════════════
+    PART 2 — Marc'Antonio Lopez · Method + non-identifiability + deterministic alternatives  (slides 7–18)
+  ══════════════════════════════════════════════════════════════════-->
 
   <section class="slide dark" data-screen-label="08 Evaluation · matched metric">
     <div class="part-tag"><b>Part 2 of 3</b> · Marc'Antonio Lopez</div>

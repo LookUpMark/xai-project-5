@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <!--
   Unsupervised Concept Discovery for Medical VLMs — project deck.
   28 slides = Part 1 (6) · Part 2 (12) · Part 3 (10). English, real numbers from
@@ -1836,6 +1836,30 @@
     </aside>
   </section>
 
+  <section class="slide light" data-screen-label="16c Convergence">
+    <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
+    <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
+    <p class="eyebrow">5 · Experiments and analysis · Judge Models · Convergence</p>
+    <h2 class="h-xl">Convergence on the Aligned Rate.</h2>
+    <p class="lead">Despite their drastically different biases—Gemma 4 rejecting heavily and Llama 3.1 defaulting to uncertainty—they <b>fundamentally agree on the Aligned rate</b> (~1%).</p>
+    
+    <div class="ba-grid" style="margin-top: 24px;">
+      <div class="ba-col">
+        <h3>Contextualizing "Uncertain"</h3>
+        <p>Llama 3.1 is smaller (8B vs 26B) and less capable of definitively refuting a concept, so it falls back to "Uncertain". If we interpret this hesitation as a failure to align, its behavior effectively mirrors Gemma 4's strict "Unaligned" verdicts.</p>
+      </div>
+      <div class="ba-col">
+        <h3>A Valid Proxy</h3>
+        <p>This means that approximating Gemma 4's rigorous evaluations using the much cheaper Llama 3.1 is <b>not entirely wrong</b>. As long as we contextualize "Uncertain" as a lack of alignment, the two models tell the same underlying story about concept quality.</p>
+      </div>
+    </div>
+
+    <aside class="aside" data-notes="16c">
+      <p>This is a crucial insight: Gemma 4 and Llama 3.1 actually agree that only ~1% of concepts are genuinely aligned.</p>
+      <p>Llama 3.1 is just less confident enough to explicitly say "Unaligned", so it says "Uncertain". If we treat Uncertain as Unaligned, Llama 3.1 becomes a valid, cheap proxy for Gemma 4.</p>
+    </aside>
+  </section>
+
   <section class="slide light" data-screen-label="23 Judge Scale Effects">
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
@@ -1924,9 +1948,8 @@
           permutation-invariant statistic. Slot-wise overlap is degenerate.</p>
       </div>
       <div class="pt">
-        <h3>Scale is the last suspect</h3>
-        <p>For a factorisation with limited identifiability, data scale is the least likely culprit: 10× changed
-          training health, not identifiability.</p>
+        <h3>Contextualising LLM biases</h3>
+        <p>LLM-as-a-judge scores are heavily influenced by the chosen model's inherent bias. However, by properly contextualising these biases—such as treating hesitation as a lack of alignment—smaller models can serve as effective proxies.</p>
       </div>
       <div class="pt">
         <h3>Partially-negative evaluation</h3>
@@ -1950,13 +1973,13 @@
     <div class="eyebrow">5 · Experiments and analysis · Limitations &amp; future work</div>
     <h2 class="h-hero">Future work</h2>
     <ul class="bl" style="margin-top: 24px;">
-      <li><b>(i) The LLM-Judge is model dependant.</b> The %Aligned rate is a property of the judging model as much as
-        of the concepts. Future work: multi-judge reporting or a judge-agnostic protocol.</li>
+      <li><b>(i) PadChest.</b> ROCOv2 is 10× larger but also broader (multimodal); PadChest (~160k images, same chest
+        domain as IU X-Ray) is the test of whether scale alone restores reproducibility — begun, not finished.</li>
       <li><b>(ii) Decisive test of our diagnosis: an SAE on the patch-token residual stream.</b> Decomposing
         BiomedCLIP's per-patch residual stream at a mid layer (as the SAE literature does) is the experiment that tests
         whether the 2D limit is intrinsic or escapable.</li>
-      <li><b>(iii) PadChest.</b> ROCOv2 is 10× larger but also broader (multimodal); PadChest (~160k images, same chest
-        domain as IU X-Ray) is the test of whether scale alone restores reproducibility — begun, not finished.</li>
+      <li><b>(iii) The LLM-Judge is model dependant.</b> The %Aligned rate is a property of the judging model as much as
+        of the concepts. Future work: multi-judge reporting or a judge-agnostic protocol.</li>
     </ul>
     <p class="meta" style="margin-top:30px;">Thank you · questions — Marc'Antonio Lopez · Nicolò Colle · Carmine
       Francesco Benvenuto</p>
@@ -1977,7 +2000,7 @@
 
   <!-- chrome -->
   <div class="deck-progress" id="deck-progress" aria-hidden></div>
-  <div class="deck-counter" id="deck-counter">1 / 28</div>
+  <div class="deck-counter" id="deck-counter">1 / 29</div>
   <div class="deck-hint">← / → · space · N = notes</div>
 
   <!-- speaker notes overlay -->

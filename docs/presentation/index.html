@@ -1159,7 +1159,8 @@
     <ul class="bl" style="margin-top: 18px;">
       <li><b>Backbone</b> — 2D BiomedCLIP (not 3D Merlin): cheaper, GPU-accessible.</li>
       <li><b>Representation</b> — <b>512-d</b> contrastive space.</li>
-      <li><b>Vocabulary domain-matched</b>: <b>RadLex</b> for IU X-Ray (chest), <b>MeSH</b> for ROCOv2 (multimodal).</li>
+      <li><b>Vocabulary domain-matched</b>: <b>RadLex</b> for IU X-Ray (chest), <b>MeSH</b> for ROCOv2 (multimodal).
+      </li>
       <li><b>Modality gap</b> — corrected before naming.</li>
     </ul>
     <p class="impl">Impl: <code>src/embedding_extraction/extract_embeddings.py</code>,
@@ -1271,7 +1272,7 @@
     </aside>
   </section>
 
-    <!--══════════════════════════════════════════════════════════════════
+  <!--══════════════════════════════════════════════════════════════════
     PART 2 — Marc'Antonio Lopez · Method + non-identifiability + deterministic alternatives  (slides 7–18)
   ══════════════════════════════════════════════════════════════════-->
 
@@ -1840,23 +1841,30 @@
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <p class="eyebrow">5 · Experiments and analysis · Judge Models · Convergence</p>
-    <h2 class="h-xl">Convergence on the Aligned Rate.</h2>
-    <p class="lead">Despite their drastically different biases—Gemma 4 rejecting heavily and Llama 3.1 defaulting to uncertainty—they <b>fundamentally agree on the Aligned rate</b> (~1%).</p>
-    
+    <h2 class="h-xl" style="max-width: none;">Gemma 4 and Llama 3.1: Convergence on the Aligned Rate.</h2>
+    <p class="lead">Despite their drastically different biases—Gemma 4 rejecting heavily and Llama 3.1 defaulting to
+      uncertainty—they <b>fundamentally agree on the Aligned rate</b> (~1%).</p>
+
     <div class="ba-grid" style="margin-top: 24px;">
       <div class="ba-col">
         <h3>Contextualizing "Uncertain"</h3>
-        <p>Llama 3.1 is smaller (8B vs 26B) and less capable of definitively refuting a concept, so it falls back to "Uncertain". If we interpret this hesitation as a failure to align, its behavior effectively mirrors Gemma 4's strict "Unaligned" verdicts.</p>
+        <p>Llama 3.1 is smaller (8B vs 26B) and less capable of definitively refuting a concept, so it falls back to
+          "Uncertain". If we interpret this hesitation as a failure to align, its behavior effectively mirrors Gemma 4's
+          strict "Unaligned" verdicts.</p>
       </div>
       <div class="ba-col">
         <h3>A Valid Proxy</h3>
-        <p>This means that approximating Gemma 4's rigorous evaluations using the much cheaper Llama 3.1 is <b>not entirely wrong</b>. As long as we contextualize "Uncertain" as a lack of alignment, the two models tell the same underlying story about concept quality.</p>
+        <p>This means that approximating Gemma 4's rigorous evaluations using the much cheaper Llama 3.1 is <b>not
+            entirely wrong</b>. As long as we contextualize "Uncertain" as a lack of alignment, the two models tell the
+          same underlying story about concept quality.</p>
       </div>
     </div>
 
     <aside class="aside" data-notes="16c">
-      <p>This is a crucial insight: Gemma 4 and Llama 3.1 actually agree that only ~1% of concepts are genuinely aligned.</p>
-      <p>Llama 3.1 is just less confident enough to explicitly say "Unaligned", so it says "Uncertain". If we treat Uncertain as Unaligned, Llama 3.1 becomes a valid, cheap proxy for Gemma 4.</p>
+      <p>This is a crucial insight: Gemma 4 and Llama 3.1 actually agree that only ~1% of concepts are genuinely
+        aligned.</p>
+      <p>Llama 3.1 is just less confident enough to explicitly say "Unaligned", so it says "Uncertain". If we treat
+        Uncertain as Unaligned, Llama 3.1 becomes a valid, cheap proxy for Gemma 4.</p>
     </aside>
   </section>
 
@@ -1921,7 +1929,8 @@
       <b>Llama 3.1 shows true discriminative power</b>. By
       scaling to a 10× larger dataset (ROCOv2), the concept quality improves significantly. Llama detects this
       structural improvement, unlocking a massive jump in decisive "Aligned" verdicts. However, manual inspection
-      reveals that <b>some of these alignments are hallucinated</b>, underscoring the need for human calibration.</p>
+      reveals that <b>some of these alignments are hallucinated</b>, underscoring the need for human calibration.
+    </p>
 
     <div class="citations">
       <div class="citation"><span class="author">Meta</span> <span class="year">2024</span> — Llama 3.1 8B Instruct
@@ -1949,7 +1958,9 @@
       </div>
       <div class="pt">
         <h3>Contextualising LLM biases</h3>
-        <p>LLM-as-a-judge scores are heavily influenced by the chosen model's inherent bias. However, by properly contextualising these biases—such as treating hesitation as a lack of alignment—smaller models can serve as effective proxies.</p>
+        <p>LLM-as-a-judge scores are heavily influenced by the chosen model's inherent bias. However, by properly
+          contextualising these biases—such as treating hesitation as a lack of alignment—smaller models can serve as
+          effective proxies.</p>
       </div>
       <div class="pt">
         <h3>Partially-negative evaluation</h3>

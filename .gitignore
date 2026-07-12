@@ -283,3 +283,4 @@ results/mock/
 
 # Concept-organization: large regenerable per-image dumps (keep metrics/clusters/report)
 structured_explanations.json
+speech.md

@@ -1786,7 +1786,8 @@
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <p class="eyebrow">5 · Experiments and analysis · Judge Models · Gemma 4 26B</p>
-    <h2 class="h-xl" style="max-width: none;">High computational cost and strong rejection bias.</h2>
+    <h2 class="h-xl" style="max-width: none; white-space: nowrap; font-size: clamp(20px, 2.5vw, 40px);">Gemma 4 26B:
+      High computational cost and strong rejection bias.</h2>
     <p class="lead" style="max-width: none;">Running the <b>26B parameter model</b> locally via LM Studio proved
       computationally prohibitive,
       limiting its evaluation to a single run on the IU X-Ray baseline. However, its results provide crucial insights
@@ -1841,7 +1842,8 @@
     <div class="part-tag"><b>Part 3 of 3</b> · Carmine Francesco Benvenuto</div>
     <img class="brand-logo" src="logo-poli-blu.png" alt="Politecnico di Torino" />
     <p class="eyebrow">5 · Experiments and analysis · Judge Models · Convergence</p>
-    <h2 class="h-xl" style="max-width: none;">Gemma 4 and Llama 3.1: Convergence on the Aligned Rate.</h2>
+    <h2 class="h-xl" style="max-width: none; white-space: nowrap; font-size: clamp(20px, 2.5vw, 40px);">Gemma 4 and
+      Llama 3.1: Convergence on the Aligned Rate.</h2>
     <p class="lead">Despite their drastically different biases—Gemma 4 rejecting heavily and Llama 3.1 defaulting to
       uncertainty—they <b>fundamentally agree on the Aligned rate</b> (~1%).</p>
 
@@ -1989,8 +1991,9 @@
       <li><b>(ii) Decisive test of our diagnosis: an SAE on the patch-token residual stream.</b> Decomposing
         BiomedCLIP's per-patch residual stream at a mid layer (as the SAE literature does) is the experiment that tests
         whether the 2D limit is intrinsic or escapable.</li>
-      <li><b>(iii) The LLM-Judge is model dependant.</b> The %Aligned rate is a property of the judging model as much as
-        of the concepts. Future work: multi-judge reporting or a judge-agnostic protocol.</li>
+      <li><b>(iii) Leveraging state-of-the-art LLMs.</b> Evaluating medical concepts requires high reasoning
+        capabilities. Future work involves testing larger, more performant models to achieve more precise and reliable
+        alignment scores.</li>
     </ul>
     <p class="meta" style="margin-top:30px;">Thank you · questions — Marc'Antonio Lopez · Nicolò Colle · Carmine
       Francesco Benvenuto</p>
